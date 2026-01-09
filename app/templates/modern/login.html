@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Sistema Moderno</title>
+    
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Theme CSS -->
+    <link rel="stylesheet" href="theme.css">
+    
+    <style>
+        /* Overlay Animation */
+        .auth-container::after {
+            content: '';
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(232, 93, 4, 0.2) 0%, transparent 70%);
+            top: -150px;
+            right: -150px;
+            animation: float 8s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-30px) rotate(10deg); }
+        }
+        
+        .input-icon {
+            position: relative;
+        }
+        
+        .input-icon .form-input {
+            padding-left: 2.75rem;
+        }
+        
+        .input-icon i {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+        
+        .input-icon .form-input:focus + i,
+        .input-icon .form-input:focus ~ i {
+            color: var(--primary);
+        }
+        
+        .password-toggle {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 0.25rem;
+        }
+        
+        .password-toggle:hover {
+            color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <!-- Header -->
+            <div class="auth-header">
+                <div class="auth-logo">
+                    <i class="fa-solid fa-code"></i>
+                </div>
+                <h1 class="auth-title">Bem-vindo de volta</h1>
+                <p class="auth-subtitle">Entre com suas credenciais para acessar o sistema</p>
+            </div>
+            
+            <!-- Login Form -->
+            <form class="auth-form" id="login-form" onsubmit="return handleLogin(event)">
+                <div class="form-group">
+                    <label class="form-label" for="email">Email</label>
+                    <div class="input-icon">
+                        <input 
+                            type="email" 
+                            id="email" 
+                            class="form-input" 
+                            placeholder="seu@email.com"
+                            required
+                        >
+                        <i class="fa-solid fa-envelope"></i>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="password">Senha</label>
+                    <div class="input-icon">
+                        <input 
+                            type="password" 
+                            id="password" 
+                            class="form-input" 
+                            placeholder="••••••••"
+                            required
+                        >
+                        <i class="fa-solid fa-lock"></i>
+                        <button type="button" class="password-toggle" onclick="togglePassword()">
+                            <i class="fa-solid fa-eye" id="password-icon"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="auth-options">
+                    <label class="form-check">
+                        <input type="checkbox" class="form-check-input" id="remember">
+                        <span class="form-check-label">Lembrar de mim</span>
+                    </label>
+                    <a href="#">Esqueceu a senha?</a>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
+                    <i class="fa-solid fa-right-to-bracket"></i>
+                    Entrar
+                </button>
+            </form>
+            
+            <!-- Divider -->
+            <div class="auth-divider">
+                <span>ou continue com</span>
+            </div>
+            
+            <!-- Social Login -->
+            <div class="social-login">
+                <button class="social-btn" title="Google">
+                    <i class="fa-brands fa-google"></i>
+                </button>
+                <button class="social-btn" title="GitHub">
+                    <i class="fa-brands fa-github"></i>
+                </button>
+                <button class="social-btn" title="Microsoft">
+                    <i class="fa-brands fa-microsoft"></i>
+                </button>
+            </div>
+            
+            <!-- Footer -->
+            <div class="auth-footer">
+                Não tem uma conta? <a href="register.html">Cadastre-se</a>
+            </div>
+        </div>
+        
+        <!-- Theme Toggle -->
+        <button id="theme-toggle" class="header-btn" style="position: fixed; top: 1rem; right: 1rem; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius);">
+            <i class="fa-solid fa-moon"></i>
+        </button>
+    </div>
+    
+    <script src="js/theme.js"></script>
+    <script>
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const passwordIcon = document.getElementById('password-icon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                passwordIcon.className = 'fa-solid fa-eye-slash';
+            } else {
+                passwordInput.type = 'password';
+                passwordIcon.className = 'fa-solid fa-eye';
+            }
+        }
+        
+        function handleLogin(event) {
+            event.preventDefault();
+            
+            const form = event.target;
+            const submitBtn = form.querySelector('button[type="submit"]');
+            
+            // Validate form
+            if (!validateForm(form)) {
+                return false;
+            }
+            
+            // Show loading state
+            setLoading(submitBtn, true);
+            
+            // Simulate login
+            setTimeout(() => {
+                setLoading(submitBtn, false);
+                // Redirect to dashboard
+                window.location.href = 'layout.html';
+            }, 1500);
+            
+            return false;
+        }
+    </script>
+</body>
+</html>

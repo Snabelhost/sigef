@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html class="notranslate" translate="no" data-bs-theme="light" data-menu-theme="light">
+
+<head>
+    <title>{title}</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link rel="manifest" href="manifest.json?appver=840">
+    <link rel="shortcut icon" type="image/png" href="favicon.png" />
+    <!-- Tell the browser to be responsive to screen width -->
+    <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport">
+    <link rel="apple-touch-icon" sizes="180x180" href="app/images/icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+    <!-- Google Fonts - Inter -->
+    <link href="https://fonts.googleapis.com" rel="preconnect">
+    <link crossorigin href="https://fonts.gstatic.com" rel="preconnect">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+        integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    {LIBRARIES}
+    {HEAD}
+
+    <script src="app/lib/include/admin.js?appver=840" type="text/javascript"></script>
+    <link href="app/lib/include/admin.css?appver=840" rel="stylesheet" type="text/css" media="screen">
+
+    <script src="app/templates/{template}/js/theme.js?appver=840"></script>
+    <link rel="stylesheet" href="app/templates/{template}/theme.css?appver=840">
+    <!--[ISCREATOR]-->
+    <link rel="stylesheet" href="app/templates/{template}/css/creator.css?appver={buildid}">
+    <script src="app/templates/{template}/js/creator.js?appver={buildid}"></script>
+    <!--[/ISCREATOR]-->
+    <link rel="stylesheet" href="app/templates/{template}/custom.css?appver={buildid}">
+
+    <style>
+        /* SIGEF Modern Theme */
+        :root {
+            --sigef-primary: #041c4f;
+            --sigef-primary-light: #2a3d6b;
+            --sigef-accent: #5c69ff;
+            --sigef-bg: #f6f6f8;
+            --sigef-white: #ffffff;
+            --sigef-border: #e2e8f0;
+            --sigef-text-dark: #0f172a;
+            --sigef-text-muted: #64748b;
+        }
+
+        *:not(i):not([class*="fa-"]):not(.fas):not(.far):not(.fab):not(.fa) {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+        }
+
+        /* Ensure Font Awesome icons use their own font */
+        i[class*="fa-"],
+        .fas,
+        .far,
+        .fab,
+        .fa,
+        i.fa,
+        i.fas,
+        i.far,
+        i.fab {
+            font-family: 'Font Awesome 6 Free', 'Font Awesome 6 Brands' !important;
+        }
+
+        body {
+            background: var(--sigef-bg);
+        }
+
+        /* Sidebar - Dark Blue Theme */
+        #sidebar {
+            background: var(--sigef-primary) !important;
+            border-right: none !important;
+            padding-top: 0 !important;
+        }
+
+        /* Menu Principal Title */
+        .sidebar-menu-title {
+            background: var(--sigef-primary) !important;
+            border-bottom: none !important;
+            padding: 1.5rem 1rem 1rem 1rem !important;
+        }
+
+        .sidebar-menu-title .name {
+            color: var(--sigef-white) !important;
+            font-weight: 700 !important;
+            font-size: 1.5rem !important;
+            letter-spacing: 0.02em;
+            text-align: left !important;
+            display: block !important;
+        }
+
+        /* Sidebar Navigation */
+        #sidebar .sidebar-nav {
+            background: var(--sigef-primary) !important;
+            padding: 0.5rem 0.75rem !important;
+        }
+
+        /* Menu Items - Main Level */
+        #sidebar .sidebar-nav>.sidebar-item {
+            margin-bottom: 2px;
+        }
+
+        #sidebar .sidebar-nav .sidebar-link {
+            color: rgba(255, 255, 255, 0.9) !important;
+            padding: 0.65rem 1rem !important;
+            transition: all 0.2s ease;
+            border-radius: 8px !important;
+            font-size: 0.9rem !important;
+            font-weight: 500 !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.75rem !important;
+            background: transparent !important;
+            margin: 0 !important;
+        }
+
+        #sidebar .sidebar-nav .sidebar-link:hover {
+            background: rgba(255, 255, 255, 0.1) !important;
+            color: var(--sigef-white) !important;
+        }
+
+        /* Active/Selected Item */
+        #sidebar .sidebar-nav .sidebar-link.active,
+        #sidebar .sidebar-nav .sidebar-link[aria-expanded="true"] {
+            background: var(--sigef-accent) !important;
+            color: var(--sigef-white) !important;
+        }
+
+        /* Icons */
+        #sidebar .sidebar-nav .sidebar-link i {
+            color: rgba(255, 255, 255, 0.85) !important;
+            font-size: 1rem !important;
+            width: 20px !important;
+            text-align: center !important;
+        }
+
+        #sidebar .sidebar-nav .sidebar-link:hover i {
+            color: var(--sigef-white) !important;
+        }
+
+        /* Dropdown Arrow */
+        #sidebar .sidebar-nav .sidebar-link[data-bs-toggle="collapse"]::after {
+            content: "›" !important;
+            font-family: 'Inter', sans-serif !important;
+            font-size: 1.1rem !important;
+            font-weight: 600 !important;
+            margin-left: auto !important;
+            transition: transform 0.2s ease !important;
+            color: rgba(255, 255, 255, 0.6) !important;
+            border: none !important;
+        }
+
+        #sidebar .sidebar-nav .sidebar-link[aria-expanded="true"]::after {
+            transform: rotate(90deg) !important;
+        }
+
+        /* Submenu */
+        #sidebar .sidebar-nav .sidebar-dropdown {
+            background: transparent !important;
+            padding-left: 0.5rem !important;
+            margin-top: 2px !important;
+        }
+
+        #sidebar .sidebar-nav .sidebar-dropdown .sidebar-item {
+            margin-bottom: 1px;
+        }
+
+        #sidebar .sidebar-nav .sidebar-dropdown .sidebar-link {
+            padding: 0.55rem 1rem 0.55rem 2.5rem !important;
+            font-size: 0.85rem !important;
+            border-radius: 6px !important;
+        }
+
+        /* Third Level Submenu */
+        #sidebar .sidebar-nav .sidebar-dropdown .sidebar-dropdown .sidebar-link {
+            padding-left: 3.5rem !important;
+        }
+
+        /* Submenu item with bullet point */
+        #sidebar .sidebar-nav .sidebar-dropdown .sidebar-link::before {
+            content: "" !important;
+        }
+
+        /* Hide system name section if present */
+        .sidebar-system-name {
+            display: none !important;
+        }
+
+        /* Scrollbar for sidebar */
+        #sidebar::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        #sidebar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        #sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+
+        #sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Top navbar styling - Non-invasive approach */
+        .top-navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1030;
+            background: var(--sigef-white) !important;
+            border-bottom: 1px solid var(--sigef-border) !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 1.5rem;
+        }
+
+        /* Adjust body to account for fixed topbar */
+        body {
+            padding-top: 56px !important;
+        }
+
+        /* Navbar - White */
+        .navbar {
+            background: var(--sigef-white) !important;
+            border-bottom: 1px solid var(--sigef-border) !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Hide the internal navbar since we have top-navbar */
+        .main>.navbar {
+            display: none !important;
+        }
+
+        .navbar .btn.superlight {
+            color: var(--sigef-text-dark);
+        }
+
+        .navbar .username {
+            color: var(--sigef-text-dark) !important;
+            font-weight: 500;
+        }
+
+        /* Main Content */
+        .main {
+            background: var(--sigef-bg) !important;
+        }
+
+        /* Cards */
+        .card {
+            border: 1px solid var(--sigef-border);
+            border-radius: 0.75rem;
+            background: var(--sigef-white);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .card-header {
+            background: var(--sigef-white);
+            border-bottom: 1px solid var(--sigef-border);
+            font-weight: 600;
+        }
+
+        /* Buttons */
+        .btn-primary {
+            background: var(--sigef-accent) !important;
+            border-color: var(--sigef-accent) !important;
+        }
+
+        .btn-primary:hover {
+            background: #4a56e8 !important;
+            border-color: #4a56e8 !important;
+        }
+
+        /* Form Controls */
+        .form-control:focus {
+            border-color: var(--sigef-accent);
+            box-shadow: 0 0 0 0.2rem rgba(91, 104, 255, 0.15);
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--sigef-white) !important;
+            border-top: 1px solid var(--sigef-border) !important;
+        }
+
+        /* Dropdowns */
+        .dropdown-menu {
+            border: 1px solid var(--sigef-border);
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .dropdown-item:hover {
+            background: rgba(91, 104, 255, 0.1);
+            color: var(--sigef-accent);
+        }
+
+        /* Scrollbar for sidebar */
+        #sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #sidebar::-webkit-scrollbar-track {
+            background: var(--sigef-primary);
+        }
+
+        #sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+
+        /* Panel Group Headers */
+        .panel-group .card-header,
+        .card-header.bg-primary {
+            background: var(--sigef-primary) !important;
+            color: var(--sigef-white) !important;
+        }
+
+        /* Breadcrumb */
+        .breadcrumb {
+            background: transparent;
+        }
+
+        /* DataGrid Headers */
+        .datagrid th,
+        table thead th {
+            background: var(--sigef-primary) !important;
+            color: var(--sigef-white) !important;
+        }
+
+        /* Info/Stat Cards */
+        .info-box,
+        .small-box {
+            border-radius: 0.75rem;
+        }
+
+        /* Sidebar Toggle Functionality */
+        #sidebar {
+            transition: margin-left 0.3s ease, transform 0.3s ease;
+        }
+
+        #sidebar.collapsed {
+            margin-left: calc(-1 * var(--ad-menu-size, 260px));
+        }
+
+        .main {
+            transition: margin-left 0.3s ease;
+        }
+
+        body.sidebar-collapsed .main {
+            margin-left: 0 !important;
+        }
+
+        body.sidebar-collapsed #sidebar {
+            margin-left: calc(-1 * var(--ad-menu-size, 260px));
+        }
+
+        /* Toggle button hover */
+        .sidebar-toggle:hover {
+            background: rgba(0, 0, 0, 0.05) !important;
+            border-radius: 6px;
+        }
+
+        .sidebar-toggle:active {
+            transform: scale(0.95);
+        }
+    </style>
+
+    <script>
+        $(function () {
+            // Start framework.
+            Adianti.configure({ adianti_options });
+            Adianti.start();
+
+            // Start template.
+            Template.configure({ template_options });
+            Template.updateMessageDropdown();
+            Template.updateNotificationDropdown();
+            Template.start();
+
+            // Corrigir posição do dropdown nas tabelas
+            $(document).on('shown.bs.dropdown', '.table .dropdown, .tdatagrid .dropdown, table .dropdown', function (e) {
+                var $menu = $(this).find('.dropdown-menu');
+                if ($menu.length) {
+                    $menu.css({
+                        'position': 'absolute',
+                        'inset': 'unset',
+                        'transform': 'none',
+                        'left': '0',
+                        'right': 'auto',
+                        'top': '100%',
+                        'margin-top': '2px'
+                    });
+                }
+            });
+        });
+
+        // Sidebar toggle - works independently
+        document.addEventListener('DOMContentLoaded', function () {
+            var toggleBtn = document.getElementById('sidebar-toggle');
+            var sidebar = document.getElementById('sidebar');
+            var wrapper = document.querySelector('.wrapper');
+
+            if (toggleBtn && sidebar) {
+                toggleBtn.addEventListener('click', function () {
+                    sidebar.classList.toggle('collapsed');
+                    if (wrapper) {
+                        wrapper.classList.toggle('sidebar-collapsed');
+                    }
+                    document.body.classList.toggle('sidebar-collapsed');
+                });
+            }
+        });
+    </script>
+</head>
+
+<body>
+    <div class="wrapper">
+
+        <!-- TOP NAVBAR - Full Width -->
+        <nav class="top-navbar">
+            <!-- Left: Logo, Title and Toggle -->
+            <div class="d-flex align-items-center" style="gap: 0.75rem;">
+                <img src="app/images/sigef-logo.png" alt="SIGEF"
+                    style="height: 36px; width: 36px; object-fit: contain;">
+                <span style="font-weight: 700; font-size: 1.5rem; color: #1D2D53;">SIGEF</span>
+                <button class="btn superlight sidebar-toggle" id="sidebar-toggle" type="button"
+                    style="padding: 5px 8px; font-size: 1.2rem; color: #64748b; margin-left: 160px;">
+                    <i class="fa fa-bars"></i>
+                </button>
+            </div>
+
+            <!-- Right: User Info -->
+            <div class="d-flex align-items-center" style="gap: 1rem;">
+                <button type="button" class="btn superlight" style="padding:5px;" id="has_notifications_top">
+                    <i class="fa-regular fa-bell" style="font-size:1.1rem; color: #64748b;"></i>
+                </button>
+                <button type="button" class="btn superlight" style="padding:5px;" id="has_messages_top">
+                    <i class="fa-regular fa-envelope" style="font-size:1.1rem; color: #64748b;"></i>
+                </button>
+                <!-- User Dropdown -->
+                <div class="dropdown">
+                    <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle" id="userDropdown"
+                        data-bs-toggle="dropdown" aria-expanded="false" style="gap: 0.5rem; color: #1D2D53;">
+                        <i class="far fa-circle-user" style="font-size: 1.3rem;"></i>
+                        <span style="font-size: 0.9rem; font-weight: 500;">{username}</span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="userDropdown"
+                        style="min-width: 180px;">
+                        <li class="dropdown-header" style="color: #64748b; font-size: 0.85rem;">
+                            {usermail}
+                        </li>
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="index.php?class=SystemProfileView">
+                                <i class="fas fa-user me-2" style="width: 16px;"></i> Perfil
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="javascript:location.reload();">
+                                <i class="fas fa-sync-alt me-2" style="width: 16px;"></i> Recarregar
+                            </a>
+                        </li>
+                        <li>
+                            <hr class="dropdown-divider">
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="index.php?class=LoginForm&method=onLogout&static=1">
+                                <i class="fas fa-sign-out-alt me-2" style="width: 16px;"></i> Sair
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <!--[SIDEBAR]-->
+        <aside id="sidebar" class="js-sidebar thin-scroll">
+            <div class="h-100" id="menu-wrapper">
+                <span class="sidebar-menu-title" style="border-bottom: 1px solid rgba(255,255,255,0.1); padding: 1rem;">
+                    <span class="name">Menu Principal</span>
+                    <div id="has_menu_mode_switch" class="form-check form-switch" title="_t{Dark mode}"
+                        style="display: inline;position: absolute;right: 0;margin-right: 15px; display:none">
+                        <input class="form-check-input" type="checkbox" role="switch" id="menu_theme_switch" checked=""
+                            style="cursor:pointer" onclick="Template.toggleMenuTheme(this)">
+                        <i class="fa-solid fa-circle-half-stroke"></i>
+                    </div>
+                </span>
+
+                <div id="search-box" style="margin-left:15px"></div>
+                {MENU}
+
+            </div>
+        </aside>
+        <!--[/SIDEBAR]-->
+
+        <div class="main">
+            <nav class="navbar navbar-expand px-3 border-bottom">
+                <!-- Left side - Logo and title -->
+                <div class="navbar-brand d-flex align-items-center" style="gap: 0.5rem;">
+                    <img src="app/images/sigef-logo.png" alt="SIGEF"
+                        style="height: 28px; width: 28px; object-fit: contain;">
+                    <span style="font-weight: 600; font-size: 1.1rem; color: #1D2D53;">SIGEF</span>
+                </div>
+
+                <button class="btn superlight d-lg-none" id="sidebar-toggle" type="button">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <div class="navbar-collapse navbar">
+                    <div class="nav-item" style="float:left">
+                        {MENUTOP}
+                    </div>
+
+                    <ul id="navbar-wrapper" class="navbar-nav hide-mobile" style="margin-right:10px">
+                    </ul>
+
+                    <div class="nav-item" id="navbar-top-right-area">
+                        <div class="btn-group" id="has_notifications" style="display:none">
+                            <button type="button" data-bs-toggle="dropdown" title="_t{Notifications}"
+                                class="dropdown-toggle btn superlight" style="padding:5px;font-size:1rem">
+                                <i class="fa-regular fa-bell" style="font-size:1.2rem;float: left;margin-top: 3px;"></i>
+                                <span id="alert_notifications"
+                                    class="position-absolute top-0 start-100 translate-middle p-2 bg-warning border border-light rounded-circle"
+                                    style="padding: 5px !important;display:none"></span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end dropdown-menu-lg-start"
+                                id="envelope_notifications">
+                                <li></li>
+                            </ul>
+                        </div>
+                        <div class="btn-group dropdown-center hide-mobile" id="has_messages" style="display:none">
+                            <button type="button" data-bs-toggle="dropdown" title="_t{Messages}"
+                                class="dropdown-toggle btn superlight" style="padding:5px;font-size:1rem">
+                                <i class="fa-regular fa-envelope"
+                                    style="font-size:1.2rem;float: left;margin-top: 3px;"></i>
+                                <span id="alert_messages"
+                                    class="position-absolute top-0 start-100 translate-middle p-2 bg-warning border border-light rounded-circle"
+                                    style="padding: 5px !important;display:none"></span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end dropdown-menu-lg-start" id="envelope_messages">
+                                <li></li>
+                            </ul>
+                        </div>
+                        <a id="has_docs" class="btn superlight hide-mobile"
+                            style="padding:5px;font-size:1rem;display:none" title="_t{Documents}" generator="adianti"
+                            href="index.php?class=SystemDriveList&method=onLoad&filter=my">
+                            <i class="far fa-folder" style="font-size:1.2rem;float: left;margin-top: 3px;"></i>
+                        </a>
+                        <a id="has_contacts" class="btn superlight hide-mobile"
+                            style="padding:5px;font-size:1rem;display:none" title="_t{Contacts}" generator="adianti"
+                            href="index.php?class=SystemContactsList&register_state=false">
+                            <i class="far fa-address-card" style="font-size:1.2rem;float: left;margin-top: 3px;"></i>
+                        </a>
+                        <div class="btn-group">
+                            <button type="button" data-bs-toggle="dropdown" class="dropdown-toggle btn superlight"
+                                style="padding:5px;font-size:1rem">
+                                <i class="far fa-circle-user" style="font-size:1.2rem;float: left;margin-top: 3px;"></i>
+                                <span class="username" style="float: left;margin-left: 5px;">{username}</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li>
+                                    <h6 class="dropdown-header">{usermail}</h6>
+                                </li>
+                                <li>
+                                    <hr class="dropdown-divider">
+                                </li>
+                                <li><a generator="adianti" href="index.php?class=SystemProfileView&register_state=false"
+                                        class="dropdown-item">_t{Profile}</a></li>
+                                <li><a generator="adianti"
+                                        href="index.php?class=LoginForm&method=reloadPermissions&static=1"
+                                        class="dropdown-item">_t{Reload}</a></li>
+                                <li>
+                                    <hr class="dropdown-divider">
+                                </li>
+                                <li><a href="index.php?class=LoginForm&method=onLogout&static=1"
+                                        class="dropdown-item">Sair</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <ul id="adianti_tab_area" class="nav nav-underline" style="display:none">
+                <li class="nav-item">
+                    <a class="nav-link active" aria-current="page" onclick="Template.goFirstPageTab()"> <i
+                            class="fa-solid fa-house"></i> <span>Home</span></a>
+                </li>
+            </ul>
+
+            <main id="adianti_div_content_wrapper" class="content px-3 py-2">
+                <div class="container-fluid" style="padding-right:0">
+                    <div id="adianti_div_content"></div>
+                </div>
+
+                <div id="adianti_right_panel" class="right-panel"></div>
+                <div id="adianti_online_content"></div>
+            </main>
+
+            <main id="adianti_tab_content_wrapper">
+                <div class="container-fluid" style="padding-right:0">
+                    <div id="adianti_tab_content"></div>
+                </div>
+            </main>
+
+            <footer class="footer">
+                <div class="container-fluid">
+                    <div class="row text-muted">
+                        <div class="col-12 text-start">
+
+                            <span class="hide-mobile"
+                                style="font-weight:bold;display: block;padding: 5px;float: left;">{userunitname}</span>
+
+                            <div style="text-align:right">
+                                {MENUBOTTOM}
+
+                                <!--[ISCREATORADMIN]-->
+                                <a class="btn superlight hide-mobile" generator="adianti"
+                                    href="index.php?class=SystemUpdateList&method=fetchProject&static=1&register_state=false">
+                                    <i class="fa fa-circle-down" aria-hidden="true"></i>
+                                    _t{Updater}
+                                </a>
+                                <!--[/ISCREATORADMIN]-->
+
+                                <!--[IFADMIN]-->
+                                <button class="btn superlight hide-mobile" type="button" data-bs-toggle="offcanvas"
+                                    data-bs-target="#debug-panel" aria-controls="debug-panel">
+                                    <i class="fa-solid fa-magnifying-glass"></i>
+                                    Trace
+                                </button>
+                                <a class="btn superlight hide-mobile" generator="adianti"
+                                    href="index.php?class=SystemDatabaseExplorer">
+                                    <i class="fa-solid fa-database"></i>
+                                    DB
+                                </a>
+                                <a class="btn superlight hide-mobile" generator="adianti"
+                                    href="index.php?class=SystemModulesCheckView&register_state=false">
+                                    <i class="fab fa-php" aria-hidden="true"></i>
+                                    PHP
+                                </a>
+                                <a class="btn superlight hide-mobile" generator="adianti"
+                                    href="index.php?class=SystemFilesDiff&register_state=false">
+                                    <i class="fa fa-sitemap" aria-hidden="true"></i>
+                                    Framework
+                                </a>
+                                <a class="btn superlight hide-mobile" generator="adianti"
+                                    href="index.php?class=SystemInformationView&register_state=false">
+                                    <i class="fa fa-microchip" aria-hidden="true"></i>
+                                    _t{System}
+                                </a>
+                                <!--[/IFADMIN]-->
+                                <a id="has_news" class="btn superlight" generator="adianti"
+                                    href="index.php?class=SystemPostFeedView" style="display:none;padding:5px">
+                                    <i class="fa fa-rss"></i>
+                                    _t{News}
+                                </a>
+                                <a id="has_wiki" class="btn superlight" generator="adianti"
+                                    href="index.php?class=SystemWikiSearchList" style="display:none;padding:5px">
+                                    <i class="fab fa-wikipedia-w"></i>
+                                    _t{Manuals}
+                                </a>
+                                <a id="has_support_form" class="btn superlight" generator="adianti"
+                                    href="index.php?class=SystemSupportForm&register_state=false"
+                                    style="display:none;padding:5px">
+                                    <i class="far fa-life-ring"></i>
+                                    _t{Open ticket}
+                                </a>
+
+                                <div id="has_main_mode_switch" class="form-check form-switch" title="_t{Dark mode}"
+                                    style="margin-left: 10px;padding-top:5px;display:none">
+                                    <input class="form-check-input" type="checkbox" role="switch"
+                                        id="global_theme_switch" checked="" style="cursor:pointer"
+                                        onclick="Template.toggleGlobalTheme(this)">
+                                    <i class="fa-solid fa-circle-half-stroke"></i>
+                                </div>
+                            </div>
+
+
+                        </div>
+                    </div>
+                </div>
+            </footer>
+
+            <div class="offcanvas offcanvas-bottom debug-panel" data-bs-scroll="true" data-bs-backdrop="false"
+                tabindex="-1" id="debug-panel">
+                <div class="offcanvas-header" style="padding-bottom:0">
+                    <span class="btn" style="margin-left:auto" aria-label="Rotate"
+                        onclick="$(this).closest('.offcanvas').toggleClass('offcanvas-bottom').toggleClass('offcanvas-start');">
+                        <i class="fa-solid fa-rotate-left" style="color: gray;"></i>
+                    </span>
+                    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"
+                        style="margin-left:0"></button>
+                </div>
+                <div class="offcanvas-body" style="padding-top:0">
+                    <ul class="nav nav-pills" id="pills-tab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="pills-request-tab" data-bs-toggle="pill"
+                                data-bs-target="#pills-request" type="button" role="tab">Request URL</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="pills-payload-tab" data-bs-toggle="pill"
+                                data-bs-target="#pills-payload" type="button" role="tab">Payload</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="pills-dumps-tab" data-bs-toggle="pill"
+                                data-bs-target="#pills-dumps" type="button" role="tab">Dumps </button>
+                        </li>
+                    </ul>
+                    <div class="tab-content" id="pills-tabContent" style="height:calc(100% - 40px)">
+                        <div class="tab-pane fade show active" id="pills-request" role="tabpanel" style="height:100%">
+                            <div class="debug-block" id="request_url_panel"> </div>
+                        </div>
+                        <div class="tab-pane fade" id="pills-payload" role="tabpanel" style="height:100%">
+                            <div class="debug-block" id="request_data_panel"> </div>
+                        </div>
+                        <div class="tab-pane fade" id="pills-dumps" role="tabpanel" style="height:100%">
+                            <div class="debug-block" id="request_dump_panel"> </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

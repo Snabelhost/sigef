@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html class="notranslate" translate="no" data-bs-theme="dark" data-menu-theme="dark" lang="pt-AO">
+
+<head>
+    <title>SIGEF - Sistema Integrado de Gestão de Pessoal e Quadros</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <link rel="manifest" href="manifest.json?appver=760">
+    <link rel="shortcut icon" type="image/png" href="favicon.png" />
+    <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport">
+    <link rel="apple-touch-icon" sizes="180x180" href="app/images/icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- Google Fonts - Inter -->
+    <link href="https://fonts.googleapis.com" rel="preconnect">
+    <link crossorigin href="https://fonts.gstatic.com" rel="preconnect">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    {LIBRARIES}
+    {HEAD}
+
+    <script src="app/lib/include/admin.js?appver=840" type="text/javascript"></script>
+    <link href="app/lib/include/admin.css?appver=840" rel="stylesheet" type="text/css" media="screen">
+
+    <script src="app/templates/{template}/js/theme.js?appver=840"></script>
+    <link rel="stylesheet" href="app/templates/{template}/theme.css?appver=840">
+
+    <style>
+        /* ===========================
+           SIGEF Login - Design Limpo
+           =========================== */
+        :root {
+            --sigef-accent: #5B68FF;
+            --sigef-accent-hover: #4954e0;
+        }
+
+        * {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+            box-sizing: border-box;
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        .wrapper {
+            min-height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .main {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: url('app/images/sigef-background.png') no-repeat center center !important;
+            background-size: cover !important;
+            position: relative;
+            padding: 1rem;
+        }
+
+        .content {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 400px;
+            padding: 0;
+            text-align: center;
+            margin-top: 18vh;
+        }
+
+        .container-fluid {
+            padding: 0;
+        }
+
+        /* SIGEF Login Header */
+        .sigef-login-header {
+            text-align: center;
+            margin-bottom: 0;
+            padding-top: 0;
+        }
+
+        .sigef-logo {
+            width: 70px;
+            height: 70px;
+            margin: 0 auto 0.75rem;
+            border-radius: 50%;
+            overflow: hidden;
+        }
+
+        .sigef-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .sigef-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: 0.1em;
+            margin: 0 0 0.5rem 0;
+            text-transform: uppercase;
+        }
+
+        .sigef-subtitle {
+            font-size: 1.4rem;
+            font-weight: 300;
+            color: #ffffff;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        /* Hide ALL Adianti default styling - AGGRESSIVE */
+        .modal-form-card,
+        .card,
+        .panel,
+        .card-header,
+        .panel-heading,
+        .modal-form-header,
+        .card-title,
+        .panel-title,
+        .card-footer,
+        .panel-footer,
+        .modal-form-footer,
+        .modal-content,
+        .modal-dialog,
+        .panel-default,
+        .card-body .card-title,
+        #adianti_div_content>div>div,
+        #adianti_div_content .card {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+
+        .card-body,
+        .panel-body,
+        .modal-form-body,
+        .modal-body {
+            padding: 0 !important;
+            background: transparent !important;
+        }
+
+        /* Force hide card title text (Login) */
+        .card-title,
+        .panel-title,
+        .modal-title,
+        h4.card-title,
+        .card-header h4,
+        .panel-heading h4,
+        #adianti_div_content h1,
+        #adianti_div_content h4,
+        .sigef-form-container h1,
+        .sigef-form-container h4,
+        .modal-form-card h1,
+        .card h1 {
+            display: none !important;
+        }
+
+        /* Hide secondary buttons (Criar conta, Redefinir senha) */
+        .btn-default,
+        .btn-secondary,
+        .btn-link,
+        a[href*="SystemRegistrationForm"],
+        a[href*="SystemRequestPasswordResetForm"],
+        button:not(.btn-primary),
+        .card-footer,
+        .panel-footer,
+        .modal-footer {
+            display: none !important;
+        }
+
+        /* Remove white bar/border/divider */
+        hr,
+        .divider,
+        .separator,
+        .card-header,
+        .panel-heading {
+            display: none !important;
+            border: none !important;
+        }
+
+        * {
+            border-top: none !important;
+            border-bottom: none !important;
+        }
+
+        /* Form Container */
+        .sigef-form-container {
+            margin-top: 0.25rem;
+        }
+
+        /* Hide labels */
+        .form-floating>label,
+        .control-label,
+        label,
+        .tformrow label {
+            display: none !important;
+        }
+
+        /* Form row spacing */
+        .form-group,
+        .tformrow {
+            margin-bottom: 0.75rem !important;
+            padding: 0 !important;
+        }
+
+        .tformrow>div,
+        .form-group>div {
+            padding: 0 !important;
+        }
+
+        /* Input fields - clean white rounded */
+        .form-control,
+        input[type="text"],
+        input[type="password"],
+        input[type="email"],
+        select,
+        textarea,
+        .tentry,
+        .tfield {
+            background: #ffffff !important;
+            border: none !important;
+            border-radius: 6px !important;
+            color: #333 !important;
+            padding: 0.9rem 1rem !important;
+            font-size: 0.95rem !important;
+            font-weight: 400 !important;
+            height: 48px !important;
+            width: 100% !important;
+            transition: all 0.2s ease !important;
+            box-shadow: none !important;
+        }
+
+        .form-control::placeholder,
+        input::placeholder {
+            color: #888 !important;
+            font-weight: 400 !important;
+        }
+
+        .form-control:focus,
+        input:focus,
+        select:focus {
+            background: #fff !important;
+            box-shadow: 0 0 0 3px rgba(91, 104, 255, 0.3) !important;
+            outline: none !important;
+        }
+
+        /* Hide unit, language selectors and other elements */
+        .tformrow:has(select),
+        .form-group:has(select),
+        .form-floating:has(select),
+        .tformrow:has(.tcombo),
+        .form-check,
+        .form-group:has(input[type="checkbox"]),
+        .tformrow:has(input[type="checkbox"]),
+        .btn-default,
+        .btn-secondary {
+            display: none !important;
+        }
+
+        /* Primary Button - Purple/Blue */
+        .btn-primary,
+        .modal-form-btn-primary {
+            background: var(--sigef-accent) !important;
+            border: none !important;
+            border-radius: 6px !important;
+            padding: 0 1.5rem !important;
+            font-size: 1rem !important;
+            font-weight: 600 !important;
+            color: white !important;
+            width: 100% !important;
+            height: 48px !important;
+            box-shadow: none !important;
+            transition: all 0.2s ease !important;
+            cursor: pointer;
+            text-transform: none !important;
+            letter-spacing: 0.02em !important;
+            margin-top: 0.5rem !important;
+        }
+
+        .btn-primary:hover {
+            background: var(--sigef-accent-hover) !important;
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98) !important;
+        }
+
+        /* Input group fix for password visibility toggle */
+        .input-group {
+            position: relative;
+        }
+
+        .input-group .btn {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            z-index: 10;
+            background: transparent !important;
+            border: none !important;
+            color: #666 !important;
+            padding: 0 1rem !important;
+            display: flex !important;
+            align-items: center;
+            height: 48px !important;
+        }
+
+        .input-group .btn:hover {
+            color: #333 !important;
+        }
+
+        /* Alert messages */
+        .alert {
+            border-radius: 6px !important;
+            border: none !important;
+            margin-bottom: 1rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .sigef-title {
+                font-size: 1.8rem;
+            }
+
+            .sigef-subtitle {
+                font-size: 0.95rem;
+            }
+
+            .content {
+                padding: 0 1rem;
+            }
+        }
+
+        /* Hide wrapper watermark div */
+        .sigef-watermark {
+            display: none !important;
+        }
+
+        /* ===========================
+           Loading Overlay - BlockUI
+           =========================== */
+        .blockOverlay {
+            z-index: 10000 !important;
+            background-color: rgba(0, 0, 0, 0.6) !important;
+            opacity: 1 !important;
+        }
+
+        .blockMsg,
+        .blockUI.blockMsg,
+        div.blockMsg {
+            z-index: 10001 !important;
+            background: rgba(0, 0, 0, 0.85) !important;
+            border: none !important;
+            border-radius: 12px !important;
+            padding: 25px 40px !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+        }
+
+        .blockMsg h1,
+        .blockUI.blockMsg h1,
+        div.blockMsg h1 {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 15px !important;
+            color: #ffffff !important;
+            font-size: 18px !important;
+            font-weight: 500 !important;
+            margin: 0 !important;
+            background: transparent !important;
+        }
+
+        .blockMsg h1 i,
+        .blockUI.blockMsg h1 i,
+        div.blockMsg h1 i.fa-spinner {
+            display: inline-block !important;
+            font-size: 28px !important;
+            color: var(--sigef-accent) !important;
+        }
+
+        /* Ensure spinner animation works */
+        .fa-pulse,
+        i.fa-pulse {
+            animation: fa-spin 1s infinite steps(8) !important;
+        }
+
+        @keyframes fa-spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+
+    <script>
+        $(function () {
+            // Start framework
+            Adianti.configure({ adianti_options });
+            Adianti.start();
+
+            // Start template
+            Template.configure({ template_options }, 'login');
+            Template.start();
+
+            // Update placeholders after form loads
+            setTimeout(updatePlaceholders, 200);
+            setTimeout(updatePlaceholders, 500);
+            setTimeout(updatePlaceholders, 1000);
+        });
+
+        function updatePlaceholders() {
+            // Update login field placeholder
+            var loginInputs = document.querySelectorAll('input[name="login"], input[type="text"]');
+            loginInputs.forEach(function (input) {
+                input.placeholder = 'E-';
+            });
+
+            // Update password field placeholder
+            var passInputs = document.querySelectorAll('input[type="password"], input[name="password"]');
+            passInputs.forEach(function (input) {
+                input.placeholder = 'Palavra';
+            });
+        }
+    </script>
+</head>
+
+<body>
+    <div class="wrapper">
+        <div class="main">
+            <main class="content">
+                <!-- SIGEF Header -->
+                <div class="sigef-login-header">
+                    <div class="sigef-logo">
+                        <img src="app/images/policia-nacional-logo.png" alt="Polícia Nacional de Angola">
+                    </div>
+                    <h1 class="sigef-title">SIGEF</h1>
+                    <p class="sigef-subtitle">Sistema Integrado de<br>Gestão de Pessoal e Quadros</p>
+                </div>
+
+                <div class="sigef-form-container">
+                    <div class="container-fluid">
+                        <!-- Where the framework content is injected -->
+                        <div id="adianti_div_content"></div>
+                    </div>
+                </div>
+
+                <div id="adianti_online_content"></div>
+            </main>
+        </div>
+    </div>
+
+    <!-- BlockUI Loading Styles - Must be last to override framework defaults -->
+    <style>
+        /* Font Awesome Spinner Fix - ensure .fa class works */
+        .fa,
+        .fas,
+        .far,
+        .fal,
+        .fab {
+            font-family: "Font Awesome 5 Free", "Font Awesome 5 Pro", "FontAwesome", sans-serif !important;
+            font-style: normal;
+            font-variant: normal;
+            text-rendering: auto;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .fa,
+        .fas {
+            font-weight: 900 !important;
+        }
+
+        .fa-spinner:before {
+            content: "\f110" !important;
+        }
+
+        /* Loading Overlay - BlockUI Override */
+        .blockOverlay,
+        div.blockOverlay {
+            z-index: 10000 !important;
+            background-color: rgba(0, 0, 0, 0.6) !important;
+            opacity: 1 !important;
+            cursor: wait !important;
+        }
+
+        .blockMsg,
+        .blockUI.blockMsg,
+        div.blockMsg,
+        .blockPage {
+            z-index: 10001 !important;
+            background: rgba(0, 0, 0, 0.9) !important;
+            background-color: rgba(0, 0, 0, 0.9) !important;
+            border: none !important;
+            border-top: none !important;
+            border-bottom: none !important;
+            border-left: none !important;
+            border-right: none !important;
+            border-radius: 12px !important;
+            padding: 25px 40px !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+            left: 50% !important;
+            top: 50% !important;
+            transform: translate(-50%, -50%) !important;
+        }
+
+        .blockMsg h1,
+        .blockUI.blockMsg h1,
+        div.blockMsg h1,
+        .blockPage h1 {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 15px !important;
+            color: #ffffff !important;
+            font-size: 18px !important;
+            font-weight: 500 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: transparent !important;
+            background-color: transparent !important;
+        }
+
+        .blockMsg h1 i,
+        .blockMsg h1 i.fa,
+        .blockMsg h1 i.fa-spinner,
+        .blockUI.blockMsg h1 i,
+        div.blockMsg h1 i,
+        .blockPage h1 i {
+            display: inline-block !important;
+            font-size: 28px !important;
+            color: #5B68FF !important;
+            font-family: "Font Awesome 5 Free", "Font Awesome 5 Pro", "FontAwesome", sans-serif !important;
+            font-weight: 900 !important;
+        }
+
+        /* Spinner animation */
+        .fa-pulse,
+        i.fa-pulse,
+        .fa-spinner.fa-pulse,
+        .fa.fa-spinner {
+            animation: blockui-spin 1s linear infinite !important;
+        }
+
+        @keyframes blockui-spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</body>
+
+</html>

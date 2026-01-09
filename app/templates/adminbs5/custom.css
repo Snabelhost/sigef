@@ -1,0 +1,1669 @@
+:root {
+    --ad-menu-size: 360px;
+}
+
+/* ============================================
+   GLOBAL DROPDOWN FIX - Prevent clipping
+   ============================================ */
+
+/* Ensure table containers don't clip dropdown menus */
+.table-responsive,
+.card,
+.card-body,
+.panel,
+.panel-body,
+.card.panel,
+.card.panel .card-body,
+.datagrid-container,
+.tdatagrid,
+div[widget="tdatagrid"],
+div[page_name] .card,
+div[page_name] .card-body,
+div[page_name] .card.panel {
+    overflow: visible !important;
+}
+
+/* Keep horizontal scroll but allow vertical overflow for dropdowns */
+.card-body {
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+}
+
+/* Ensure table wrapper allows dropdown overflow */
+table {
+    overflow: visible !important;
+}
+
+/* Global dropdown positioning and z-index */
+.dropdown-menu,
+.dropdown-menu.show,
+ul.dropdown-menu {
+    z-index: 9999 !important;
+}
+
+/* Forçar dropdown a aparecer por cima de tudo */
+.dropdown-menu.show,
+.table .dropdown-menu.show,
+.tdatagrid .dropdown-menu.show,
+table .dropdown-menu.show,
+.user-list-wrapper .dropdown-menu.show,
+.list-wrapper .dropdown-menu.show,
+ul.dropdown-menu.show[data-popper-placement],
+.dropdown-menu[data-popper-placement] {
+    z-index: 99999 !important;
+    display: block !important;
+}
+
+/* Garantir que o botão não fique por cima do menu */
+.dropdown.show .dropdown-toggle,
+.btn-group.show .dropdown-toggle,
+.dropdown-toggle.show {
+    z-index: 1 !important;
+}
+
+.action-group {
+    overflow: visible !important;
+}
+
+/* ============================================
+   SIDEBAR - Custom Dark Blue (#041c4f)
+   ============================================ */
+
+/* Aumentar tamanho dos textos e ícones do menu */
+#sidebar span {
+    font-size: 1.1rem !important;
+}
+
+#sidebar .sidebar-link {
+    font-size: 1.1rem !important;
+    padding: 10px 12px !important;
+}
+
+#sidebar .sidebar-link i,
+#sidebar .sidebar-link .fa,
+#sidebar .sidebar-link .fas,
+#sidebar .sidebar-link .far,
+#sidebar .sidebar-link .fab,
+#sidebar .sidebar-link svg {
+    font-size: 1.4rem !important;
+    width: 28px !important;
+    margin-right: 10px !important;
+}
+
+#sidebar .sidebar-system-name {
+    font-size: 1.5rem !important;
+}
+
+#sidebar .sidebar-menu-title {
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+}
+
+#sidebar .sidebar-user-name {
+    font-size: 1.15rem !important;
+}
+
+#sidebar,
+[data-menu-theme=dark] #sidebar,
+[data-menu-theme=light] #sidebar {
+    background: #041c4f !important;
+    background-color: #041c4f !important;
+}
+
+/* Sidebar text and links - white for visibility */
+#sidebar .sidebar-link,
+#sidebar a.sidebar-link,
+[data-menu-theme=dark] #sidebar a.sidebar-link,
+[data-menu-theme=light] #sidebar a.sidebar-link {
+    color: rgba(255, 255, 255, 0.85) !important;
+}
+
+#sidebar a.sidebar-link:hover,
+[data-menu-theme=dark] #sidebar a.sidebar-link:hover,
+[data-menu-theme=light] #sidebar a.sidebar-link:hover {
+    color: #ffffff !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+}
+
+#sidebar a.sidebar-link.active,
+#sidebar a.sidebar-link.active:hover {
+    background: rgba(255, 255, 255, 0.15) !important;
+    color: #ffffff !important;
+}
+
+#sidebar .sidebar-system-name,
+#sidebar .sidebar-menu-title,
+[data-menu-theme=dark] .sidebar-system-name,
+[data-menu-theme=dark] .sidebar-menu-title {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+#sidebar .sidebar-user-name {
+    color: #ffffff !important;
+}
+
+#sidebar .border-bottom {
+    border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* ============================================
+   SYSTEM USER LIST - Modern Styling
+   ============================================ */
+
+/* Main wrapper */
+.user-list-wrapper,
+.list-wrapper {
+    overflow: visible;
+}
+
+.user-list-wrapper .card,
+.list-wrapper .card {
+    border: none;
+    box-shadow: none;
+    border-radius: 0 0 8px 8px;
+    margin: 0;
+    overflow-x: auto;
+}
+
+.user-list-wrapper .card-body,
+.list-wrapper .card-body {
+    padding: 0 !important;
+    overflow-x: auto;
+}
+
+/* Table responsive */
+.user-list-wrapper .table,
+.list-wrapper .table {
+    min-width: 900px;
+}
+
+/* Header styling */
+.user-list-header-container h4 {
+    font-family: 'Source Sans Pro', sans-serif;
+}
+
+/* Filter bar styling */
+.user-filter-bar-container .form-control,
+.user-filter-bar-container .tcombo {
+    height: 38px !important;
+    border-radius: 4px !important;
+    border: 1px solid #ced4da;
+}
+
+.user-filter-bar-container .btn {
+    border-radius: 4px !important;
+    font-weight: 500;
+}
+
+/* ============================================
+   OVERRIDE TABLE HEADER - Gray styling
+   ============================================ */
+
+/* Force gray header for SystemUserList - Super specific selectors */
+.user-list-wrapper .table thead,
+.user-list-wrapper .table thead tr,
+.user-list-wrapper table thead,
+.user-list-wrapper table thead tr,
+div[page_name="SystemUserList"] .table thead,
+div[page_name="SystemUserList"] table thead,
+div[page_name="SystemUserList"] .table thead tr,
+div[page_name="SystemUserList"] thead {
+    background-color: #e9ecef !important;
+    background: #e9ecef !important;
+}
+
+.user-list-wrapper .table thead th,
+.user-list-wrapper table thead th,
+div[page_name="SystemUserList"] .table thead th,
+div[page_name="SystemUserList"] thead th,
+div[page_name="SystemUserList"] th {
+    background-color: #e9ecef !important;
+    background: #e9ecef !important;
+    color: #495057 !important;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: none;
+    padding: 12px 10px;
+    border-bottom: 2px solid #dee2e6;
+    border-top: none;
+    white-space: nowrap;
+}
+
+/* Override any dark Bootstrap styling */
+.user-list-wrapper .table-dark thead th,
+.user-list-wrapper thead.table-dark th,
+.user-list-wrapper thead.bg-dark th,
+div[page_name="SystemUserList"] .table-dark thead th,
+div[page_name="SystemUserList"] thead.table-dark th,
+div[page_name="SystemUserList"] thead.bg-dark th {
+    background-color: #e9ecef !important;
+    background: #e9ecef !important;
+    color: #495057 !important;
+}
+
+/* Table header link colors */
+.user-list-wrapper .table thead th a,
+.user-list-wrapper thead th a,
+div[page_name="SystemUserList"] thead th a,
+div[page_name="SystemUserList"] .table thead th a {
+    color: #495057 !important;
+    text-decoration: none;
+}
+
+.user-list-wrapper .table thead th a:hover,
+div[page_name="SystemUserList"] thead th a:hover {
+    color: #212529 !important;
+}
+
+/* DataGrid row styling */
+.user-list-wrapper .table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.user-list-wrapper .table tbody tr:nth-child(odd) {
+    background-color: #ffffff;
+}
+
+.user-list-wrapper .table tbody tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+.user-list-wrapper .table tbody tr:hover {
+    background-color: #f5f5f5 !important;
+}
+
+.user-list-wrapper .table tbody td {
+    padding: 18px 14px;
+    vertical-align: middle;
+    font-size: 15px;
+    color: #212529;
+    border-top: 1px solid #e9ecef;
+}
+
+/* Header text size */
+.user-list-wrapper .table thead th,
+.user-list-wrapper thead th {
+    font-size: 15px !important;
+    padding: 18px 14px !important;
+}
+
+/* Status badge styling */
+.user-list-wrapper .badge.bg-success {
+    background-color: #28a745 !important;
+    color: white;
+    font-weight: 500;
+}
+
+.user-list-wrapper .badge.bg-danger {
+    background-color: #dc3545 !important;
+    color: white;
+    font-weight: 500;
+}
+
+/* Three-dot menu styling */
+.user-list-wrapper .dropdown-toggle::after {
+    display: none;
+}
+
+/* Make the 3-dot button look like a proper button */
+.user-list-wrapper .btn-group .btn,
+.user-list-wrapper .tdatagrid-action-group>.btn,
+.user-list-wrapper .dropdown>.btn {
+    padding: 6px 12px;
+    border: 1px solid #dee2e6;
+    background: #f8f9fa;
+    color: #495057;
+    border-radius: 6px !important;
+    font-size: 14px;
+    min-width: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.user-list-wrapper .btn-group .btn:hover,
+.user-list-wrapper .tdatagrid-action-group>.btn:hover,
+.user-list-wrapper .dropdown>.btn:hover {
+    background: #e9ecef;
+    border-color: #ced4da;
+    color: #212529;
+}
+
+/* Fix dropdown menu overflow - ensure it's visible */
+.user-list-wrapper .dropdown-menu,
+.list-wrapper .dropdown-menu {
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border: 1px solid #e0e0e0;
+    padding: 8px 0;
+    z-index: 9999 !important;
+    min-width: 150px;
+}
+
+.user-list-wrapper .dropdown-item {
+    padding: 10px 16px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.user-list-wrapper .dropdown-item:hover {
+    background-color: #f8f9fa;
+}
+
+.user-list-wrapper .dropdown-item i {
+    width: 18px;
+    text-align: center;
+    font-size: 14px;
+}
+
+/* Page navigation styling */
+.user-list-wrapper .page-navigation {
+    background: #f8f9fa;
+    padding: 12px 15px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.user-list-wrapper .card-footer {
+    background: #f8f9fa;
+    padding: 12px 15px;
+    border-top: 1px solid #e0e0e0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 992px) {
+    .user-filter-bar-container {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+
+    .user-filter-bar-container form {
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+
+    .user-filter-bar-container .tcombo,
+    .user-filter-bar-container .tentry,
+    .user-filter-bar-container .btn {
+        width: 100% !important;
+    }
+
+    .user-list-wrapper .table {
+        font-size: 13px;
+    }
+
+    .user-list-wrapper .table tbody td {
+        padding: 10px 8px;
+    }
+
+    .user-list-header-container {
+        padding: 15px 20px !important;
+    }
+
+    .user-list-header-container h4 {
+        font-size: 18px !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .user-list-wrapper .table {
+        font-size: 12px;
+    }
+
+    .user-list-wrapper .table tbody td {
+        padding: 8px 6px;
+    }
+
+    .user-list-wrapper .table thead th {
+        font-size: 12px !important;
+        padding: 10px 6px !important;
+    }
+
+    .user-list-header-container {
+        padding: 12px 15px !important;
+    }
+
+    .user-list-header-container h4 {
+        font-size: 16px !important;
+    }
+
+    .user-list-header-container p {
+        font-size: 12px !important;
+    }
+
+    .user-filter-bar-container {
+        padding: 10px 15px !important;
+    }
+}
+
+@media (max-width: 576px) {
+    .user-list-wrapper {
+        border-radius: 0 !important;
+        margin: 0 -15px;
+    }
+
+    .user-list-wrapper .table {
+        font-size: 11px;
+    }
+
+    .user-list-wrapper .table tbody td {
+        padding: 6px 4px;
+    }
+
+    .user-list-wrapper .table thead th {
+        font-size: 11px !important;
+        padding: 8px 4px !important;
+    }
+
+    .user-list-header-container {
+        padding: 10px 12px !important;
+        border-radius: 0 !important;
+    }
+
+    .user-list-header-container h4 {
+        font-size: 14px !important;
+    }
+
+    .user-filter-bar-container {
+        padding: 8px 12px !important;
+    }
+
+    .user-filter-bar-container .btn {
+        padding: 8px 12px !important;
+        font-size: 12px !important;
+    }
+}
+
+/* ============================================
+   LIST WRAPPER - Styling for all SIGEF lists
+   ============================================ */
+
+/* Main wrapper */
+.list-wrapper {
+    overflow: visible;
+}
+
+.list-wrapper .card {
+    border: none;
+    box-shadow: none;
+    border-radius: 0 0 8px 8px;
+    margin: 0;
+    overflow-x: auto;
+}
+
+.list-wrapper .card-body {
+    padding: 0 !important;
+    overflow-x: auto;
+}
+
+/* Table responsive */
+.list-wrapper .table {
+    min-width: 900px;
+}
+
+/* Header styling */
+.list-header-container h4 {
+    font-family: 'Source Sans Pro', sans-serif;
+}
+
+/* Filter bar styling */
+.list-filter-bar-container .form-control,
+.list-filter-bar-container .tcombo {
+    height: 38px !important;
+    border-radius: 4px !important;
+    border: 1px solid #ced4da;
+}
+
+.list-filter-bar-container .btn {
+    border-radius: 4px !important;
+    font-weight: 500;
+}
+
+/* DataGrid row styling */
+.list-wrapper .table tbody tr {
+    transition: background-color 0.15s ease;
+}
+
+.list-wrapper .table tbody tr:nth-child(odd) {
+    background-color: #ffffff;
+}
+
+.list-wrapper .table tbody tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+.list-wrapper .table tbody tr:hover {
+    background-color: #e8f4fd !important;
+}
+
+.list-wrapper .table tbody td {
+    padding: 12px 10px;
+    vertical-align: middle;
+    font-size: 14px;
+    color: #212529;
+    border-top: 1px solid #e9ecef;
+}
+
+/* Header text size */
+.list-wrapper .table thead th,
+.list-wrapper thead th {
+    font-size: 14px !important;
+    padding: 14px 10px !important;
+}
+
+/* Table header link colors */
+.list-wrapper .table thead th a {
+    color: #ffffff !important;
+    text-decoration: none;
+}
+
+.list-wrapper .table thead th a:hover {
+    color: #e0e0e0 !important;
+}
+
+/* Three-dot menu styling */
+.list-wrapper .dropdown-toggle::after {
+    display: none;
+}
+
+/* Make the 3-dot button look like a proper button */
+.list-wrapper .btn-group .btn,
+.list-wrapper .tdatagrid-action-group>.btn,
+.list-wrapper .dropdown>.btn {
+    padding: 6px 12px;
+    border: 1px solid #dee2e6;
+    background: #f8f9fa;
+    color: #495057;
+    border-radius: 6px !important;
+    font-size: 14px;
+    min-width: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.list-wrapper .btn-group .btn:hover,
+.list-wrapper .tdatagrid-action-group>.btn:hover,
+.list-wrapper .dropdown>.btn:hover {
+    background: #e9ecef;
+    border-color: #ced4da;
+    color: #212529;
+}
+
+/* Fix dropdown menu overflow - ensure it's visible */
+.list-wrapper .dropdown-menu {
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border: 1px solid #e0e0e0;
+    padding: 8px 0;
+    z-index: 1050 !important;
+    position: absolute !important;
+    min-width: 150px;
+}
+
+.list-wrapper .dropdown-item {
+    padding: 10px 16px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.list-wrapper .dropdown-item:hover {
+    background-color: #f8f9fa;
+}
+
+.list-wrapper .dropdown-item i {
+    width: 18px;
+    text-align: center;
+    font-size: 14px;
+}
+
+/* Page navigation styling */
+.list-wrapper .page-navigation {
+    background: #f8f9fa;
+    padding: 12px 15px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.list-wrapper .card-footer {
+    background: #f8f9fa;
+    padding: 12px 15px;
+    border-top: 1px solid #e0e0e0;
+}
+
+/* Responsive adjustments for list wrapper */
+@media (max-width: 992px) {
+    .list-filter-bar-container {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+
+    .list-filter-bar-container form {
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+
+    .list-filter-bar-container .tcombo,
+    .list-filter-bar-container .tentry,
+    .list-filter-bar-container .btn {
+        width: 100% !important;
+    }
+
+    .list-wrapper .table {
+        font-size: 13px;
+    }
+
+    .list-wrapper .table tbody td {
+        padding: 10px 8px;
+    }
+
+    .list-header-container {
+        padding: 15px 20px !important;
+    }
+
+    .list-header-container h4 {
+        font-size: 18px !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .list-wrapper .table {
+        font-size: 12px;
+    }
+
+    .list-wrapper .table tbody td {
+        padding: 8px 6px;
+    }
+
+    .list-wrapper .table thead th {
+        font-size: 12px !important;
+        padding: 10px 6px !important;
+    }
+
+    .list-header-container {
+        padding: 12px 15px !important;
+    }
+
+    .list-header-container h4 {
+        font-size: 16px !important;
+    }
+
+    .list-header-container p {
+        font-size: 12px !important;
+    }
+
+    .list-filter-bar-container {
+        padding: 10px 15px !important;
+    }
+}
+
+@media (max-width: 576px) {
+    .list-wrapper {
+        border-radius: 0 !important;
+        margin: 0 -15px;
+    }
+
+    .list-wrapper .table {
+        font-size: 11px;
+    }
+
+    .list-wrapper .table tbody td {
+        padding: 6px 4px;
+    }
+
+    .list-wrapper .table thead th {
+        font-size: 11px !important;
+        padding: 8px 4px !important;
+    }
+
+    .list-header-container {
+        padding: 10px 12px !important;
+        border-radius: 0 !important;
+    }
+
+    .list-header-container h4 {
+        font-size: 14px !important;
+    }
+
+    .list-filter-bar-container {
+        padding: 8px 12px !important;
+    }
+
+    .list-filter-bar-container .btn {
+        padding: 8px 12px !important;
+        font-size: 12px !important;
+    }
+}
+
+/* ============================================
+   SIGEF V1.2 PNA - MODERN INTERACTIVE ENHANCEMENTS
+   Keeping colors: #041c4f (sidebar), #5B68FF (accent)
+   ============================================ */
+
+/* Import Google Font for better typography */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Root Variables - SIGEF Theme */
+:root {
+    --sigef-primary: #041c4f;
+    --sigef-accent: #5B68FF;
+    --sigef-accent-hover: #4954e0;
+    --sigef-success: #00a65a;
+    --sigef-warning: #f39c12;
+    --sigef-danger: #dd4b39;
+    --sigef-info: #00c0ef;
+    --sigef-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    --sigef-shadow-hover: 0 8px 25px rgba(0, 0, 0, 0.15);
+    --sigef-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --sigef-border-radius: 8px;
+}
+
+/* ============================================
+   ENHANCED CARDS - Modern look with hover effects
+   ============================================ */
+
+.card {
+    border: none;
+    border-radius: var(--sigef-border-radius);
+    box-shadow: var(--sigef-shadow);
+    transition: var(--sigef-transition);
+    overflow: hidden;
+}
+
+.card:hover {
+    box-shadow: var(--sigef-shadow);
+}
+
+.card-header {
+    background: linear-gradient(135deg, var(--sigef-primary) 0%, #0a2d6e 100%);
+    color: #ffffff;
+    font-weight: 600;
+    border-bottom: none;
+    padding: 1rem 1.25rem;
+}
+
+.card-header h4,
+.card-header .card-title {
+    color: #ffffff;
+    margin: 0;
+}
+
+/* Light header variant */
+.card-header.bg-light,
+.card-header.bg-white {
+    background: #ffffff;
+    color: #333;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+/* ============================================
+   ENHANCED BUTTONS - Animated and modern
+   ============================================ */
+
+.btn {
+    transition: var(--sigef-transition);
+    border-radius: 6px;
+    font-weight: 500;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.6s ease, height 0.6s ease;
+}
+
+.btn:active::before {
+    width: 300px;
+    height: 300px;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--sigef-accent) 0%, var(--sigef-accent-hover) 100%);
+    border: none;
+    box-shadow: 0 4px 15px rgba(91, 104, 255, 0.3);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, var(--sigef-accent-hover) 0%, #3a45c9 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(91, 104, 255, 0.4);
+}
+
+.btn-success {
+    background: linear-gradient(135deg, var(--sigef-success) 0%, #009650 100%);
+    border: none;
+    box-shadow: 0 4px 15px rgba(0, 166, 90, 0.3);
+}
+
+.btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 166, 90, 0.4);
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, var(--sigef-danger) 0%, #c9322c 100%);
+    border: none;
+    box-shadow: 0 4px 15px rgba(221, 75, 57, 0.3);
+}
+
+.btn-danger:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(221, 75, 57, 0.4);
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, var(--sigef-warning) 0%, #e08e0b 100%);
+    border: none;
+    box-shadow: 0 4px 15px rgba(243, 156, 18, 0.3);
+    color: #fff;
+}
+
+.btn-warning:hover {
+    transform: translateY(-2px);
+    color: #fff;
+}
+
+.btn-info {
+    background: linear-gradient(135deg, var(--sigef-info) 0%, #00a8d4 100%);
+    border: none;
+    box-shadow: 0 4px 15px rgba(0, 192, 239, 0.3);
+}
+
+.btn-info:hover {
+    transform: translateY(-2px);
+}
+
+/* Outline button animations */
+.btn-outline-primary {
+    border: 2px solid var(--sigef-accent);
+    color: var(--sigef-accent);
+    background: transparent;
+}
+
+.btn-outline-primary:hover {
+    background: var(--sigef-accent);
+    color: #fff;
+    transform: translateY(-2px);
+}
+
+/* ============================================
+   ENHANCED FORMS - Modern input styling
+   ============================================ */
+
+.form-control,
+.form-select,
+.tentry,
+.tfield,
+.tcombo {
+    border: 2px solid #e9ecef;
+    border-radius: 6px;
+    padding: 0.625rem 0.875rem;
+    transition: var(--sigef-transition);
+    font-size: 0.95rem;
+}
+
+.form-control:focus,
+.form-select:focus,
+.tentry:focus,
+.tfield:focus,
+.tcombo:focus {
+    border-color: var(--sigef-accent);
+    box-shadow: 0 0 0 3px rgba(91, 104, 255, 0.15);
+    outline: none;
+}
+
+.form-control:hover,
+.form-select:hover {
+    border-color: #ced4da;
+}
+
+/* Input group enhancements */
+.input-group .form-control {
+    border-right: none;
+}
+
+.input-group .btn {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+/* Form labels */
+.form-label,
+label {
+    font-weight: 500;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+/* ============================================
+   ENHANCED TABLES - Sleek modern look
+   ============================================ */
+
+.table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.table thead th {
+    background: linear-gradient(135deg, var(--sigef-primary) 0%, #0a2d6e 100%);
+    color: #ffffff;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+    padding: 1rem 0.75rem;
+    border: none;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.table thead th:first-child {
+    border-top-left-radius: 8px;
+}
+
+.table thead th:last-child {
+    border-top-right-radius: 8px;
+}
+
+.table thead th a {
+    color: #ffffff !important;
+    text-decoration: none;
+}
+
+.table thead th a:hover {
+    color: #e0e0e0 !important;
+}
+
+.table tbody tr {
+    transition: var(--sigef-transition);
+}
+
+.table tbody tr:hover {
+    background-color: rgba(91, 104, 255, 0.08) !important;
+    transform: scale(1.002);
+}
+
+.table tbody td {
+    vertical-align: middle;
+    padding: 0.875rem 0.75rem;
+    border-top: 1px solid #f0f0f0;
+}
+
+/* Striped rows */
+.table-striped tbody tr:nth-child(odd) {
+    background-color: #fafbfc;
+}
+
+.table-striped tbody tr:nth-child(even) {
+    background-color: #ffffff;
+}
+
+/* ============================================
+   ENHANCED BADGES - Modern pill style
+   ============================================ */
+
+.badge {
+    font-weight: 500;
+    padding: 0.5em 1em;
+    border-radius: 50px;
+    font-size: 0.75rem;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.badge.bg-success,
+.badge-success {
+    background: linear-gradient(135deg, var(--sigef-success) 0%, #2ecc71 100%) !important;
+}
+
+.badge.bg-danger,
+.badge-danger {
+    background: linear-gradient(135deg, var(--sigef-danger) 0%, #e74c3c 100%) !important;
+}
+
+.badge.bg-warning,
+.badge-warning {
+    background: linear-gradient(135deg, var(--sigef-warning) 0%, #e67e22 100%) !important;
+}
+
+.badge.bg-info,
+.badge-info {
+    background: linear-gradient(135deg, var(--sigef-info) 0%, #3498db 100%) !important;
+}
+
+.badge.bg-primary,
+.badge-primary {
+    background: linear-gradient(135deg, var(--sigef-accent) 0%, var(--sigef-accent-hover) 100%) !important;
+}
+
+/* ============================================
+   ENHANCED NAVIGATION - Smooth transitions
+   ============================================ */
+
+.nav-tabs .nav-link {
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #6c757d;
+    font-weight: 500;
+    padding: 1rem 1.5rem;
+    transition: var(--sigef-transition);
+}
+
+.nav-tabs .nav-link:hover {
+    border-color: transparent;
+    color: var(--sigef-accent);
+    background-color: rgba(91, 104, 255, 0.05);
+}
+
+.nav-tabs .nav-link.active {
+    border-color: var(--sigef-accent);
+    color: var(--sigef-accent);
+    background-color: transparent;
+    font-weight: 600;
+}
+
+/* Pills navigation */
+.nav-pills .nav-link {
+    border-radius: 50px;
+    padding: 0.5rem 1.25rem;
+    font-weight: 500;
+    transition: var(--sigef-transition);
+}
+
+.nav-pills .nav-link.active {
+    background: linear-gradient(135deg, var(--sigef-accent) 0%, var(--sigef-accent-hover) 100%);
+}
+
+/* ============================================
+   ENHANCED MODALS - Smooth animations
+   ============================================ */
+
+.modal-content {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+}
+
+.modal-header {
+    background: linear-gradient(135deg, var(--sigef-primary) 0%, #0a2d6e 100%);
+    color: #ffffff;
+    border-bottom: none;
+    padding: 1.25rem 1.5rem;
+}
+
+.modal-header .modal-title {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.modal-header .btn-close {
+    filter: invert(1);
+    opacity: 0.8;
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+.modal-footer {
+    border-top: 1px solid #f0f0f0;
+    padding: 1rem 1.5rem;
+}
+
+/* Modal animation enhancement */
+.modal.fade .modal-dialog {
+    transform: scale(0.9) translateY(-30px);
+    transition: transform 0.3s ease-out;
+}
+
+.modal.show .modal-dialog {
+    transform: scale(1) translateY(0);
+}
+
+/* ============================================
+   ENHANCED ALERTS - Modern styling
+   ============================================ */
+
+.alert {
+    border: none;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    border-left: 4px solid;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+}
+
+.alert-success {
+    background-color: rgba(0, 166, 90, 0.1);
+    border-left-color: var(--sigef-success);
+    color: #0a652e;
+}
+
+.alert-danger {
+    background-color: rgba(221, 75, 57, 0.1);
+    border-left-color: var(--sigef-danger);
+    color: #8b2e23;
+}
+
+.alert-warning {
+    background-color: rgba(243, 156, 18, 0.1);
+    border-left-color: var(--sigef-warning);
+    color: #92610b;
+}
+
+.alert-info {
+    background-color: rgba(0, 192, 239, 0.1);
+    border-left-color: var(--sigef-info);
+    color: #0b6b85;
+}
+
+/* ============================================
+   ENHANCED DROPDOWNS - Smooth animations
+   ============================================ */
+
+.dropdown-menu {
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    padding: 0.5rem 0;
+    animation: dropdownFadeIn 0.2s ease;
+}
+
+@keyframes dropdownFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.dropdown-item {
+    padding: 0.625rem 1.25rem;
+    font-weight: 400;
+    transition: var(--sigef-transition);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.dropdown-item:hover {
+    background-color: rgba(91, 104, 255, 0.08);
+    color: var(--sigef-accent);
+}
+
+.dropdown-item i,
+.dropdown-item .fa,
+.dropdown-item .fas,
+.dropdown-item .far {
+    width: 20px;
+    text-align: center;
+    color: #6c757d;
+    transition: var(--sigef-transition);
+}
+
+.dropdown-item:hover i,
+.dropdown-item:hover .fa {
+    color: var(--sigef-accent);
+}
+
+.dropdown-divider {
+    margin: 0.5rem 0;
+    border-color: #f0f0f0;
+}
+
+/* ============================================
+   ENHANCED SIDEBAR - Polished interactions
+   ============================================ */
+
+#sidebar a.sidebar-link {
+    transition: var(--sigef-transition);
+    border-radius: 8px;
+    margin: 2px 8px;
+}
+
+#sidebar a.sidebar-link:hover {
+    transform: translateX(5px);
+    background: rgba(255, 255, 255, 0.12) !important;
+}
+
+#sidebar a.sidebar-link.active {
+    background: linear-gradient(90deg, rgba(91, 104, 255, 0.3) 0%, transparent 100%) !important;
+    border-left: 3px solid var(--sigef-accent);
+}
+
+/* Sidebar icons animation */
+#sidebar .sidebar-link i {
+    transition: var(--sigef-transition);
+}
+
+#sidebar .sidebar-link:hover i {
+    transform: scale(1.1);
+}
+
+/* ============================================
+   LOADING ANIMATIONS
+   ============================================ */
+
+/* Skeleton loading effect */
+.skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+}
+
+@keyframes skeleton-loading {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* Pulse animation for notifications */
+@keyframes pulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+.pulse {
+    animation: pulse 2s infinite;
+}
+
+/* Fade in animation */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.4s ease-out;
+}
+
+/* ============================================
+   DASHBOARD ENHANCEMENTS
+   ============================================ */
+
+/* Info box modern style */
+.info-box {
+    border-radius: 12px;
+    transition: var(--sigef-transition);
+    border: none;
+    overflow: hidden;
+}
+
+.info-box:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--sigef-shadow-hover);
+}
+
+.info-box-icon {
+    border-radius: 12px;
+    transition: var(--sigef-transition);
+}
+
+.info-box:hover .info-box-icon {
+    transform: scale(1.05);
+}
+
+/* Stats cards */
+.stat-card {
+    text-align: center;
+    padding: 1.5rem;
+    border-radius: 12px;
+    transition: var(--sigef-transition);
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+}
+
+.stat-card .stat-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--sigef-accent) 0%, var(--sigef-accent-hover) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* ============================================
+   SCROLL ENHANCEMENTS
+   ============================================ */
+
+/* Custom scrollbar - WebKit */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+    transition: background 0.3s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Firefox scrollbar */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #c1c1c1 #f1f1f1;
+}
+
+/* ============================================
+   TOOLTIP ENHANCEMENTS
+   ============================================ */
+
+.tooltip .tooltip-inner {
+    background: var(--sigef-primary);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.tooltip .tooltip-arrow::before {
+    border-top-color: var(--sigef-primary);
+}
+
+/* ============================================
+   PAGE TRANSITIONS
+   ============================================ */
+
+.container-fluid,
+.content,
+main {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* ============================================
+   FLOATING ACTION BUTTON (FAB) STYLE
+   ============================================ */
+
+.btn-fab {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 20px rgba(91, 104, 255, 0.4);
+    transition: var(--sigef-transition);
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    z-index: 1000;
+}
+
+.btn-fab:hover {
+    transform: scale(1.1) rotate(90deg);
+    box-shadow: 0 8px 25px rgba(91, 104, 255, 0.5);
+}
+
+/* ============================================
+   RESPONSIVE IMPROVEMENTS
+   ============================================ */
+
+@media (max-width: 768px) {
+    .card-header {
+        padding: 0.875rem 1rem;
+    }
+
+    .modal-content {
+        border-radius: 8px;
+    }
+
+    .btn {
+        padding: 0.5rem 1rem;
+    }
+
+    .table thead th {
+        padding: 0.75rem 0.5rem;
+        font-size: 0.7rem;
+    }
+
+    .table tbody td {
+        padding: 0.625rem 0.5rem;
+    }
+}
+
+/* ============================================
+   PRINT STYLES
+   ============================================ */
+
+@media print {
+    .card {
+        box-shadow: none !important;
+        border: 1px solid #ddd !important;
+    }
+
+    .btn {
+        box-shadow: none !important;
+    }
+
+    #sidebar {
+        display: none !important;
+    }
+}
+
+/* ============================================
+   GLOBAL TABLE/DATAGRID - Larger fonts & Responsive
+   ============================================ */
+
+/* Tamanho base das fontes das tabelas - SUPERFORTE */
+.table,
+.tdatagrid,
+table,
+body .table,
+body table,
+.card table,
+.card-body table,
+.panel table,
+.panel-body table,
+div[widget="tdatagrid"] table,
+.user-list-wrapper table,
+.list-wrapper table {
+    font-size: 16px !important;
+}
+
+/* Cabeçalho das tabelas */
+.table thead th,
+.tdatagrid thead th,
+table thead th,
+.datagrid th,
+body .table thead th,
+body table thead th,
+.card table thead th,
+.user-list-wrapper table thead th,
+.list-wrapper table thead th {
+    font-size: 16px !important;
+    padding: 12px 10px !important;
+    font-weight: 600 !important;
+    white-space: nowrap;
+}
+
+/* Células das tabelas */
+.table tbody td,
+.tdatagrid tbody td,
+table tbody td,
+.datagrid td,
+body .table tbody td,
+body table tbody td,
+.card table tbody td,
+.user-list-wrapper table tbody td,
+.list-wrapper table tbody td,
+div[widget="tdatagrid"] tbody td {
+    font-size: 16px !important;
+    padding: 12px 10px !important;
+    vertical-align: middle !important;
+}
+
+/* Links nas tabelas */
+.table a,
+.tdatagrid a,
+table td a,
+body table a,
+.card table a,
+.user-list-wrapper table a,
+.list-wrapper table a {
+    font-size: 16px !important;
+}
+
+/* Badges nas tabelas */
+.table .badge,
+.tdatagrid .badge,
+table .badge,
+body table .badge,
+.user-list-wrapper .badge,
+.list-wrapper .badge {
+    font-size: 14px !important;
+    padding: 8px 12px !important;
+}
+
+/* Responsive: Tabela com scroll horizontal */
+.table-responsive,
+.card-body:has(table),
+.panel-body:has(table) {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Container da tabela responsivo */
+.card-body table,
+.panel-body table {
+    min-width: 100%;
+}
+
+/* Responsividade para tablets */
+@media (max-width: 992px) {
+
+    .table,
+    .tdatagrid,
+    table {
+        font-size: 0.875rem !important;
+    }
+
+    .table thead th,
+    .tdatagrid thead th,
+    table thead th {
+        font-size: 0.8rem !important;
+        padding: 10px 8px !important;
+    }
+
+    .table tbody td,
+    .tdatagrid tbody td,
+    table tbody td {
+        font-size: 0.85rem !important;
+        padding: 10px 8px !important;
+    }
+}
+
+/* Responsividade para mobile */
+@media (max-width: 768px) {
+
+    .table,
+    .tdatagrid,
+    table {
+        font-size: 0.8rem !important;
+    }
+
+    .table thead th,
+    .tdatagrid thead th,
+    table thead th {
+        font-size: 0.75rem !important;
+        padding: 8px 6px !important;
+    }
+
+    .table tbody td,
+    .tdatagrid tbody td,
+    table tbody td {
+        font-size: 0.8rem !important;
+        padding: 8px 6px !important;
+    }
+
+    /* Ocultar colunas menos importantes em mobile */
+    .hide-on-mobile {
+        display: none !important;
+    }
+}
+
+/* Mobile pequeno */
+@media (max-width: 576px) {
+
+    .table,
+    .tdatagrid,
+    table {
+        font-size: 0.75rem !important;
+    }
+
+    .table thead th,
+    .tdatagrid thead th,
+    table thead th {
+        font-size: 0.7rem !important;
+        padding: 6px 4px !important;
+    }
+
+    .table tbody td,
+    .tdatagrid tbody td,
+    table tbody td {
+        font-size: 0.75rem !important;
+        padding: 6px 4px !important;
+    }
+
+    .table .badge,
+    .tdatagrid .badge {
+        font-size: 0.65rem !important;
+        padding: 4px 6px !important;
+    }
+
+    /* Botões de ação menores */
+    .table .btn,
+    .tdatagrid .btn {
+        padding: 4px 8px !important;
+        font-size: 0.7rem !important;
+    }
+
+    .table .btn i,
+    .tdatagrid .btn i {
+        font-size: 0.75rem !important;
+    }
+}

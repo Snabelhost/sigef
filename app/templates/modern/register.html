@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro - Sistema Moderno</title>
+
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Theme CSS -->
+    <link rel="stylesheet" href="theme.css">
+
+    <style>
+        .auth-container::after {
+            content: '';
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, transparent 70%);
+            bottom: -200px;
+            left: -200px;
+            animation: floatReverse 10s ease-in-out infinite;
+        }
+
+        @keyframes floatReverse {
+
+            0%,
+            100% {
+                transform: translateY(0) rotate(0deg);
+            }
+
+            50% {
+                transform: translateY(30px) rotate(-10deg);
+            }
+        }
+
+        .input-icon {
+            position: relative;
+        }
+
+        .input-icon .form-input {
+            padding-left: 2.75rem;
+        }
+
+        .input-icon i:first-of-type {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            pointer-events: none;
+        }
+
+        .input-icon .form-input:focus+i {
+            color: var(--primary);
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 0.25rem;
+        }
+
+        .password-toggle:hover {
+            color: var(--primary);
+        }
+
+        .password-strength {
+            display: flex;
+            gap: 0.25rem;
+            margin-top: 0.5rem;
+        }
+
+        .strength-bar {
+            flex: 1;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            transition: background var(--transition-fast);
+        }
+
+        .strength-bar.weak {
+            background: #ef4444;
+        }
+
+        .strength-bar.medium {
+            background: #f59e0b;
+        }
+
+        .strength-bar.strong {
+            background: #22c55e;
+        }
+
+        .strength-text {
+            font-size: var(--font-size-xs);
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        @media (max-width: 480px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .terms-text {
+            font-size: var(--font-size-xs);
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .terms-text a {
+            color: var(--primary);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="auth-container">
+        <div class="auth-card" style="max-width: 480px;">
+            <!-- Header -->
+            <div class="auth-header">
+                <div class="auth-logo">
+                    <i class="fa-solid fa-user-plus"></i>
+                </div>
+                <h1 class="auth-title">Criar conta</h1>
+                <p class="auth-subtitle">Preencha os dados abaixo para começar</p>
+            </div>
+
+            <!-- Register Form -->
+            <form class="auth-form" id="register-form" onsubmit="return handleRegister(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="firstName">Nome</label>
+                        <div class="input-icon">
+                            <input type="text" id="firstName" class="form-input" placeholder="João" required>
+                            <i class="fa-solid fa-user"></i>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="lastName">Sobrenome</label>
+                        <div class="input-icon">
+                            <input type="text" id="lastName" class="form-input" placeholder="Silva" required>
+                            <i class="fa-solid fa-user"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="email">Email</label>
+                    <div class="input-icon">
+                        <input type="email" id="email" class="form-input" placeholder="seu@email.com" required>
+                        <i class="fa-solid fa-envelope"></i>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="password">Senha</label>
+                    <div class="input-icon">
+                        <input type="password" id="password" class="form-input" placeholder="••••••••" required
+                            oninput="checkPasswordStrength(this.value)">
+                        <i class="fa-solid fa-lock"></i>
+                        <button type="button" class="password-toggle"
+                            onclick="togglePassword('password', 'password-icon')">
+                            <i class="fa-solid fa-eye" id="password-icon"></i>
+                        </button>
+                    </div>
+                    <div class="password-strength">
+                        <div class="strength-bar" id="strength-1"></div>
+                        <div class="strength-bar" id="strength-2"></div>
+                        <div class="strength-bar" id="strength-3"></div>
+                        <div class="strength-bar" id="strength-4"></div>
+                    </div>
+                    <p class="strength-text" id="strength-text">Use 8+ caracteres com letras, números e símbolos</p>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="confirmPassword">Confirmar Senha</label>
+                    <div class="input-icon">
+                        <input type="password" id="confirmPassword" class="form-input" placeholder="••••••••" required>
+                        <i class="fa-solid fa-lock"></i>
+                        <button type="button" class="password-toggle"
+                            onclick="togglePassword('confirmPassword', 'confirm-icon')">
+                            <i class="fa-solid fa-eye" id="confirm-icon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-check">
+                        <input type="checkbox" class="form-check-input" id="terms" required>
+                        <span class="terms-text">
+                            Eu concordo com os <a href="#">Termos de Serviço</a> e
+                            <a href="#">Política de Privacidade</a>
+                        </span>
+                    </label>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
+                    <i class="fa-solid fa-user-plus"></i>
+                    Criar Conta
+                </button>
+            </form>
+
+            <!-- Divider -->
+            <div class="auth-divider">
+                <span>ou cadastre-se com</span>
+            </div>
+
+            <!-- Social Login -->
+            <div class="social-login">
+                <button class="social-btn" title="Google">
+                    <i class="fa-brands fa-google"></i>
+                </button>
+                <button class="social-btn" title="GitHub">
+                    <i class="fa-brands fa-github"></i>
+                </button>
+                <button class="social-btn" title="Microsoft">
+                    <i class="fa-brands fa-microsoft"></i>
+                </button>
+            </div>
+
+            <!-- Footer -->
+            <div class="auth-footer">
+                Já tem uma conta? <a href="login.html">Faça login</a>
+            </div>
+        </div>
+
+        <!-- Theme Toggle -->
+        <button id="theme-toggle" class="header-btn"
+            style="position: fixed; top: 1rem; right: 1rem; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius);">
+            <i class="fa-solid fa-moon"></i>
+        </button>
+    </div>
+
+    <script src="js/theme.js"></script>
+    <script>
+        function togglePassword(inputId, iconId) {
+            const input = document.getElementById(inputId);
+            const icon = document.getElementById(iconId);
+
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fa-solid fa-eye-slash';
+            } else {
+                input.type = 'password';
+                icon.className = 'fa-solid fa-eye';
+            }
+        }
+
+        function checkPasswordStrength(password) {
+            const bars = [
+                document.getElementById('strength-1'),
+                document.getElementById('strength-2'),
+                document.getElementById('strength-3'),
+                document.getElementById('strength-4')
+            ];
+            const text = document.getElementById('strength-text');
+
+            let strength = 0;
+
+            // Check length
+            if (password.length >= 8) strength++;
+            if (password.length >= 12) strength++;
+
+            // Check for numbers
+            if (/\d/.test(password)) strength++;
+
+            // Check for special characters
+            if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) strength++;
+
+            // Check for uppercase and lowercase
+            if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
+
+            // Normalize to 4 levels
+            strength = Math.min(4, Math.ceil(strength * 0.8));
+
+            // Reset bars
+            bars.forEach(bar => bar.className = 'strength-bar');
+
+            // Fill bars based on strength
+            const strengthClass = strength <= 1 ? 'weak' : strength <= 2 ? 'medium' : 'strong';
+            for (let i = 0; i < strength; i++) {
+                bars[i].classList.add(strengthClass);
+            }
+
+            // Update text
+            const messages = [
+                'Use 8+ caracteres com letras, números e símbolos',
+                'Senha fraca - adicione mais caracteres',
+                'Senha média - adicione símbolos ou números',
+                'Senha boa - quase lá!',
+                'Senha forte - excelente!'
+            ];
+            text.textContent = messages[strength];
+        }
+
+        function handleRegister(event) {
+            event.preventDefault();
+
+            const form = event.target;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const submitBtn = form.querySelector('button[type="submit"]');
+
+            // Validate form
+            if (!validateForm(form)) {
+                return false;
+            }
+
+            // Check passwords match
+            if (password !== confirmPassword) {
+                alert('As senhas não coincidem!');
+                return false;
+            }
+
+            // Show loading state
+            setLoading(submitBtn, true);
+
+            // Simulate registration
+            setTimeout(() => {
+                setLoading(submitBtn, false);
+                // Redirect to login
+                window.location.href = 'login.html';
+            }, 2000);
+
+            return false;
+        }
+    </script>
+</body>
+
+</html>

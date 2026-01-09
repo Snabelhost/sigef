@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PHP Community Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              primary: "#e85d04", // Vivid Orange from reference
+              "primary-hover": "#dc2f02",
+              "accent-beige": "#fae1dd", // Light beige accent
+              "background-light": "#f3f4f6",
+              "background-dark": "#1a1b26", // Deep dark blue-grey from reference
+              "sidebar-dark": "#24283b",
+              "sidebar-light": "#ffffff",
+              "card-dark": "#1f2335",
+              "card-light": "#ffffff",
+              "text-main-dark": "#c0caf5",
+              "text-main-light": "#1f2937",
+            },
+            fontFamily: {
+              display: ["Outfit", "sans-serif"],
+              sans: ["Outfit", "sans-serif"],
+            },
+            borderRadius: {
+              DEFAULT: "0.5rem",
+              'xl': '1rem',
+              '2xl': '1.5rem',
+            },
+          },
+        },
+      };
+    </script>
+<style>::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #414868; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #565f89; 
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-sans transition-colors duration-300 antialiased h-screen flex overflow-hidden text-text-main-light dark:text-text-main-dark">
+<aside class="w-64 bg-sidebar-light dark:bg-sidebar-dark border-r border-gray-200 dark:border-gray-700 flex flex-col shadow-lg z-20 transition-colors duration-300">
+<div class="h-20 flex items-center px-6 border-b border-gray-100 dark:border-gray-700/50">
+<div class="flex items-center gap-3">
+<div class="bg-primary/10 p-2 rounded-xl">
+<i class="fa-brands fa-php text-3xl text-primary"></i>
+</div>
+<div class="flex flex-col">
+<span class="font-bold text-lg leading-tight tracking-wide dark:text-white">PHP Dev</span>
+<span class="text-xs text-primary font-medium tracking-widest uppercase">Community</span>
+</div>
+</div>
+</div>
+<nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+<div class="mb-2">
+<button class="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors group">
+<div class="flex items-center gap-3">
+<i class="fa-solid fa-house-chimney text-primary w-5 text-center"></i>
+<span>Administração</span>
+</div>
+<i class="fa-solid fa-chevron-down text-xs text-gray-400 group-hover:text-primary transition-colors"></i>
+</button>
+<div class="mt-1 space-y-1 pl-3">
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary dark:hover:text-primary transition-colors" href="#">
+<i class="fa-solid fa-gauge-high w-5 text-center text-xs opacity-70"></i>
+                        Dashboard
+                    </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary dark:hover:text-primary transition-colors" href="#">
+<i class="fa-solid fa-code w-5 text-center text-xs opacity-70"></i>
+                        Programas
+                    </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary dark:hover:text-primary transition-colors" href="#">
+<i class="fa-solid fa-users w-5 text-center text-xs opacity-70"></i>
+                        Grupos
+                    </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary dark:hover:text-primary transition-colors" href="#">
+<i class="fa-solid fa-building-columns w-5 text-center text-xs opacity-70"></i>
+                        Unidades
+                    </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary dark:hover:text-primary transition-colors" href="#">
+<i class="fa-solid fa-user w-5 text-center text-xs opacity-70"></i>
+                        Usuários
+                    </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary dark:hover:text-primary transition-colors" href="#">
+<i class="fa-solid fa-binoculars w-5 text-center text-xs opacity-70"></i>
+                        Monitoramento
+                    </a>
+</div>
+</div>
+<div class="my-4 border-t border-gray-200 dark:border-gray-700/50 mx-3"></div>
+<div class="mb-2 pl-3 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary dark:hover:text-primary transition-colors" href="#">
+<i class="fa-solid fa-cloud-arrow-up w-5 text-center text-xs"></i>
+                    Importação de dados
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary dark:hover:text-primary transition-colors" href="#">
+<i class="fa-solid fa-database w-5 text-center text-xs"></i>
+                    Database explorer
+                </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary dark:hover:text-primary transition-colors" href="#">
+<i class="fa-solid fa-table w-5 text-center text-xs"></i>
+                    Painel SQL
+                </a>
+</div>
+<div class="my-4 border-t border-gray-200 dark:border-gray-700/50 mx-3"></div>
+<div class="mb-2">
+<button class="w-full flex items-center justify-between px-3 py-2 text-sm font-semibold text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-800/50 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+<div class="flex items-center gap-3">
+<i class="fa-solid fa-desktop text-primary w-5 text-center"></i>
+<span>Logs</span>
+</div>
+<i class="fa-solid fa-chevron-up text-xs text-primary transition-colors"></i>
+</button>
+<div class="mt-2 space-y-1 pl-3">
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary dark:hover:text-primary transition-colors" href="#">
+<i class="fa-solid fa-key w-5 text-center text-xs opacity-70"></i>
+                        Log de acesso
+                    </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 rounded-lg hover:bg-primary/10 hover:text-primary dark:hover:text-primary transition-colors" href="#">
+<i class="fa-solid fa-triangle-exclamation w-5 text-center text-xs opacity-70"></i>
+                        Log do PHP
+                    </a>
+</div>
+</div>
+</nav>
+<div class="p-4 border-t border-gray-200 dark:border-gray-700/50">
+<a class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors" href="#">
+<i class="fa-solid fa-right-from-bracket w-5 text-center"></i>
+                Logout
+            </a>
+</div>
+</aside>
+<main class="flex-1 flex flex-col overflow-hidden relative">
+<header class="h-20 bg-card-light dark:bg-sidebar-dark border-b border-gray-200 dark:border-gray-700/50 flex items-center justify-between px-8 shadow-sm z-10">
+<div class="relative w-96 hidden md:block">
+<input class="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-background-dark border-none rounded-lg text-sm focus:ring-2 focus:ring-primary dark:text-gray-200 placeholder-gray-500" placeholder="Search functions, users, or logs..." type="text"/>
+<i class="fa-solid fa-magnifying-glass absolute left-3.5 top-2.5 text-gray-400 text-sm"></i>
+</div>
+<div class="flex items-center gap-6">
+<button class="text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary transition-colors">
+<i class="fa-solid fa-moon text-lg"></i>
+</button>
+<div class="relative">
+<button class="text-gray-500 dark:text-gray-400 hover:text-primary dark:hover:text-primary transition-colors">
+<i class="fa-regular fa-bell text-lg"></i>
+</button>
+<span class="absolute -top-1 -right-1 h-2.5 w-2.5 bg-primary rounded-full border-2 border-white dark:border-sidebar-dark"></span>
+</div>
+<div class="flex items-center gap-3 pl-4 border-l border-gray-200 dark:border-gray-700">
+<div class="text-right hidden sm:block">
+<div class="text-sm font-semibold dark:text-white">Alex Dev</div>
+<div class="text-xs text-gray-500 dark:text-gray-400">Senior Maintainer</div>
+</div>
+<img alt="User Avatar" class="h-9 w-9 rounded-full border-2 border-primary/20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBM7V6t7ovYSZCu7TPylipWgxUeDWwDohfsHx2rNJ1m4TD7z3zJQvxtEsbKCuYE2Uuej22FuPWRI93xOTCF67NhlMVh_Pb0Qxdr_HqWj3CJwLdzlaz3FTZxdHulMkqvkQnNnZVcRQcete7EEkQPVSncX8YKul6ttW3lm1eWg6hIfduWzCsZ8sMU8B2oszYUlpRoMeZ12yOaOMo5wbMw9Kmgw5r552IPuFASepHZkhq2-wtev2oTMuJa6h0CpzwxuehV8LVfR6HwLKBV"/>
+</div>
+</div>
+</header>
+<div class="flex-1 overflow-y-auto p-8 relative">
+<div class="absolute top-0 right-0 w-full h-96 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none"></div>
+<div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8 relative z-10">
+<div>
+<h1 class="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">System Dashboard</h1>
+<p class="text-gray-500 dark:text-gray-400 mt-1">Overview of community activity and system health.</p>
+</div>
+<div class="flex gap-3">
+<button class="px-4 py-2 bg-card-light dark:bg-card-dark border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg text-sm hover:border-primary dark:hover:border-primary transition-colors shadow-sm">
+<i class="fa-solid fa-download mr-2"></i> Export Report
+                    </button>
+<button class="px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-primary-hover shadow-lg shadow-primary/30 transition-all transform hover:-translate-y-0.5">
+<i class="fa-solid fa-plus mr-2"></i> New Project
+                    </button>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 relative z-10">
+<div class="bg-card-light dark:bg-card-dark p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/50 hover:border-primary/50 dark:hover:border-primary/50 transition-colors group">
+<div class="flex justify-between items-start mb-4">
+<div class="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl text-blue-600 dark:text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+<i class="fa-solid fa-code-branch text-xl"></i>
+</div>
+<span class="flex items-center text-xs font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-full">
+                            +12.5% <i class="fa-solid fa-arrow-trend-up ml-1"></i>
+</span>
+</div>
+<div class="text-3xl font-bold text-gray-900 dark:text-white mb-1">1,248</div>
+<div class="text-sm text-gray-500 dark:text-gray-400">Total Contributions</div>
+</div>
+<div class="bg-card-light dark:bg-card-dark p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/50 hover:border-primary/50 dark:hover:border-primary/50 transition-colors group">
+<div class="flex justify-between items-start mb-4">
+<div class="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-xl text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+<i class="fa-solid fa-users text-xl"></i>
+</div>
+<span class="flex items-center text-xs font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded-full">
+                            +8.1% <i class="fa-solid fa-arrow-trend-up ml-1"></i>
+</span>
+</div>
+<div class="text-3xl font-bold text-gray-900 dark:text-white mb-1">8,502</div>
+<div class="text-sm text-gray-500 dark:text-gray-400">Active Members</div>
+</div>
+<div class="bg-card-light dark:bg-card-dark p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/50 hover:border-primary/50 dark:hover:border-primary/50 transition-colors group">
+<div class="flex justify-between items-start mb-4">
+<div class="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-xl text-purple-600 dark:text-purple-400 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+<i class="fa-solid fa-bug text-xl"></i>
+</div>
+<span class="flex items-center text-xs font-medium text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-full">
+                            -2.4% <i class="fa-solid fa-arrow-trend-down ml-1"></i>
+</span>
+</div>
+<div class="text-3xl font-bold text-gray-900 dark:text-white mb-1">42</div>
+<div class="text-sm text-gray-500 dark:text-gray-400">Open Issues</div>
+</div>
+<div class="bg-card-light dark:bg-card-dark p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/50 hover:border-primary/50 dark:hover:border-primary/50 transition-colors group">
+<div class="flex justify-between items-start mb-4">
+<div class="bg-green-50 dark:bg-green-900/20 p-3 rounded-xl text-green-600 dark:text-green-400 group-hover:bg-green-600 group-hover:text-white transition-colors">
+<i class="fa-solid fa-server text-xl"></i>
+</div>
+<span class="flex items-center text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full">
+                            Stable
+                        </span>
+</div>
+<div class="text-3xl font-bold text-gray-900 dark:text-white mb-1">99.9%</div>
+<div class="text-sm text-gray-500 dark:text-gray-400">System Uptime</div>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<div class="lg:col-span-2 space-y-8">
+<div class="bg-card-light dark:bg-card-dark rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+<div class="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+<h3 class="font-bold text-lg dark:text-white">Recent Contributions</h3>
+<a class="text-sm text-primary hover:text-primary-hover font-medium" href="#">View All</a>
+</div>
+<div class="divide-y divide-gray-100 dark:divide-gray-700/50">
+<div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-xs">
+                                    PR
+                                </div>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                                        Update routing logic for REST API v2
+                                    </p>
+<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                        by <span class="text-primary">SarahJ</span> • to <span class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">main</span> branch
+                                    </p>
+</div>
+<span class="text-xs text-gray-400 whitespace-nowrap">2h ago</span>
+</div>
+<div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold text-xs">
+                                    RF
+                                </div>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                                        Refactor Database Connector Class
+                                    </p>
+<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                        by <span class="text-primary">MikeCode</span> • 12 files changed
+                                    </p>
+</div>
+<span class="text-xs text-gray-400 whitespace-nowrap">5h ago</span>
+</div>
+<div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400 font-bold text-xs">
+                                    FX
+                                </div>
+<div class="flex-1 min-w-0">
+<p class="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                                        Hotfix: Session timeout calculation
+                                    </p>
+<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                        by <span class="text-primary">Admin_Root</span> • Critical Priority
+                                    </p>
+</div>
+<span class="text-xs text-gray-400 whitespace-nowrap">1d ago</span>
+</div>
+</div>
+</div>
+<div class="bg-card-light dark:bg-card-dark rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-bold text-lg dark:text-white">New Feature Requests</h3>
+<button class="p-2 text-gray-400 hover:text-primary transition-colors">
+<i class="fa-solid fa-filter"></i>
+</button>
+</div>
+<div class="grid gap-4">
+<div class="bg-background-light dark:bg-background-dark p-4 rounded-xl border border-gray-100 dark:border-gray-700/50 flex gap-4">
+<div class="flex flex-col items-center gap-1 min-w-[3rem]">
+<button class="text-gray-400 hover:text-primary"><i class="fa-solid fa-caret-up text-xl"></i></button>
+<span class="font-bold text-lg dark:text-white">42</span>
+</div>
+<div>
+<h4 class="font-semibold text-gray-900 dark:text-white text-base">Asynchronous Queue Worker Dashboard</h4>
+<p class="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-3 line-clamp-2">
+                                        We need a visual interface to monitor the Redis queue jobs. Currently, we rely on CLI commands which is not efficient for the support team.
+                                    </p>
+<div class="flex gap-2">
+<span class="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-xs rounded text-gray-600 dark:text-gray-300">Feature</span>
+<span class="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-xs rounded text-gray-600 dark:text-gray-300">UI/UX</span>
+</div>
+</div>
+</div>
+<div class="bg-background-light dark:bg-background-dark p-4 rounded-xl border border-gray-100 dark:border-gray-700/50 flex gap-4">
+<div class="flex flex-col items-center gap-1 min-w-[3rem]">
+<button class="text-gray-400 hover:text-primary"><i class="fa-solid fa-caret-up text-xl"></i></button>
+<span class="font-bold text-lg dark:text-white">18</span>
+</div>
+<div>
+<h4 class="font-semibold text-gray-900 dark:text-white text-base">PHP 8.3 Compatibility Layer</h4>
+<p class="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-3 line-clamp-2">
+                                        Preparing the legacy modules for the upcoming PHP 8.3 upgrade. Need to identify deprecated functions.
+                                    </p>
+<div class="flex gap-2">
+<span class="px-2 py-1 bg-primary/10 text-xs rounded text-primary border border-primary/20">High Priority</span>
+<span class="px-2 py-1 bg-gray-200 dark:bg-gray-700 text-xs rounded text-gray-600 dark:text-gray-300">Backend</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="space-y-6">
+<div class="bg-card-light dark:bg-card-dark rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+<h3 class="font-bold text-lg dark:text-white mb-4">System Health</h3>
+<div class="space-y-4">
+<div>
+<div class="flex justify-between text-xs mb-1">
+<span class="text-gray-500 dark:text-gray-400">CPU Usage</span>
+<span class="font-semibold text-gray-700 dark:text-gray-200">45%</span>
+</div>
+<div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+<div class="bg-green-500 h-2 rounded-full" style="width: 45%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-xs mb-1">
+<span class="text-gray-500 dark:text-gray-400">Memory</span>
+<span class="font-semibold text-gray-700 dark:text-gray-200">72%</span>
+</div>
+<div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+<div class="bg-yellow-500 h-2 rounded-full" style="width: 72%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-xs mb-1">
+<span class="text-gray-500 dark:text-gray-400">Disk Space</span>
+<span class="font-semibold text-gray-700 dark:text-gray-200">28%</span>
+</div>
+<div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+<div class="bg-blue-500 h-2 rounded-full" style="width: 28%"></div>
+</div>
+</div>
+</div>
+<div class="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700/50 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+<span class="text-xs text-gray-500 dark:text-gray-400">All services operational</span>
+</div>
+</div>
+</div>
+<div class="bg-card-light dark:bg-card-dark rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+<h3 class="font-bold text-lg dark:text-white mb-4">Top Contributors</h3>
+<div class="space-y-4">
+<div class="flex items-center gap-3">
+<img alt="User" class="w-10 h-10 rounded-full border border-gray-200 dark:border-gray-600" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDD3iTo3DGTNPQldDSlkDaYE7XC2FRu0lQFSocmPRBmPXZ9VfgKk9FjhJndUV7ofqQOuku7tMphRYMMJkQr2EGN1LZmBC3hplt3UIuobQ4vopdlal2Bilomi1b4RABBDLgeI_qRCs0Y56xG7GzE1jzOvxuAN75Rooz88Y5Lpf7eBIOjcHdeqy1q0t0mAXqS5xpJzVG4OagpcUZeFvLFM3THmyhpD2qXKlTRyvOZax6NyjQz2ES4Jnnt_lnEWxVnesrh_VjBZev4Oz6K"/>
+<div class="flex-1">
+<p class="text-sm font-semibold dark:text-white">Davide R.</p>
+<p class="text-xs text-gray-500">24 commits</p>
+</div>
+<i class="fa-solid fa-medal text-yellow-400"></i>
+</div>
+<div class="flex items-center gap-3">
+<img alt="User" class="w-10 h-10 rounded-full border border-gray-200 dark:border-gray-600" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAywqMNpeJcicuWiZO1x3uH89XvjgmgkDzvyeIUHIVh9_5I2OObvZhvrmnmCzTTjNWmq3RBXDKVtwX4HkRZd04A6fs_fszmYA52EMoIfamZd905GQUv2hmriVOE4ZzzmPu_uqEmrQO3h7i2XgcHqHp7cob2hhWV5NQE57WZTZh5zeIygeR-6S-aYj9nJaMXypNtZSUdaD0HjWfpl5U7l9PVn62DVuN-pGqlA5vHWjsBsPnt1qz09SV_7GlEPo55tJfh8g5D4xX47etC"/>
+<div class="flex-1">
+<p class="text-sm font-semibold dark:text-white">Elena S.</p>
+<p class="text-xs text-gray-500">18 commits</p>
+</div>
+<i class="fa-solid fa-medal text-gray-400"></i>
+</div>
+<div class="flex items-center gap-3">
+<img alt="User" class="w-10 h-10 rounded-full border border-gray-200 dark:border-gray-600" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCiSBQASCmDb3S80D9X1pcz_UNBDL-dX005tQWoUV7iICUE0UkTbBmj_4GUUs-rorNkuALYBNk0NAddacCDOZ7AGRgr8HUBWhFXY-5xb3pGTMyUMLHGcSJs8FWt5tZ8aqarJ7tBDHNaC7CADJiG2eYWczDCWwcgI-EPqzoOvmVt3TLUvZh_-dNwmTaxoTNsphLzV0A7KSfvZw-H7wjbFB5Yl8oypHO0mNrDPlL1HXJkb9AIHFKpmLF1wtsyV7EpTD9c-nQKH6JK5dXr"/>
+<div class="flex-1">
+<p class="text-sm font-semibold dark:text-white">John D.</p>
+<p class="text-xs text-gray-500">12 commits</p>
+</div>
+<i class="fa-solid fa-medal text-amber-700"></i>
+</div>
+</div>
+<button class="w-full mt-5 py-2 text-sm text-primary border border-primary rounded-lg hover:bg-primary hover:text-white transition-all">
+                            View All Members
+                        </button>
+</div>
+<div class="bg-gradient-to-br from-gray-800 to-black p-6 rounded-2xl text-white relative overflow-hidden shadow-lg group cursor-pointer">
+<div class="absolute -right-4 -top-4 w-24 h-24 rounded-full border-[6px] border-primary/20 group-hover:border-primary/40 transition-colors"></div>
+<div class="absolute -right-2 -bottom-6 text-9xl font-bold opacity-10 text-white select-none">PHP</div>
+<h3 class="font-bold text-xl relative z-10 mb-2">PHP 8.2</h3>
+<p class="text-gray-300 text-sm mb-4 relative z-10">Current Environment</p>
+<div class="flex items-center gap-2 relative z-10 text-xs font-mono text-primary-300">
+<span class="bg-white/10 px-2 py-1 rounded">GD Enabled</span>
+<span class="bg-white/10 px-2 py-1 rounded">PDO Active</span>
+</div>
+<div class="mt-4 pt-4 border-t border-white/10 relative z-10">
+<span class="text-xs text-gray-400">Last scanned: 10 mins ago</span>
+</div>
+</div>
+</div>
+</div>
+<footer class="mt-12 text-center text-sm text-gray-500 dark:text-gray-400 pb-4">
+                © 2023 PHP Community Development. Built with Low-Code principles.
+            </footer>
+</div>
+</main>
+<script>
+        // Check local storage or system preference
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark')
+        } else {
+            document.documentElement.classList.add('dark') // Defaulting to dark as requested by design aesthetic
+        }
+        // Simple toggle logic for the moon icon
+        const themeToggleBtn = document.querySelector('.fa-moon').parentElement;
+        themeToggleBtn.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            if (document.documentElement.classList.contains('dark')) {
+                localStorage.theme = 'dark';
+                document.querySelector('.fa-moon').classList.remove('fa-sun');
+                document.querySelector('.fa-moon').classList.add('fa-moon');
+            } else {
+                localStorage.theme = 'light';
+                document.querySelector('.fa-moon').classList.remove('fa-moon');
+                document.querySelector('.fa-moon').classList.add('fa-sun');
+            }
+        });
+    </script>
+
+</body></html>
