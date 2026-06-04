@@ -8,6 +8,8 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Filament\Pages\Dashboard\Concerns\HasFiltersForm;
+use Filament\Schemas\Components\Component;
+use Filament\Schemas\Components\EmbeddedSchema;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
@@ -34,6 +36,12 @@ class Dashboard extends BaseDashboard
     public function getSubheading(): string|\Illuminate\Contracts\Support\Htmlable|null
     {
         return null;
+    }
+
+    public function getFiltersFormContentComponent(): Component
+    {
+        return EmbeddedSchema::make('filtersForm')
+            ->columnSpanFull();
     }
 
     public function filtersForm(Schema $schema): Schema

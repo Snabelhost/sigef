@@ -17,6 +17,7 @@ class CandidatesByProvinceChart extends ChartWidget
     protected static ?int $sort = 2;
     protected int | string | array $columnSpan = 'full';
     protected ?string $pollingInterval = '30s';
+    protected ?string $maxHeight = '320px';
     protected static bool $isLazy = true;
 
     protected function getData(): array
@@ -108,5 +109,25 @@ class CandidatesByProvinceChart extends ChartWidget
     protected function getType(): string
     {
         return 'bar';
+    }
+
+    protected function getOptions(): array
+    {
+        return [
+            'aspectRatio' => 4.6,
+            'scales' => [
+                'y' => [
+                    'beginAtZero' => true,
+                    'ticks' => [
+                        'precision' => 0,
+                    ],
+                ],
+            ],
+            'plugins' => [
+                'legend' => [
+                    'display' => false,
+                ],
+            ],
+        ];
     }
 }

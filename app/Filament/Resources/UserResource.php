@@ -35,7 +35,12 @@ class UserResource extends Resource
     public static function form(Schema $form): Schema
     {
         return $form
-            ->schema([
+            ->schema(static::userFormSchema());
+    }
+
+    protected static function userFormSchema(): array
+    {
+        return [
                 \Filament\Schemas\Components\Section::make('Dados Pessoais')
                     ->schema([
                         Forms\Components\TextInput::make('name')
@@ -94,7 +99,7 @@ class UserResource extends Resource
                             ->required()
                             ->inline(false),
                     ])->columns(2)->columnSpanFull(),
-            ]);
+            ];
     }
 
     public static function table(Table $table): Table
@@ -146,6 +151,7 @@ class UserResource extends Resource
             ->headerActions([
                 \Filament\Actions\CreateAction::make()
                     ->icon('heroicon-o-plus')
+                    ->modalWidth(\Filament\Support\Enums\Width::SixExtraLarge)
                     ->modalSubmitAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-check')->label('Criar'))
                     ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger'))
                     ->createAnotherAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-plus-circle')->label('Salvar e criar outro'))
@@ -175,7 +181,20 @@ class UserResource extends Resource
                         ->label('Visualizar')
                         ->icon('heroicon-o-eye')
                         ->color('info')
-                        ->url(fn(User $record): string => static::getUrl('view', ['record' => $record])),
+                        ->modalHeading(fn(User $record): string => 'Visualizar Utilizador - ' . $record->name)
+                        ->modalDescription('Dados do utilizador em modo de visualização.')
+                        ->modalWidth(\Filament\Support\Enums\Width::SixExtraLarge)
+                        ->schema(static::userFormSchema())
+                        ->mutateRecordDataUsing(function (array $data, User $record): array {
+                            $record->loadMissing('roles');
+
+                            $data['roles'] = $record->roles->pluck('id')->all();
+                            $data['password'] = null;
+                            $data['password_confirmation'] = null;
+
+                            return $data;
+                        })
+                        ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Fechar')->color('danger')),
                     \Filament\Actions\Action::make('audit')
                         ->label('Auditoria')
                         ->icon('heroicon-o-clock')

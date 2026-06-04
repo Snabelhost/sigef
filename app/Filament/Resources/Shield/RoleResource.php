@@ -11,6 +11,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -19,6 +20,7 @@ use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
+use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Arrayable;
@@ -692,6 +694,19 @@ class RoleResource extends BaseRoleResource
             ])
             ->recordActions([
                 ActionGroup::make([
+                    ViewAction::make()
+                        ->label('Visualizar')
+                        ->icon('heroicon-o-eye')
+                        ->color('info')
+                        ->modalHeading(fn (Role $record): string => 'Visualizar Acesso - ' . static::roleLabel((string) $record->name))
+                        ->modalDescription('Dados do acesso em modo de visualizaÃ§Ã£o.')
+                        ->modalWidth(Width::Full)
+                        ->schema(fn (Schema $schema): Schema => static::form($schema))
+                        ->mutateRecordDataUsing(fn (array $data, Role $record): array => static::formDataWithPermissionState($data, $record))
+                        ->modalCancelAction(fn (TableAction $action) => $action
+                            ->icon('heroicon-o-x-mark')
+                            ->label('Fechar')
+                            ->color('danger')),
                     EditAction::make()
                         ->label('Editar')
                         ->icon('heroicon-o-pencil-square'),
