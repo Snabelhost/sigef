@@ -1,0 +1,219 @@
+/**
+ * SIGEF - Sistema Integrado de Gestão Formativa
+ * Custom Theme CSS - Cor Padrão: #041B4E
+ * Aplicado apenas em: Menu Lateral (Sidebar) e Títulos
+ */
+
+:root {
+    /* Cor Padrão SIGEF */
+    --sigef-primary: #041B4E;
+    --sigef-primary-light: #0a2d6e;
+    --sigef-primary-dark: #021030;
+    --sigef-primary-600: #2e508f;
+    /* Cor de Hover do Menu */
+    --sigef-menu-hover: #1a48ab;
+}
+
+/* ===== SIDEBAR / MENU LATERAL ===== */
+.fi-sidebar {
+    background: linear-gradient(180deg, var(--sigef-primary) 0%, var(--sigef-primary-dark) 100%) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.fi-sidebar-header {
+    background: rgba(0, 0, 0, 0.2) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.fi-sidebar-nav-groups {
+    padding: 0.5rem !important;
+}
+
+/* Links do Sidebar */
+.fi-sidebar-item {
+    margin-bottom: 2px !important;
+}
+
+.fi-sidebar-item-button {
+    color: #ffffff !important;
+    border-radius: 8px !important;
+    transition: all 0.2s ease !important;
+}
+
+.fi-sidebar-item-button:hover {
+    background: var(--sigef-menu-hover) !important;
+    color: #ffffff !important;
+}
+
+.fi-sidebar-item-button.fi-active {
+    background: var(--sigef-menu-hover) !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+}
+
+/* Ícones do Sidebar */
+.fi-sidebar-item-icon {
+    color: #ffffff !important;
+}
+
+.fi-sidebar-item-button:hover .fi-sidebar-item-icon,
+.fi-sidebar-item-button.fi-active .fi-sidebar-item-icon {
+    color: #ffffff !important;
+}
+
+/* Grupos do Sidebar */
+.fi-sidebar-group-label {
+    color: rgba(255, 255, 255, 0.5) !important;
+    font-size: 0.7rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.1em !important;
+    padding: 1rem 0.75rem 0.5rem !important;
+}
+
+/* Logo no Sidebar */
+.fi-logo {
+    color: #ffffff !important;
+}
+
+/* Sidebar brand */
+.fi-sidebar-header a {
+    color: #ffffff !important;
+}
+
+/* Navigation Groups */
+.fi-sidebar-group-button {
+    color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.fi-sidebar-group-button:hover {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Scrollbar da Sidebar */
+.fi-sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.fi-sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.fi-sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+.fi-sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* ===== TÍTULOS E HEADERS ===== */
+.fi-header-heading {
+    color: var(--sigef-primary) !important;
+    font-weight: 700 !important;
+}
+
+.fi-header-subheading {
+    color: var(--sigef-primary-600) !important;
+}
+
+/* Ícone do Header da Página (Listagem) - Forçar tamanho */
+.fi-header-heading svg,
+.fi-header svg,
+.fi-header .fi-icon-wrapper svg,
+[class*="fi-header"] svg,
+.fi-page-header svg,
+header svg.fi-icon {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    min-width: 2.5rem !important;
+    min-height: 2.5rem !important;
+    max-width: 2.5rem !important;
+    max-height: 2.5rem !important;
+}
+
+/* Forçar container do ícone */
+.fi-header .fi-icon,
+.fi-header-heading .fi-icon,
+[class*="fi-header"] .fi-icon {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* Section Headers */
+.fi-section-header-heading {
+    color: var(--sigef-primary) !important;
+    font-weight: 600 !important;
+}
+
+/* ===== DARK MODE - Manter sidebar consistente ===== */
+.dark .fi-sidebar {
+    background: linear-gradient(180deg, var(--sigef-primary) 0%, var(--sigef-primary-dark) 100%) !important;
+}
+
+.dark .fi-header-heading {
+    color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.dark .fi-section-header-heading {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* ===== ÍCONES NAS TABELAS DE LISTAGEM ===== */
+/* Ícones nas colunas da tabela */
+.fi-ta-icon svg,
+.fi-ta-text svg,
+.fi-ta-icon-item svg {
+    width: 2rem !important;
+    height: 2rem !important;
+}
+
+/* Ícones de ações na tabela (editar, excluir, etc.) */
+.fi-ta-actions svg,
+.fi-ta-row-action svg,
+.fi-icon-btn svg {
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+}
+
+/* Ícones de status/badges */
+.fi-badge svg,
+.fi-icon-item svg {
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+}
+
+/* Ícones gerais no painel */
+.fi-icon svg {
+    width: 2rem !important;
+    height: 2rem !important;
+}
+
+/* Ícones nos botões */
+.fi-btn svg {
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+}
+
+/* Ícones de navegação/breadcrumbs */
+.fi-breadcrumb svg {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+}
+
+/* Ícones no menu lateral */
+.fi-sidebar-item-icon svg {
+    width: 1.5rem !important;
+    height: 1.5rem !important;
+}
+
+/* Colunas de ícone na tabela */
+.fi-ta-icon-item {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}

@@ -1,0 +1,1474 @@
+/**
+ * SIGEF - Sistema Integrado de Gestão Formativa
+ * Custom Theme CSS - Cor Padrão: #041c4f
+ * Aplicado apenas em: Navegação do Menu Lateral (exceto header) e Títulos
+ */
+
+:root {
+    /* Cor Padrão SIGEF - Azul escuro */
+    --sigef-primary: #041c4f;
+    --sigef-primary-light: #0a2d6e;
+    --sigef-primary-dark: #021030;
+    --sigef-primary-600: #2e508f;
+    /* Cor de Hover do Menu - Azul/Roxo claro */
+    --sigef-menu-hover: #1a48ab;
+    /* Cor do Logo */
+    --sigef-logo-color: #041c4f;
+}
+
+/* ===== LOGO SIGEF ===== */
+.fi-logo,
+.fi-sidebar-header .fi-logo,
+.fi-sidebar-header a .fi-logo {
+    color: #041c4f !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
+    font-size: 1.5rem !important;
+    font-weight: 700 !important;
+}
+
+/* Garantir que o texto SIGEF apareça */
+.fi-sidebar-header .fi-logo span,
+.fi-sidebar-header a span,
+.fi-logo span {
+    color: #041c4f !important;
+    font-size: 1.25rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.05em !important;
+}
+
+/* Ícone SVG do logo */
+.fi-sidebar-header .fi-logo svg,
+.fi-sidebar-header a svg,
+.fi-logo svg {
+    width: 50px !important;
+    height: 50px !important;
+    min-width: 50px !important;
+    min-height: 50px !important;
+    flex-shrink: 0 !important;
+}
+
+/* Texto SIGEF no logo */
+.fi-sidebar-header .fi-logo span,
+.fi-sidebar-header a span,
+.fi-logo span {
+    color: #041c4f !important;
+    font-size: 26px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.05em !important;
+}
+
+.fi-logo::before {
+    content: none !important;
+}
+
+/* ===== OCULTAR BOTÃO SIGEF-SIDEBAR-TOGGLE DO TOPBAR ===== */
+/* Ocultar o botão #sigef-sidebar-toggle que está no topbar */
+/* O botão na sidebar permanece visível */
+#sigef-sidebar-toggle {
+    display: none !important;
+}
+
+/* OCULTAR BOTÃO NATIVO DE COLAPSO DO FILAMENT NA TOPBAR - APENAS DESKTOP */
+@media (min-width: 1024px) {
+
+    .fi-topbar-collapse-sidebar-btn-ctn,
+    .fi-topbar-close-collapse-sidebar-btn,
+    .fi-topbar-open-collapse-sidebar-btn {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        width: 0 !important;
+        height: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+        position: absolute !important;
+        left: -9999px !important;
+    }
+}
+
+/* MOSTRAR BOTÃO NATIVO NO MOBILE COM COR VISÍVEL */
+@media (max-width: 1023px) {
+
+    .fi-topbar-open-sidebar-btn,
+    .fi-topbar .fi-icon-btn,
+    button[x-on\\:click="$store.sidebar.open()"] {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        width: auto !important;
+        height: auto !important;
+        position: static !important;
+        color: #041c4f !important;
+        /* Cor azul escura visível */
+    }
+
+    .fi-topbar-open-sidebar-btn svg,
+    .fi-topbar .fi-icon-btn svg {
+        color: #041c4f !important;
+        stroke: #041c4f !important;
+        width: 40px !important;
+        height: 40px !important;
+    }
+}
+
+/* Ocultar TODOS os botões nativos de colapso do Filament - usamos o nosso customizado */
+.fi-sidebar .sidebar-toggle,
+.fi-sidebar-header .sidebar-toggle,
+.fi-sidebar #sigef-sidebar-toggle,
+.fi-sidebar-header #sigef-sidebar-toggle,
+.fi-sidebar-header>button,
+.fi-sidebar-header button[x-on\\:click*="sidebar"],
+button.fi-sidebar-close-btn,
+button.fi-sidebar-open-btn,
+.fi-sidebar-header nav+button,
+.fi-sidebar-header a+button,
+/* Filament 4 - botão de colapso específico */
+.fi-sidebar-header button[type="button"],
+.fi-sidebar button[x-show],
+.fi-sidebar-header~button,
+button[x-on\\:click="$store.sidebar.isOpen ? $store.sidebar.close() : $store.sidebar.open()"],
+.fi-layout>aside>header>button,
+aside.fi-sidebar>header>button,
+.fi-sidebar>header>button,
+.fi-sidebar header button:not(.brand-logo-btn),
+/* Botão de seta específico antes da logo */
+.fi-sidebar-header>button:first-child,
+.fi-sidebar-header button:first-of-type:not(.brand-logo-btn),
+header.fi-sidebar-header>button,
+.fi-sidebar-header>*:first-child:is(button),
+button[x-on\\:click*="$store.sidebar"],
+.fi-icon-btn-size-md,
+button.fi-icon-btn {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    position: absolute !important;
+    left: -9999px !important;
+}
+
+/* Garantir que nosso botão customizado permaneça visível */
+button.brand-logo-btn {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: auto !important;
+    height: auto !important;
+    position: static !important;
+    left: auto !important;
+}
+
+/* ===== SIDEBAR / MENU LATERAL (apenas área de navegação) ===== */
+/* Aplicar gradiente apenas na área de navegação, não no header */
+.fi-sidebar-nav {
+    background: linear-gradient(180deg, var(--sigef-primary) 0%, var(--sigef-primary-dark) 100%) !important;
+    border-right: none !important;
+}
+
+/* Forçar texto branco em TODOS os elementos do menu */
+.fi-sidebar-item-label,
+.fi-sidebar-item-button span,
+.fi-sidebar-nav span,
+.fi-sidebar-item-button .fi-sidebar-item-label {
+    color: #ffffff !important;
+}
+
+/* Ícone SVG do menu também branco */
+.fi-sidebar-item-button svg,
+.fi-sidebar-item-icon svg,
+.fi-sidebar-item svg,
+.fi-sidebar-nav svg,
+.fi-sidebar-group svg,
+.fi-sidebar-item-button .fi-sidebar-item-icon,
+.fi-sidebar-item-button .fi-sidebar-item-icon svg,
+/* Filament 4 específico */
+.fi-sidebar-item-button [class*="icon"],
+.fi-sidebar-item-button [class*="icon"] svg,
+.fi-sidebar-nav-groups svg,
+.fi-sidebar-nav-groups [class*="icon"],
+.fi-sidebar-nav [data-slot="icon"],
+.fi-sidebar-nav [data-slot="icon"] svg {
+    color: #ffffff !important;
+    fill: currentColor !important;
+}
+
+.fi-sidebar-nav-groups {
+    padding: 0.5rem !important;
+}
+
+/* Links do Sidebar */
+.fi-sidebar-item {
+    margin-bottom: 2px !important;
+}
+
+.fi-sidebar-item-button,
+.fi-sidebar-item-btn,
+.fi-sidebar-item a,
+.fi-sidebar-nav a {
+    color: #ffffff !important;
+    border-radius: 8px !important;
+    transition: all 0.2s ease !important;
+}
+
+/* HOVER - Cor #1a48ab ao passar o mouse */
+.fi-sidebar-item-button:hover,
+.fi-sidebar-item-btn:hover,
+.fi-sidebar-item a:hover,
+.fi-sidebar-nav a:hover,
+.fi-sidebar-item:hover>a,
+.fi-sidebar-item:hover>button,
+.fi-sidebar-item:hover .fi-sidebar-item-button,
+.fi-sidebar-item:hover .fi-sidebar-item-btn {
+    background: #1a48ab !important;
+    background-color: #1a48ab !important;
+    color: #ffffff !important;
+}
+
+.fi-sidebar-item-button.fi-active,
+.fi-sidebar-item>a.fi-active,
+.fi-sidebar-nav .fi-sidebar-item-button.fi-active,
+/* Seletor para quando fi-active está no LI pai */
+.fi-sidebar-item.fi-active .fi-sidebar-item-button,
+.fi-sidebar-item.fi-active>a,
+/* Sobrescrever classes Tailwind bg-gray-100 */
+.fi-sidebar-item-button.bg-gray-100,
+.fi-sidebar-nav .fi-sidebar-item-button.bg-gray-100,
+.dark .fi-sidebar-item-button.dark\:bg-white\/5 {
+    background: #1a48ab !important;
+    background-color: #1a48ab !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+}
+
+/* Ícones do Sidebar - garantir branco */
+.fi-sidebar-item-icon,
+.fi-sidebar-item-icon svg,
+.fi-sidebar-nav .fi-sidebar-item-icon,
+.fi-sidebar-nav .fi-sidebar-item-icon svg {
+    color: #ffffff !important;
+}
+
+.fi-sidebar-item-button:hover .fi-sidebar-item-icon,
+.fi-sidebar-item-button:hover .fi-sidebar-item-icon svg,
+.fi-sidebar-item-button.fi-active .fi-sidebar-item-icon,
+.fi-sidebar-item-button.fi-active .fi-sidebar-item-icon svg,
+.fi-sidebar-item-button:hover svg,
+.fi-sidebar-item-button.fi-active svg {
+    color: #ffffff !important;
+}
+
+/* Grupos do Sidebar */
+.fi-sidebar-group-label {
+    color: #a2a2ab !important;
+    font-size: 0.7rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.1em !important;
+    padding: 1rem 0.75rem 0.5rem !important;
+}
+
+/* Navigation Groups Buttons */
+.fi-sidebar-group-button {
+    color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.fi-sidebar-group-button:hover {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Badge de Notificação no Sidebar (ex: Funções) */
+.fi-sidebar-item-badge,
+.fi-sidebar-item-button .fi-badge,
+.fi-sidebar-nav .fi-badge,
+.fi-sidebar-item-button span.fi-badge,
+/* Elementos internos do badge */
+.fi-badge span,
+.fi-badge .truncate,
+.fi-badge .grid,
+.fi-sidebar-item-button .fi-badge span,
+.fi-sidebar-item-button .fi-badge .truncate,
+.fi-sidebar-nav .fi-badge span,
+.fi-sidebar-nav .fi-badge .truncate {
+    color: #ff0000 !important;
+}
+
+/* Badge do menu Funções (Shield) - todos os elementos */
+.fi-sidebar-item-button .min-w-\[theme\(spacing\.6\)\],
+.fi-sidebar-item-button .min-w-\[theme\(spacing\.6\)\] span,
+.fi-sidebar-item-button [class*="badge"],
+.fi-sidebar-item-button [class*="badge"] span,
+.fi-sidebar-item-button .rounded-md.text-xs,
+.fi-sidebar-item-button .rounded-md.text-xs span {
+    color: #ff0000 !important;
+}
+
+/* Scrollbar da Sidebar */
+.fi-sidebar-nav::-webkit-scrollbar {
+    width: 6px;
+}
+
+.fi-sidebar-nav::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.fi-sidebar-nav::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+.fi-sidebar-nav::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* ===== TÍTULOS E HEADERS ===== */
+.fi-header-heading {
+    color: var(--sigef-primary) !important;
+    font-weight: 700 !important;
+}
+
+.fi-header-subheading {
+    color: var(--sigef-primary-600) !important;
+}
+
+/* ===== ÍCONE DO HEADER DA PÁGINA (LISTAGEM) ===== */
+/* Forçar tamanho grande no ícone do header */
+.fi-header-heading svg,
+.fi-header svg,
+.fi-header .fi-icon svg,
+.fi-header-heading .fi-icon svg,
+[class*="fi-header"] .fi-icon svg,
+.fi-page-header svg,
+.fi-simple-header svg,
+header .fi-icon svg {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    min-width: 2.5rem !important;
+    min-height: 2.5rem !important;
+    max-width: 2.5rem !important;
+    max-height: 2.5rem !important;
+}
+
+/* Container do ícone no header */
+.fi-header .fi-icon,
+.fi-header-heading .fi-icon,
+[class*="fi-header"] .fi-icon,
+.fi-page-header .fi-icon,
+.fi-simple-header .fi-icon {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    min-width: 2.5rem !important;
+    min-height: 2.5rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+}
+
+/* Section Headers */
+.fi-section-header-heading {
+    color: var(--sigef-primary) !important;
+    font-weight: 600 !important;
+}
+
+/* ===== DARK MODE - Manter sidebar consistente ===== */
+.dark .fi-sidebar-nav {
+    background: linear-gradient(180deg, var(--sigef-primary) 0%, var(--sigef-primary-dark) 100%) !important;
+}
+
+.dark .fi-header-heading {
+    color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.dark .fi-section-header-heading {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* ===== BOTÃO DE TOGGLE DO SIDEBAR ===== */
+/* Estilo para o botão de colapsar/expandir sidebar - no header */
+.fi-sidebar-header button {
+    color: var(--sigef-primary) !important;
+}
+
+.fi-sidebar-header button:hover {
+    color: var(--sigef-primary-light) !important;
+    background: rgba(4, 28, 79, 0.1) !important;
+}
+
+/* Botões de colapsar/expandir na topbar móvel */
+.fi-sidebar-close-button,
+.fi-sidebar-open-button,
+.fi-topbar-close-sidebar-btn,
+.fi-topbar-open-sidebar-btn {
+    color: rgba(255, 255, 255, 0.9) !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 8px !important;
+    transition: all 0.2s ease !important;
+}
+
+.fi-sidebar-close-button:hover,
+.fi-sidebar-open-button:hover,
+.fi-topbar-close-sidebar-btn:hover,
+.fi-topbar-open-sidebar-btn:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
+}
+
+/* Botão de colapso na sidebar (footer) - OCULTAR pois usamos botão customizado no header */
+.fi-sidebar-footer,
+.fi-sidebar-footer button {
+    display: none !important;
+}
+
+/* ===== HOVER PARA BOTÕES GERAIS ===== */
+/* Botões primários */
+.fi-btn-primary:hover,
+.fi-btn:hover,
+button.fi-btn:hover {
+    background-color: #1a48ab !important;
+    border-color: #1a48ab !important;
+}
+
+/* Botões de ação na tabela */
+.fi-ta-btn:hover,
+.fi-action-btn:hover {
+    background-color: #1a48ab !important;
+    color: #ffffff !important;
+}
+
+/* Links de navegação na sidebar - força hover */
+.fi-sidebar-nav li:hover>a,
+.fi-sidebar-nav li:hover>button,
+[class*="fi-sidebar"] a:hover,
+[class*="fi-sidebar"] button:hover:not(.fi-sidebar-header button) {
+    background-color: #1a48ab !important;
+    color: #ffffff !important;
+}
+
+/* ========================================================================== */
+/* ===== MODO DARK - REMOVER CORES AZUIS CUSTOMIZADAS ===== */
+/* ===== Usa cores padrao do Filament no modo escuro ===== */
+/* ========================================================================== */
+
+/* Reset das cores azuis no modo dark - usar cores padrao Filament */
+.dark .fi-logo,
+.dark .fi-sidebar-header .fi-logo,
+.dark .fi-sidebar-header a .fi-logo,
+.dark .fi-logo span,
+.dark .fi-sidebar-header .fi-logo span,
+.dark .fi-sidebar-header a span {
+    color: inherit !important;
+}
+
+/* Sidebar no dark - remover gradiente azul, usar padrao */
+.dark .fi-sidebar-nav {
+    background: inherit !important;
+}
+
+/* Cabecalho tabelas no dark - usar cor padrao cinza */
+.dark .fi-ta-header-cell,
+.dark thead tr,
+.dark table thead tr {
+    background-color: inherit !important;
+}
+
+.dark .fi-ta-header-cell-label,
+.dark .fi-ta-header-cell span,
+.dark thead th,
+.dark thead th span,
+.dark thead th button,
+.dark thead th button span {
+    color: inherit !important;
+}
+
+/* Icones de ordenacao no dark */
+.dark .fi-ta-header-cell svg,
+.dark thead th svg {
+    color: inherit !important;
+    stroke: currentColor !important;
+}
+
+/* Botao toggle sidebar - branco no dark */
+.dark .brand-logo-btn svg {
+    stroke: #ffffff !important;
+}
+
+/* Botoes - usar cores padrao Filament */
+.dark .fi-btn,
+.dark .fi-btn-primary {
+    background-color: inherit !important;
+    border-color: unset !important;
+}
+
+.dark .fi-btn:hover,
+.dark .fi-btn-primary:hover {
+    background-color: inherit !important;
+}
+
+/* Menu lateral itens - usar cores padrao */
+.dark .fi-sidebar-item-button,
+.dark .fi-sidebar-item a {
+    color: inherit !important;
+    background-color: inherit !important;
+}
+
+.dark .fi-sidebar-item-button:hover,
+.dark .fi-sidebar-item a:hover {
+    background-color: inherit !important;
+}
+
+/* ========================================================================== */
+/* ===== MODO DARK - ELEMENTOS BRANCOS ===== */
+/* ========================================================================== */
+
+/* Logo SIGEF - texto branco no dark */
+.dark .fi-logo span,
+.dark .fi-sidebar-header span,
+.dark .fi-sidebar-header .fi-logo span,
+.dark .fi-sidebar-header a span,
+.dark div[style*="SIGEF"] span {
+    color: #ffffff !important;
+}
+
+/* Titulos das listagens - brancos */
+.dark h1,
+.dark .fi-header-heading,
+.dark .fi-page-header h1,
+.dark [class*="fi-header"] h1 {
+    color: #ffffff !important;
+}
+
+/* Subtitulos/descricoes */
+.dark .fi-header-subheading,
+.dark .fi-page-header p,
+.dark [class*="fi-header"] p {
+    color: #9ca3af !important;
+}
+
+/* Icones do cabecalho das listagens - brancos */
+.dark .fi-header svg,
+.dark .fi-page-header svg,
+.dark #dynamic-icon-container svg,
+.dark [id*="dynamic-icon"] svg,
+.dark .fi-header-heading svg {
+    color: #ffffff !important;
+    fill: #ffffff !important;
+    stroke: #ffffff !important;
+}
+
+/* Botao toggle sidebar - branco */
+.dark .brand-logo-btn svg {
+    stroke: #ffffff !important;
+}
+
+/* ========================================================================== */
+/* ===== MODO DARK - BOTOES E HOVER DO MENU ===== */
+/* ========================================================================== */
+
+/* Botao criar novo registro na listagem */
+.dark .fi-btn,
+.dark .fi-btn-primary,
+.dark button.fi-btn,
+.dark a.fi-btn {
+    background-color: #1a48ab !important;
+    border-color: #1a48ab !important;
+    color: #ffffff !important;
+}
+
+.dark .fi-btn:hover,
+.dark .fi-btn-primary:hover,
+.dark button.fi-btn:hover,
+.dark a.fi-btn:hover {
+    background-color: #4f5bd5 !important;
+    border-color: #4f5bd5 !important;
+}
+
+/* Botao criar no formulario/modal */
+.dark .fi-modal-footer .fi-btn,
+.dark .fi-form-actions .fi-btn,
+.dark .fi-ac-btn-action {
+    background-color: #1a48ab !important;
+    border-color: #1a48ab !important;
+    color: #ffffff !important;
+}
+
+/* Hover do menu lateral */
+.dark .fi-sidebar-item-button:hover,
+.dark .fi-sidebar-item a:hover,
+.dark .fi-sidebar-nav-item:hover>a,
+.dark .fi-sidebar-nav-item:hover>button,
+.dark [class*="fi-sidebar"] a:hover,
+.dark [class*="fi-sidebar"] button:hover:not(.brand-logo-btn) {
+    background-color: #1a48ab !important;
+    color: #ffffff !important;
+}
+
+/* Item ativo do menu */
+.dark .fi-sidebar-item-active,
+.dark .fi-sidebar-item-active a,
+.dark .fi-sidebar-item-active button {
+    background-color: #1a48ab !important;
+    color: #ffffff !important;
+}
+
+/* ========================================================================== */
+/* ===== MODO DARK - SUBSTITUIR TODOS OS AZUIS POR #1a48ab ===== */
+/* ========================================================================== */
+
+/* Links azuis */
+.dark a,
+.dark .fi-link,
+.dark [class*="text-primary"],
+.dark [class*="text-blue"],
+.dark .text-primary-600 {
+    color: #1a48ab !important;
+}
+
+/* Bordas azuis */
+.dark [class*="border-primary"],
+.dark [class*="border-blue"],
+.dark .border-primary-600 {
+    border-color: #1a48ab !important;
+}
+
+/* Backgrounds azuis */
+.dark [class*="bg-primary"],
+.dark [class*="bg-blue"],
+.dark .bg-primary-600 {
+    background-color: #1a48ab !important;
+}
+
+/* Rings/Focus azuis */
+.dark [class*="ring-primary"],
+.dark [class*="ring-blue"],
+.dark .ring-primary-600 {
+    --tw-ring-color: #1a48ab !important;
+}
+
+/* Badges azuis */
+.dark .fi-badge,
+.dark .fi-sidebar-item-badge {
+    background-color: #1a48ab !important;
+    color: #ffffff !important;
+}
+
+/* Tabs ativos */
+.dark .fi-tabs-tab-active,
+.dark [aria-selected="true"] {
+    border-color: #1a48ab !important;
+    color: #1a48ab !important;
+}
+
+/* Checkbox e Radio checked */
+.dark input[type="checkbox"]:checked,
+.dark input[type="radio"]:checked {
+    background-color: #1a48ab !important;
+    border-color: #1a48ab !important;
+}
+
+/* Toggle/Switch ativo */
+.dark .fi-toggle-on,
+.dark [aria-checked="true"] {
+    background-color: #1a48ab !important;
+}
+
+/* Pagination ativo */
+.dark .fi-pagination-item-active,
+.dark .pagination .active {
+    background-color: #1a48ab !important;
+    border-color: #1a48ab !important;
+}
+
+/* Icones azuis */
+.dark .text-primary-500 svg,
+.dark .text-primary-600 svg,
+.dark [class*="text-blue"] svg {
+    color: #1a48ab !important;
+}
+
+/* Stats/Widgets com cor primaria */
+.dark .fi-wi-stats-overview-stat-color-primary {
+    --c-400: #1a48ab !important;
+    --c-500: #1a48ab !important;
+    --c-600: #1a48ab !important;
+}
+
+/* Alerts info/primary */
+.dark .fi-alert-primary,
+.dark .fi-alert-info {
+    background-color: rgba(92, 105, 255, 0.1) !important;
+    border-color: #1a48ab !important;
+}
+
+/* Progress bars */
+.dark .fi-progress-bar {
+    background-color: #1a48ab !important;
+}
+
+/* ========================================================================== */
+/* ===== MODO DARK - AJUSTES FINAIS ===== */
+/* ========================================================================== */
+
+/* Botao excluir - manter cor padrao vermelha */
+.dark .fi-ac-action[style*="danger"],
+.dark .fi-btn-danger,
+.dark button[wire\\:click*="delete"],
+.dark a[wire\\:click*="delete"],
+.dark .text-danger-600,
+.dark [class*="danger"] {
+    background-color: #dc2626 !important;
+    border-color: #dc2626 !important;
+    color: #ffffff !important;
+}
+
+.dark .fi-link-danger,
+.dark .fi-ac-action-color-danger,
+.dark a[class*="danger"],
+.dark button[class*="danger"] {
+    color: #ef4444 !important;
+    background-color: transparent !important;
+}
+
+.dark .fi-link-danger:hover,
+.dark a[class*="danger"]:hover {
+    color: #f87171 !important;
+}
+
+/* Borda dos campos ao focar - #1a48ab */
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus,
+.dark .fi-input:focus,
+.dark .fi-select:focus,
+.dark [type="text"]:focus,
+.dark [type="email"]:focus,
+.dark [type="password"]:focus,
+.dark [type="number"]:focus,
+.dark [type="date"]:focus,
+.dark [type="search"]:focus {
+    border-color: #1a48ab !important;
+    box-shadow: 0 0 0 1px #1a48ab !important;
+    --tw-ring-color: #1a48ab !important;
+    outline: none !important;
+}
+
+/* Ring focus para todos os inputs */
+.dark .fi-input-wrp:focus-within,
+.dark .fi-fo-field-wrp:focus-within input,
+.dark .fi-fo-field-wrp:focus-within textarea,
+.dark .fi-fo-field-wrp:focus-within select {
+    border-color: #1a48ab !important;
+    --tw-ring-color: #1a48ab !important;
+}
+
+/* ========================================================================== */
+/* ===== MODO DARK - LOGO E ICONES DO CABECALHO ===== */
+/* ========================================================================== */
+
+/* Filtro de cor na Logo para branco */
+.dark .fi-sidebar-header img,
+.dark .fi-logo img,
+.dark img[alt*="SIGEF"],
+.dark img[alt*="Logo"],
+.dark img[src*="logo"] {
+    filter: brightness(0) invert(1) !important;
+}
+
+/*/* Icones do cabecalho das listagens - brancos */
+.dark .fi-header svg,
+.dark .fi-page-header svg,
+.dark #dynamic-icon-container svg,
+.dark [id*="dynamic-icon"] svg,
+.dark .fi-header-heading svg,
+.dark .fi-resource-header svg {
+    color: #ffffff !important;
+    fill: #ffffff !important;
+    stroke: #ffffff !important;
+}
+
+/* ========================================================================== */
+/* ===== MODO DARK - ICONES CABECALHO COM FUNDO #1a48ab ===== */
+/* ========================================================================== */
+
+/* Container do icone - fundo #1a48ab */
+.dark #dynamic-icon-container,
+.dark [id*="dynamic-icon"],
+.dark .fi-header-icon,
+.dark .fi-resource-header-icon,
+.dark .fi-page-header-icon {
+    background-color: #1a48ab !important;
+    border-radius: 8px !important;
+    padding: 8px !important;
+}
+
+/* SVG do icone - branco */
+.dark .fi-header svg,
+.dark .fi-page-header svg,
+.dark #dynamic-icon-container svg,
+.dark [id*="dynamic-icon"] svg,
+.dark .fi-header-heading svg,
+.dark .fi-resource-header svg,
+.dark .fi-header-icon svg,
+.dark .fi-page-header-icon svg {
+    color: #ffffff !important;
+    fill: #ffffff !important;
+    stroke: #ffffff !important;
+}
+
+/* ========================================================================== */
+/* ===== MODO DARK - ICONE DO CABECALHO CORRIGIDO ===== */
+/* ========================================================================== */
+
+/* Remover fundo azul escuro do container do icone */
+.dark .fi-header-icon,
+.dark .fi-resource-header-icon,
+.dark [class*="header-icon"],
+.dark .fi-page-header>div:first-child,
+.dark .fi-header>div>div:first-child {
+    background-color: transparent !important;
+    background: transparent !important;
+}
+
+/* Container do icone dinamico */
+.dark #dynamic-icon-container,
+.dark [id*="dynamic-icon"] {
+    background-color: #1a48ab !important;
+    background: #1a48ab !important;
+}
+
+/* O proprio icone SVG dentro */
+.dark #dynamic-icon-container svg,
+.dark [id*="dynamic-icon"] svg {
+    color: #ffffff !important;
+    fill: #ffffff !important;
+    stroke: #ffffff !important;
+}
+
+/* Fallback para outros containers de icone */
+.dark .rounded-lg[style*="background"],
+.dark .fi-header .rounded-lg {
+    background-color: #1a48ab !important;
+}
+
+/* ========================================================================== */
+/* ===== MODO DARK - ICONE CABECALHO CORRECAO FINAL ===== */
+/* ========================================================================== */
+
+/* Remover background do container do icone */
+.dark #sigef-dynamic-icon {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Icone SVG com cor #1a48ab */
+.dark #sigef-dynamic-icon svg {
+    color: #1a48ab !important;
+    fill: #1a48ab !important;
+}
+
+/* Filhos do SVG tambem */
+.dark #sigef-dynamic-icon svg path,
+.dark #sigef-dynamic-icon svg rect,
+.dark #sigef-dynamic-icon svg circle,
+.dark #sigef-dynamic-icon svg * {
+    fill: #1a48ab !important;
+    stroke: #1a48ab !important;
+}
+
+/* ===== ICONE SVG BRANCO ===== */
+.dark #sigef-dynamic-icon svg,
+.dark #sigef-dynamic-icon svg path,
+.dark #sigef-dynamic-icon svg rect,
+.dark #sigef-dynamic-icon svg circle,
+.dark #sigef-dynamic-icon svg * {
+    color: #ffffff !important;
+    fill: #ffffff !important;
+    stroke: #ffffff !important;
+}
+
+/* ========================================================================== */
+/* ===== MODO DARK - GRAFICOS COM CORES PADRAO ===== */
+/* ========================================================================== */
+
+/* Resetar cores dos graficos para usar padrao do tema */
+.dark .fi-wi-chart,
+.dark .fi-wi-stats-overview,
+.dark [class*="chart"],
+.dark canvas {
+    /* Usar cores padrao */
+}
+
+/* Cards dos graficos - fundo padrao */
+.dark .fi-wi-chart-container,
+.dark .fi-section,
+.dark .fi-card {
+    background-color: inherit !important;
+}
+
+/* Texto dos graficos */
+.dark .fi-wi-chart text,
+.dark .fi-wi-chart .chart-label,
+.dark [class*="chart"] text {
+    fill: #9ca3af !important;
+    color: #9ca3af !important;
+}
+
+/* Eixos dos graficos */
+.dark .fi-wi-chart line,
+.dark [class*="chart"] line {
+    stroke: #374151 !important;
+}
+
+/* Titulos dos widgets/graficos */
+.dark .fi-wi-chart-header,
+.dark .fi-card-header,
+.dark .fi-section-header {
+    color: #ffffff !important;
+}
+
+.dark .fi-wi-chart-header h3,
+.dark .fi-card-header h3,
+.dark .fi-section-header h3 {
+    color: #ffffff !important;
+}
+
+/* ========================================================================== */
+/* ===== MODO DARK - GRAFICOS SEM CUSTOMIZACAO ===== */
+/* ===== Deixar cores padrao do Filament/Chart.js ===== */
+/* ========================================================================== */
+
+/* Garantir que graficos nao sejam afetados por regras globais */
+.dark .fi-wi svg,
+.dark .fi-wi-chart svg,
+.dark .fi-wi-stats-overview svg,
+.dark [wire\\:id] svg:not(.fi-icon):not([class*="header"]) {
+    color: unset !important;
+    fill: unset !important;
+    stroke: unset !important;
+}
+
+/* Canvas dos graficos - nao alterar */
+.dark canvas {
+    filter: none !important;
+}
+
+/* Icone de notificacao no topbar */
+.dark .fi-topbar-database-notifications-btn,
+.dark .fi-notification-btn,
+.dark [class*="notification"] button {
+    color: #ffffff !important;
+}
+
+.dark .fi-topbar-database-notifications-btn:hover,
+.dark .fi-notification-btn:hover {
+    color: #1a48ab !important;
+}
+
+/* Badge de contagem de notificacoes */
+.dark .fi-topbar-database-notifications-btn .fi-badge,
+.dark .fi-notification-btn .fi-badge {
+    background-color: #ef4444 !important;
+    color: #ffffff !important;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ===== MODO DARK - AVATAR SEM FILTRO ===== */
+/* Remover filtro do avatar para manter fundo preto */
+.dark .fi-user-menu-trigger img,
+.dark .fi-avatar,
+.dark .fi-user-avatar,
+.dark img.fi-avatar,
+.dark img.fi-user-avatar {
+    filter: none !important;
+}
+
+/* ===== HOVER DO BOTAO SALVAR E CRIAR OUTRO ===== */
+.fi-modal-footer button:hover,
+.fi-modal-footer-actions button:hover,
+button[wire\\:click*="createAnother"]:hover,
+.fi-ac-action:hover {
+    color: #ffffff !important;
+}
+
+/* Icone dentro do botao tambem branco no hover */
+.fi-modal-footer button:hover svg,
+.fi-modal-footer-actions button:hover svg,
+button[wire\\:click*="createAnother"]:hover svg {
+    color: #ffffff !important;
+}
+
+/* ===== BOTAO SALVAR E CRIAR OUTRO - HOVER BRANCO ===== */
+/* Seletor correto usando atributo wire:click */
+button[wire\\:click*="another"]:hover,
+button[wire\\:click*="another"]:hover span {
+    color: #ffffff !important;
+}
+
+button[wire\\:click*="another"]:hover svg {
+    color: #ffffff !important;
+    stroke: #ffffff !important;
+}
+
+/* Botao cancelar vermelho */
+.fi-modal button.fi-color-danger,
+.fi-modal button[x-on\\:click*="close"] {
+    background-color: #e31212 !important;
+    border-color: #e31212 !important;
+}
+
+/* ===== BOTAO SALVAR E CRIAR OUTRO - FIX FINAL ===== */
+/* Usando seletor mais generico para botoes do modal */
+.fi-modal .fi-ac-btn-action:not(.fi-color-primary):not(.fi-color-danger):hover,
+.fi-modal .fi-ac-btn-action:not(.fi-color-primary):not(.fi-color-danger):hover * {
+    color: #ffffff !important;
+}
+
+/* Background do hover */
+.fi-modal .fi-ac-btn-action:not(.fi-color-primary):not(.fi-color-danger):hover {
+    background-color: #1a48ab !important;
+}
+
+/* ========================================================================== */
+/* ===== MODO DARK - BOTOES DO MODAL ===== */
+/* ========================================================================== */
+
+/* Botao Cancelar - vermelho #e31212 */
+.dark .fi-modal .fi-color-danger,
+.dark .fi-modal button.fi-color-danger {
+    background-color: #e31212 !important;
+    border-color: #e31212 !important;
+    color: #ffffff !important;
+}
+
+/* Botao Salvar e criar outro - icone branco */
+.dark .fi-modal .fi-ac-btn-action:not(.fi-color-primary):not(.fi-color-danger) svg,
+.dark .fi-modal .fi-ac-btn-action:not(.fi-color-primary):not(.fi-color-danger) .fi-icon {
+    color: #ffffff !important;
+    stroke: #ffffff !important;
+}
+
+/* Texto do botao Salvar e criar outro tambem branco */
+.dark .fi-modal .fi-ac-btn-action:not(.fi-color-primary):not(.fi-color-danger) span {
+    color: #ffffff !important;
+}
+
+/* ========================================================================== */
+/* ===== FIX FINAL - BOTOES MODAL DARK MODE ===== */
+/* ========================================================================== */
+
+/* Cancelar vermelho - seletores multiplos */
+.dark .fi-modal button.fi-color-danger,
+.dark .fi-modal .fi-btn.fi-color-danger,
+.dark .fi-ac-btn-action.fi-color-danger {
+    background-color: #e31212 !important;
+    border-color: #e31212 !important;
+    color: #ffffff !important;
+}
+
+/* Icone do Salvar e criar outro - branco */
+.dark .fi-modal .fi-ac-btn-action svg,
+.dark .fi-ac-btn-action svg {
+    color: #ffffff !important;
+}
+
+/* ========================================================================== */
+/* ===== MODO CLARO - CABECALHO DO MODAL ===== */
+/* ========================================================================== */
+
+/* Titulo do modal */
+.fi-modal-heading,
+.fi-modal h2,
+.fi-modal-header h2,
+.fi-modal [class*="heading"] {
+    color: #041842 !important;
+}
+
+/* ===== MODO CLARO - TITULO DO MODAL AZUL ===== */
+html:not(.dark) .fi-modal-header .fi-modal-heading,
+html:not(.dark) .fi-modal-heading,
+html:not(.dark) h2.fi-modal-heading {
+    color: #041842 !important;
+}
+
+/* ========================================================================== */
+/* ===== CABECALHO DO MODAL ESTILIZADO ===== */
+/* ========================================================================== */
+
+/* Fundo azul escuro no cabecalho do modal */
+.fi-modal-header {
+    background-color: #041842 !important;
+    padding: 1rem 1.5rem !important;
+    border-radius: 0.5rem 0.5rem 0 0 !important;
+}
+
+/* Titulo branco */
+.fi-modal-header .fi-modal-heading,
+.fi-modal-header h2 {
+    color: #ffffff !important;
+}
+
+/* Icone do modal branco */
+.fi-modal-header svg,
+.fi-modal-header .fi-icon {
+    color: #ffffff !important;
+}
+
+/* Botao fechar (X) branco */
+.fi-modal-header button,
+.fi-modal-close-button,
+.fi-modal-header [type="button"] {
+    color: #ffffff !important;
+}
+
+.fi-modal-header button:hover {
+    color: #e5e7eb !important;
+}
+
+/* ===== TEXTO DO CABECALHO DO MODAL BRANCO ===== */
+.fi-modal-heading,
+h2.fi-modal-heading,
+.fi-modal-header h2,
+.fi-modal-header .fi-modal-heading {
+    color: #ffffff !important;
+}
+
+/* ========================================================================== */
+/* ===== FIX FINAL - CABECALHO MODAL AZUL COM TEXTO BRANCO ===== */
+/* ========================================================================== */
+
+/* Fundo azul escuro e texto branco - alta especificidade */
+html .fi-modal .fi-modal-header,
+html.dark .fi-modal .fi-modal-header,
+html:not(.dark) .fi-modal .fi-modal-header {
+    background-color: #041842 !important;
+    padding: 1rem 1.5rem !important;
+}
+
+/* Titulo SEMPRE branco - maior especificidade */
+html .fi-modal .fi-modal-header .fi-modal-heading,
+html .fi-modal .fi-modal-header h2,
+html.dark .fi-modal .fi-modal-heading,
+html:not(.dark) .fi-modal .fi-modal-heading {
+    color: #ffffff !important;
+}
+
+/* Botao X branco */
+html .fi-modal .fi-modal-header button,
+html .fi-modal .fi-modal-close-button {
+    color: #ffffff !important;
+}
+
+html .fi-modal .fi-modal-header button svg {
+    color: #ffffff !important;
+}
+
+/* REMOVIDO - Usar cores padrao Filament */
+
+
+/* ========================================================================== */
+/* ===== CABECALHO DA TABELA - FUNDO AZUL #041842 ===== */
+/* ========================================================================== */
+
+/* Fundo azul do cabecalho */
+.fi-ta-header,
+.fi-ta-header-cell,
+thead tr,
+table thead,
+table thead tr,
+.fi-table thead,
+.fi-table thead tr {
+    background-color: #041842 !important;
+}
+
+/* Texto branco no cabecalho */
+.fi-ta-header-cell,
+.fi-ta-header-cell span,
+.fi-ta-header-cell button,
+.fi-ta-header-cell-label,
+thead th,
+thead th span,
+thead th button,
+.fi-table thead th {
+    color: #ffffff !important;
+}
+
+/* Icones de ordenacao brancos */
+.fi-ta-header-cell svg,
+thead th svg {
+    color: #ffffff !important;
+}
+
+/* Checkbox do cabecalho - borda branca */
+.fi-ta-header-cell input[type="checkbox"],
+thead th input[type="checkbox"] {
+    border-color: #ffffff !important;
+}
+
+/* ========================================================================== */
+/* ===== CABECALHO DA PAGINA (BOTAO CRIAR) - COR PADRAO ===== */
+/* ========================================================================== */
+
+/* Resetar o header da pagina para cor padrao */
+.fi-header,
+.fi-simple-header,
+.fi-page-header,
+.fi-resource-header {
+    background-color: transparent !important;
+}
+
+/* Texto do titulo da pagina - cor padrao */
+.fi-header-heading,
+.fi-simple-header-heading,
+.fi-page-header-heading {
+    color: inherit !important;
+}
+
+/* Subtitulo - cor padrao */
+.fi-header-subheading,
+.fi-simple-header-subheading {
+    color: inherit !important;
+}
+
+/* ===== RESETAR FUNDO DO HEADER DA TABELA (AREA DO BOTAO) ===== */
+.fi-ta-header,
+.fi-ta-header-adaptive-actions-position {
+    background-color: transparent !important;
+    background: transparent !important;
+}
+
+/* ========================================================================== */
+/* ===== MODO DARK - REMOVER COR AZUL DO CABECALHO ===== */
+/* ========================================================================== */
+
+/* Cabecalho da tabela/grid - usar cor padrao no dark */
+.dark .fi-ta-header,
+.dark .fi-ta-header-cell,
+.dark thead tr,
+.dark table thead,
+.dark table thead tr,
+.dark .fi-table thead,
+.dark .fi-table thead tr {
+    background-color: inherit !important;
+}
+
+/* Texto do cabecalho - cor padrao no dark */
+.dark .fi-ta-header-cell,
+.dark .fi-ta-header-cell span,
+.dark .fi-ta-header-cell button,
+.dark .fi-ta-header-cell-label,
+.dark thead th,
+.dark thead th span,
+.dark thead th button,
+.dark .fi-table thead th {
+    color: inherit !important;
+}
+
+/* Icones de ordenacao - cor padrao no dark */
+.dark .fi-ta-header-cell svg,
+.dark thead th svg {
+    color: inherit !important;
+}
+
+/* Checkbox do cabecalho - cor padrao no dark */
+.dark .fi-ta-header-cell input[type="checkbox"],
+.dark thead th input[type="checkbox"] {
+    border-color: inherit !important;
+}
+
+/* Cabecalho do modal/formulario - cor padrao no dark */
+.dark .fi-modal-header {
+    background-color: inherit !important;
+}
+
+.dark .fi-modal-header .fi-modal-heading,
+.dark .fi-modal-header h2 {
+    color: inherit !important;
+}
+
+.dark .fi-modal-header button,
+.dark .fi-modal-header svg {
+    color: inherit !important;
+}
+
+/* ===== MODO DARK - FORCAR REMOCAO COR AZUL DO MODAL ===== */
+html.dark .fi-modal-header,
+html.dark .fi-modal .fi-modal-header,
+.dark .fi-modal-header,
+.dark .fi-modal .fi-modal-header {
+    background-color: rgb(31, 41, 55) !important;
+    background: rgb(31, 41, 55) !important;
+}
+
+html.dark .fi-modal-heading,
+html.dark .fi-modal-header .fi-modal-heading,
+html.dark .fi-modal-header h2,
+.dark .fi-modal-heading,
+.dark h2.fi-modal-heading {
+    color: rgb(255, 255, 255) !important;
+}
+
+html.dark .fi-modal-header button,
+html.dark .fi-modal-header button svg,
+.dark .fi-modal-header button,
+.dark .fi-modal-header button svg {
+    color: rgb(255, 255, 255) !important;
+}
+
+/* ===== MODO DARK - CABECALHO MODAL SEM FUNDO ===== */
+html.dark .fi-modal-header,
+html.dark .fi-modal .fi-modal-header,
+.dark .fi-modal-header,
+.dark .fi-modal .fi-modal-header {
+    background-color: transparent !important;
+    background: transparent !important;
+}
+
+/* ========================================================================== */
+/* ===== MODO DARK - BADGE SIDEBAR AMARELO ===== */
+/* ========================================================================== */
+
+/* Badge de contagem na sidebar - amarelo no dark */
+.dark .fi-sidebar-item-badge-ctn,
+.dark .fi-sidebar-item-badge,
+.dark .fi-sidebar-nav .fi-badge,
+.dark .fi-sidebar-item-badge-ctn .fi-badge {
+    background-color: #fbbf24 !important;
+    color: #000000 !important;
+}
+
+.dark .fi-sidebar-item-badge-ctn span,
+.dark .fi-sidebar-item-badge span,
+.dark .fi-sidebar-nav .fi-badge span {
+    color: #000000 !important;
+}
+
+/* ===== MODO DARK - RADIO BUTTON AMARELO ===== */
+.dark .fi-sidebar-item-badge-ctn input[type="radio"],
+.dark .fi-radio,
+.dark input[type="radio"]:checked {
+    accent-color: #fbbf24 !important;
+    border-color: #fbbf24 !important;
+}
+
+.dark input[type="radio"]:checked {
+    background-color: #fbbf24 !important;
+}
+
+/* ===== MODO DARK - BADGE ARREDONDADO (PILL) ===== */
+.dark .fi-sidebar-item-badge-ctn,
+.dark .fi-sidebar-item-badge,
+.dark .fi-sidebar-nav .fi-badge,
+.dark .fi-sidebar-item-badge-ctn .fi-badge {
+    border-radius: 10px !important;
+    padding: 0.125rem 0.5rem !important;
+}
+
+/* ========================================================================== */
+/* ===== WIDGET GESTAO DE FORMANDOS - ESPAÇAMENTO ===== */
+/* ========================================================================== */
+
+/* Adicionar margem superior ao widget de tabela no dashboard */
+.fi-wi-table,
+[wire\:id] .fi-ta,
+.fi-widgets-container>div:last-child {
+    margin-top: 10px !important;
+}
+
+/* ========================================================================== */
+/* ===== CONTEÚDO FULL-WIDTH - REDUZIR ESPAÇO LATERAL ===== */
+/* ========================================================================== */
+
+/* Override da classe fi-width-7xl que limita max-width a 1280px */
+.fi-main.fi-width-7xl,
+main.fi-main.fi-width-7xl,
+.fi-width-7xl {
+    max-width: 100% !important;
+    width: 100% !important;
+}
+
+/* Desktop grande (>1440px) - padding confortável */
+.fi-main,
+main.fi-main {
+    padding-left: 3rem !important;
+    padding-right: 3rem !important;
+}
+
+/* Laptop (1024px - 1440px) */
+@media (max-width: 1440px) {
+
+    .fi-main,
+    main.fi-main {
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+    }
+}
+
+/* Tablet (768px - 1024px) */
+@media (max-width: 1024px) {
+
+    .fi-main,
+    main.fi-main {
+        padding-left: 1.5rem !important;
+        padding-right: 1.5rem !important;
+    }
+}
+
+/* Mobile (<768px) */
+@media (max-width: 768px) {
+
+    .fi-main,
+    main.fi-main {
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+    }
+}
+
+/* Force dashboard filter fields (Escola, Data Início, Data Fim) on one line for >= 768px */
+@media (min-width: 768px) {
+    .fi-page .fi-page-content>.fi-sc>.fi-grid-col>.fi-sc-component>.fi-sc.fi-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+
+    .fi-page .fi-page-content>.fi-sc>.fi-grid-col>.fi-sc-component>.fi-sc.fi-grid>.fi-grid-col {
+        grid-column: span 1 / span 1 !important;
+    }
+}
+
+/* ===== STATS DETAIL MODAL - Centralizar verticalmente ===== */
+.fi-modal.fi-stats-detail-modal .fi-modal-window-ctn {
+    align-items: center !important;
+}
+
+.fi-modal.fi-stats-detail-modal .fi-modal-window {
+    max-height: 90vh;
+    overflow-y: auto;
+}
+/* Bulk action buttons - white icons */
+.fi-ta-bulk-actions button[style*='059669'] svg,
+.fi-ta-bulk-actions button[style*='2563EB'] svg,
+.fi-ta-bulk-actions button[style*='D97706'] svg,
+.fi-ta-bulk-actions button[style*='11ba82'] svg {
+    color: white !important;
+}
