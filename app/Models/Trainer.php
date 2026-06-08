@@ -18,17 +18,31 @@ class Trainer extends Model implements Auditable
         'nip',
         'bilhete',
         'gender',
+        'country_origin',
+        'province',
+        'birth_date',
+        'situation',
         'rank_id',
         'organ',
         'education_level',
+        'specialization',
+        'job_function',
+        'department',
         'phone',
+        'email',
+        'father_name',
+        'mother_name',
+        'admission_date',
         'trainer_type',
         'photo',
+        'biography',
         'is_active',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'birth_date' => 'date',
+        'admission_date' => 'date',
     ];
 
     public function institution()

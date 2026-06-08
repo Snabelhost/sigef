@@ -20,6 +20,6 @@ class EditCourseMap extends EditRecord
 
     public function getTitle(): string
     {
-        return 'Editar Mapa de Curso';
+        return 'Editar Mapa e Plano de Curso';
     }
 }

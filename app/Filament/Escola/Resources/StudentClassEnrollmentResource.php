@@ -201,8 +201,7 @@ class StudentClassEnrollmentResource extends Resource
             Tables\Filters\SelectFilter::make('institution_id')
                 ->label('Instituição')
                 ->relationship('institution', 'name')
-                ->searchable()
-                ->preload(),
+                ->searchable(),
             Tables\Filters\SelectFilter::make('cia')
                 ->label('CIA')
                 ->options(fn() => Student::whereNotNull('cia')->distinct()->pluck('cia', 'cia'))
@@ -233,7 +232,6 @@ class StudentClassEnrollmentResource extends Resource
                 ->label('Província')
                 ->options(\App\Models\Province::orderBy('name')->pluck('name', 'id'))
                 ->searchable()
-                ->preload()
                 ->query(function ($query, array $data) {
                     if (!empty($data['value'])) {
                         return $query->whereHas('candidate', function ($q) use ($data) {
@@ -246,7 +244,6 @@ class StudentClassEnrollmentResource extends Resource
                 ->label('Município')
                 ->options(\App\Models\Municipality::orderBy('name')->pluck('name', 'id'))
                 ->searchable()
-                ->preload()
                 ->query(function ($query, array $data) {
                     if (!empty($data['value'])) {
                         return $query->whereHas('candidate', function ($q) use ($data) {

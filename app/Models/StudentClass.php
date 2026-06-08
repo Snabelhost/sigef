@@ -18,7 +18,14 @@ class StudentClass extends Model implements Auditable
         'course_map_id',
         'course_plan_id',
         'name',
+        'capacity',
+        'room_number',
+        'shift',
         'academic_year_id',
+    ];
+
+    protected $casts = [
+        'capacity' => 'integer',
     ];
 
     public function institution()

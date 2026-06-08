@@ -13,7 +13,8 @@ class ListTrainers extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            Actions\CreateAction::make()
+                ->modalWidth(\Filament\Support\Enums\Width::ScreenExtraLarge),
         ];
     }
 }

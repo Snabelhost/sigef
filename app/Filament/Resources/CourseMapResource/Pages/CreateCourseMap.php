@@ -12,6 +12,6 @@ class CreateCourseMap extends CreateRecord
 
     public function getTitle(): string
     {
-        return 'Criar Mapa de Curso';
+        return 'Criar Mapa e Plano de Curso';
     }
 }

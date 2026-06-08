@@ -55,13 +55,20 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn() => '
-                    <link rel="stylesheet" href="/css/sigef-theme.css?v=' . time() . '">
+                function (): string {
+                    $themeVersion = @filemtime(public_path('css/sigef-theme.css')) ?: time();
+                    $layoutVersion = @filemtime(public_path('js/sigef-layout-stability.js')) ?: time();
+                    $photoVersion = @filemtime(public_path('js/sigef-photo-upload.js')) ?: time();
+
+                    return '
+                    <link rel="stylesheet" href="/css/sigef-theme.css?v=' . $themeVersion . '">
                     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
                     <link rel="icon" type="image/png" href="/favicon.png">
                     <link rel="shortcut icon" href="/favicon.png">
                     <link rel="apple-touch-icon" href="/favicon.png">
                     <script src="/js/favicon-inject.js"></script>
+                    <script src="/js/sigef-layout-stability.js?v=' . $layoutVersion . '" defer></script>
+                    <script src="/js/sigef-photo-upload.js?v=' . $photoVersion . '" defer></script>
                     <script>
                         // Remover botão nativo de colapso do Filament
                         document.addEventListener("DOMContentLoaded", function() {
@@ -84,7 +91,8 @@ class AdminPanelProvider extends PanelProvider
                             setTimeout(removeNativeCollapseButton, 1000);
                         });
                     </script>
-                '
+                ';
+                }
             )
             ->renderHook(
                 PanelsRenderHook::CONTENT_START,

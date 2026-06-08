@@ -32,7 +32,12 @@ class SubjectResource extends Resource
     public static function form(Schema $form): Schema
     {
         return $form
-            ->schema([
+            ->schema(static::subjectFormSchema());
+    }
+
+    protected static function subjectFormSchema(): array
+    {
+        return [
                 Forms\Components\TextInput::make('name')
                     ->label('Nome da Disciplina')
                     ->required()
@@ -65,7 +70,7 @@ class SubjectResource extends Resource
                     ->label('Descrição')
                     ->rows(2)
                     ->columnSpanFull(),
-            ]);
+        ];
     }
 
     protected static function handlePhaseData(array &$data): void
@@ -136,7 +141,7 @@ class SubjectResource extends Resource
             ->headerActions([
                 \Filament\Actions\CreateAction::make()
                     ->icon('heroicon-o-plus')
-                    ->modalWidth('3xl')
+                    ->modalWidth('4xl')
                     ->mutateFormDataUsing(function (array $data): array {
                         static::handlePhaseData($data);
                         return $data;
@@ -150,6 +155,18 @@ class SubjectResource extends Resource
             ])
             ->actions([
                 \Filament\Actions\ActionGroup::make([
+                    \Filament\Actions\ViewAction::make()
+                        ->label('Visualizar')
+                        ->icon('heroicon-o-eye')
+                        ->color('info')
+                        ->modalHeading('Visualizar Disciplina')
+                        ->modalWidth('4xl')
+                        ->schema(static::subjectFormSchema())
+                        ->mutateRecordDataUsing(fn (array $data, Subject $record): array => [
+                            ...$data,
+                            'course_id_helper' => $record->phase?->course_id,
+                        ])
+                        ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Fechar')->color('danger')),
                     \Filament\Actions\EditAction::make()
                         ->icon('heroicon-o-pencil-square')
                         ->modalWidth('3xl')

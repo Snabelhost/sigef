@@ -4,17 +4,33 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\TrainerResource\Pages;
 use App\Filament\Resources\TrainerResource\RelationManagers;
+use App\Models\AcademicYear;
+use App\Models\Course;
+use App\Models\CourseMap;
+use App\Models\CoursePhase;
+use App\Models\Institution;
+use App\Models\Province;
+use App\Models\StudentClass;
+use App\Models\Subject;
 use App\Models\Trainer;
+use App\Models\TrainerClassAssignment;
+use App\Models\TrainerSubjectAuthorization;
 use Filament\Forms;
 use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Filament\Infolists;
-use Filament\Infolists\Infolist;
+use Filament\Notifications\Notification;
+use Filament\Support\Enums\Width;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\HtmlString;
+use Illuminate\Support\Str;
 use Closure;
+use Throwable;
 
 class TrainerResource extends Resource
 {
@@ -28,10 +44,1356 @@ class TrainerResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['rank', 'institution']);
+        return parent::getEloquentQuery()
+            ->with(['rank', 'institution'])
+            ->withCount([
+                'classAssignments as teaching_times_count',
+                'classAssignments as assigned_subjects_count' => fn (Builder $query) => $query
+                    ->select(DB::raw('count(distinct subject_id)')),
+                'classAssignments as assigned_classes_count' => fn (Builder $query) => $query
+                    ->select(DB::raw('count(distinct class_id)')),
+            ]);
     }
 
     public static function form(Schema $form): Schema
+    {
+        return $form
+            ->schema(static::trainerFormSchema());
+    }
+
+    protected static function trainerFormSchema(): array
+    {
+        return [
+            \Filament\Schemas\Components\Tabs::make('trainer_tabs')
+                ->tabs([
+                    \Filament\Schemas\Components\Tabs\Tab::make('Dados profissionais')
+                        ->icon('heroicon-o-briefcase')
+                        ->schema(static::professionalDataTabSchemaV2()),
+                    \Filament\Schemas\Components\Tabs\Tab::make('Disciplinas e Turmas')
+                        ->icon('heroicon-o-academic-cap')
+                        ->schema(static::subjectsAndClassesTabSchema()),
+                    \Filament\Schemas\Components\Tabs\Tab::make('Carga docente')
+                        ->icon('heroicon-o-clock')
+                        ->schema(static::teachingLoadTabSchema()),
+                ])
+                ->columnSpanFull(),
+        ];
+    }
+
+    protected static function professionalDataTabSchemaV2(): array
+    {
+        return [
+            \Filament\Schemas\Components\Section::make('Dados profissionais')
+                ->schema([
+                    \Filament\Schemas\Components\Html::make(static::trainerPhotoUploadStyles()),
+
+                    \Filament\Schemas\Components\Grid::make([
+                        'default' => 1,
+                        'lg' => 12,
+                    ])
+                        ->schema([
+                            \Filament\Schemas\Components\Group::make([
+                                Forms\Components\FileUpload::make('photo')
+                                    ->label('Foto')
+                                    ->hiddenLabel()
+                                    ->image()
+                                    ->disk('public')
+                                    ->directory('trainers')
+                                    ->acceptedFileTypes(['image/*'])
+                                    ->extraInputAttributes([
+                                        'accept' => 'image/*',
+                                        'data-sigef-photo-input' => 'true',
+                                    ])
+                                    ->extraAttributes([
+                                        'class' => 'sigef-trainer-photo-upload',
+                                        'data-sigef-photo-upload' => 'trainer',
+                                    ])
+                                    ->imageEditor()
+                                    ->imagePreviewHeight('10rem')
+                                    ->panelAspectRatio('1:1')
+                                    ->panelLayout('integrated')
+                                    ->placeholder(static::trainerPhotoUploadPlaceholder())
+                                    ->maxSize(4096),
+                                \Filament\Schemas\Components\Html::make(static::trainerPhotoUploadActions()),
+                            ])
+                                ->columnSpan([
+                                    'default' => 1,
+                                    'lg' => 3,
+                                ]),
+
+                            \Filament\Schemas\Components\Grid::make([
+                                'default' => 1,
+                                'md' => 2,
+                            ])
+                                ->schema([
+                                    Forms\Components\ToggleButtons::make('trainer_type')
+                                        ->label('Tipo de Formador')
+                                        ->options([
+                                            'Fardado' => 'Regime Especial',
+                                            'Civil' => 'Regime Geral',
+                                        ])
+                                        ->icons([
+                                            'Fardado' => 'heroicon-o-shield-check',
+                                            'Civil' => 'heroicon-o-user',
+                                        ])
+                                        ->extraAttributes([
+                                            'class' => 'sigef-trainer-type-toggle',
+                                        ])
+                                        ->default('Fardado')
+                                        ->inline()
+                                        ->grouped()
+                                        ->required()
+                                        ->live()
+                                        ->afterStateUpdated(function (?string $state, callable $set): void {
+                                            if ($state === 'Civil') {
+                                                $set('rank_id', null);
+                                                $set('organ', null);
+                                            }
+                                        })
+                                        ->columnSpanFull(),
+                                    Forms\Components\TextInput::make('nip')
+                                        ->label('NIP')
+                                        ->placeholder('Ex: PROF-001')
+                                        ->unique(ignoreRecord: true)
+                                        ->maxLength(191)
+                                        ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get): bool => $get('trainer_type') !== 'Civil'),
+                                    Forms\Components\TextInput::make('bilhete')
+                                        ->label('Bilhete de Identidade')
+                                        ->placeholder('Ex: 002976322LA032')
+                                        ->live(onBlur: true)
+                                        ->afterStateUpdated(function (?string $state, callable $set): void {
+                                            static::fillTrainerDataFromIdentityCard($state, $set);
+                                        })
+                                        ->mutateStateForValidationUsing(fn (?string $state): ?string => static::normalizeIdentityDocument($state))
+                                        ->dehydrateStateUsing(fn (?string $state): ?string => static::normalizeIdentityDocument($state))
+                                        ->unique(ignoreRecord: true)
+                                        ->maxLength(191)
+                                        ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get): bool => $get('trainer_type') === 'Civil'),
+                                    Forms\Components\TextInput::make('full_name')
+                                        ->label('Nome Completo')
+                                        ->required()
+                                        ->maxLength(191)
+                                        ->unique(ignoreRecord: true)
+                                        ->validationMessages([
+                                            'unique' => 'Já existe um formador com este nome.',
+                                        ]),
+                                ])
+                                ->columnSpan([
+                                    'default' => 1,
+                                    'lg' => 9,
+                                ]),
+                        ])
+                        ->columnSpanFull(),
+
+                    \Filament\Schemas\Components\Grid::make([
+                        'default' => 1,
+                        'md' => 2,
+                        'xl' => 3,
+                    ])
+                        ->schema([
+                            Forms\Components\Select::make('gender')
+                                ->label('Sexo')
+                                ->options([
+                                    'Masculino' => 'Masculino',
+                                    'Feminino' => 'Feminino',
+                                ])
+                                ->required()
+                                ->searchable()
+                                ->preload(),
+                            Forms\Components\Select::make('country_origin')
+                                ->label('País de Origem')
+                                ->options(static::countryOptions())
+                                ->default('Angola')
+                                ->searchable()
+                                ->preload(),
+                            Forms\Components\Select::make('province')
+                                ->label('Província')
+                                ->options(fn (): array => Province::query()->orderBy('name')->pluck('name', 'name')->toArray())
+                                ->searchable()
+                                ->preload(),
+                            Forms\Components\DatePicker::make('birth_date')
+                                ->label('Data de nascimento')
+                                ->native(false)
+                                ->displayFormat('d/m/Y'),
+                            Forms\Components\Select::make('rank_id')
+                                ->label('Patente')
+                                ->relationship('rank', 'name')
+                                ->searchable()
+                                ->preload()
+                                ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get): bool => $get('trainer_type') !== 'Civil'),
+                            Forms\Components\Select::make('education_level')
+                                ->label('Grau Académico')
+                                ->options(static::educationLevelOptions())
+                                ->searchable()
+                                ->preload(),
+                            Forms\Components\Select::make('situation')
+                                ->label('Situação')
+                                ->options([
+                                    'Efectivo' => 'Efectivo',
+                                    'Contratado' => 'Contratado',
+                                    'Convidado' => 'Convidado',
+                                    'Reformado' => 'Reformado',
+                                    'Inactivo' => 'Inactivo',
+                                ])
+                                ->default('Efectivo')
+                                ->searchable()
+                                ->preload(),
+                            Forms\Components\TextInput::make('specialization')
+                                ->label('Especialização')
+                                ->placeholder('Ex: Direito Penal, Ciências Policiais')
+                                ->maxLength(191),
+                            Forms\Components\TextInput::make('job_function')
+                                ->label('Função')
+                                ->placeholder('Ex: Formador de Direito Penal')
+                                ->maxLength(191),
+                            Forms\Components\TextInput::make('department')
+                                ->label('Departamento')
+                                ->maxLength(191),
+                            Forms\Components\Select::make('organ')
+                                ->label('Órgão de colocação / proveniência')
+                                ->options(fn (): array => \App\Models\Provenance::orderBy('name')->get()->mapWithKeys(fn ($p) => [$p->name => $p->acronym ? "{$p->name} ({$p->acronym})" : $p->name])->toArray())
+                                ->searchable()
+                                ->preload()
+                                ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get): bool => $get('trainer_type') !== 'Civil'),
+                            Forms\Components\TextInput::make('phone')
+                                ->label('Telefone')
+                                ->tel()
+                                ->prefix('+244')
+                                ->placeholder('9XX XXX XXX')
+                                ->mask('999 999 999')
+                                ->maxLength(191),
+                            Forms\Components\Select::make('institution_id')
+                                ->label('Escola')
+                                ->options(fn (): array => Institution::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                                ->searchable()
+                                ->preload(),
+                            Forms\Components\TextInput::make('email')
+                                ->label('E-mail')
+                                ->email()
+                                ->placeholder('Opcional - será gerado automaticamente')
+                                ->maxLength(191),
+                            Forms\Components\TextInput::make('father_name')
+                                ->label('Nome do pai')
+                                ->maxLength(191),
+                            Forms\Components\TextInput::make('mother_name')
+                                ->label('Nome da mãe')
+                                ->maxLength(191),
+                            Forms\Components\DatePicker::make('admission_date')
+                                ->label('Data de Admissão')
+                                ->native(false)
+                                ->displayFormat('d/m/Y'),
+                            Forms\Components\Toggle::make('is_active')
+                                ->label('Activo')
+                                ->default(true)
+                                ->required(),
+                        ])
+                        ->columnSpanFull(),
+
+                    Forms\Components\Textarea::make('biography')
+                        ->label('Biografia')
+                        ->placeholder('Resumo profissional, experiência académica e áreas de investigação.')
+                        ->rows(3)
+                        ->columnSpanFull(),
+                ])
+                ->columnSpanFull(),
+        ];
+    }
+
+    protected static function trainerPhotoUploadPlaceholder(): string
+    {
+        return '<span class="sigef-photo-idle">'
+            . '<span class="sigef-photo-camera" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 4.5 7.6 7H5.5A2.5 2.5 0 0 0 3 9.5v8A2.5 2.5 0 0 0 5.5 20h13a2.5 2.5 0 0 0 2.5-2.5v-8A2.5 2.5 0 0 0 18.5 7h-2.1L15 4.5H9Zm3 13a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9Zm0-2a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/></svg></span>'
+            . '</span>';
+    }
+
+    protected static function trainerPhotoUploadActions(): HtmlString
+    {
+        return new HtmlString(
+            '<div class="sigef-photo-actions" data-sigef-photo-actions="trainer">'
+            . '<button type="button" class="sigef-photo-action sigef-photo-action-primary" data-sigef-photo-action="capture"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-9A2.5 2.5 0 0 0 3 6.5v11A2.5 2.5 0 0 0 5.5 20h13a2.5 2.5 0 0 0 2.5-2.5v-8A2.5 2.5 0 0 0 18.5 7H17l-2.5-3Z"/><circle cx="12" cy="13" r="3"/></svg><span>Capturar</span></button>'
+            . '<button type="button" class="sigef-photo-action sigef-photo-action-secondary" data-sigef-photo-action="upload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span>Carregar</span></button>'
+            . '</div>'
+        );
+    }
+
+    protected static function trainerPhotoUploadStyles(): HtmlString
+    {
+        return new HtmlString(<<<'HTML'
+<style>
+    .sigef-trainer-photo-upload {
+        width: 10.25rem;
+        max-width: 10.25rem;
+    }
+
+    .sigef-trainer-photo-upload .filepond--root {
+        width: 10rem !important;
+        height: 10rem !important;
+        min-height: 10rem !important;
+        margin-bottom: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        overflow: visible;
+    }
+
+    .sigef-trainer-photo-upload .filepond--drop-label {
+        display: grid !important;
+        height: 10rem !important;
+        min-height: 10rem;
+        align-items: center !important;
+        justify-items: center !important;
+        place-items: center !important;
+        color: inherit;
+        cursor: pointer;
+        overflow: visible;
+    }
+
+    .sigef-trainer-photo-upload .filepond--drop-label label {
+        display: grid !important;
+        width: 100%;
+        height: 100%;
+        place-items: center !important;
+        overflow: visible;
+        padding: 0 !important;
+        transform: none !important;
+    }
+
+    .sigef-trainer-photo-upload .filepond--panel-root {
+        background: #f6f8fb;
+        border: 1px solid #cbd5e1;
+        border-radius: 0.5rem;
+        box-shadow: inset 0 0 0 1px rgba(226, 232, 240, 0.55);
+        height: 10rem !important;
+        min-height: 10rem;
+    }
+
+    .sigef-trainer-photo-upload .filepond--panel {
+        height: 10rem !important;
+        overflow: hidden;
+        border-radius: 0.5rem;
+    }
+
+    .sigef-trainer-photo-upload .filepond--label-action {
+        text-decoration: none;
+    }
+
+    .sigef-photo-idle {
+        position: relative;
+        display: grid;
+        height: 10rem;
+        min-height: 10rem;
+        place-items: center;
+        width: 100%;
+        line-height: 1;
+        transform: none;
+    }
+
+    .sigef-photo-camera {
+        display: grid;
+        width: 3.75rem;
+        height: 3.75rem;
+        place-items: center;
+        color: #dce3ed;
+    }
+
+    .sigef-photo-camera svg {
+        width: 100%;
+        height: 100%;
+    }
+
+    .sigef-photo-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+        white-space: nowrap;
+    }
+
+    .sigef-photo-action {
+        appearance: none;
+        border: 0;
+        cursor: pointer;
+        display: inline-flex;
+        height: 2rem;
+        min-width: 6.25rem;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        border-radius: 0.5rem;
+        padding: 0 0.75rem;
+        font-size: 0.8125rem;
+        font-weight: 700;
+        line-height: 1;
+        box-shadow: 0 1px 1px rgba(15, 23, 42, 0.04);
+    }
+
+    .sigef-photo-action svg {
+        width: 0.875rem;
+        height: 0.875rem;
+    }
+
+    .sigef-photo-action-primary {
+        background: #061b42;
+        color: #ffffff;
+    }
+
+    .sigef-photo-action-secondary {
+        border: 1px solid #cbd5e1;
+        background: #ffffff;
+        color: #132544;
+    }
+
+    .sigef-photo-action:hover,
+    .sigef-photo-action:focus-visible {
+        outline: 2px solid rgba(6, 27, 66, 0.18);
+        outline-offset: 2px;
+    }
+
+    .sigef-trainer-type-toggle .fi-btn:hover,
+    .sigef-trainer-type-toggle .fi-btn:focus-visible,
+    .sigef-trainer-type-toggle .fi-fo-toggle-buttons-input:checked + .fi-btn {
+        background-color: #061b42 !important;
+        color: #ffffff !important;
+        --text: #ffffff;
+        --hover-text: #ffffff;
+        --dark-text: #ffffff;
+        --dark-hover-text: #ffffff;
+    }
+
+    .sigef-trainer-type-toggle .fi-btn:hover .fi-icon,
+    .sigef-trainer-type-toggle .fi-btn:focus-visible .fi-icon,
+    .sigef-trainer-type-toggle .fi-fo-toggle-buttons-input:checked + .fi-btn .fi-icon {
+        color: #ffffff !important;
+    }
+
+    .sigef-photo-capture-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: none;
+    }
+
+    .sigef-photo-capture-modal.is-open {
+        display: block;
+    }
+
+    .sigef-photo-capture-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.62);
+    }
+
+    .sigef-photo-capture-dialog {
+        position: relative;
+        width: min(840px, calc(100vw - 2rem));
+        margin: 4vh auto;
+        overflow: hidden;
+        border: 1px solid #d8e2f1;
+        border-radius: 0.875rem;
+        background: #ffffff;
+        box-shadow: 0 24px 44px rgba(15, 23, 42, 0.24);
+    }
+
+    .sigef-photo-capture-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        background: #061b42;
+        color: #ffffff;
+        padding: 0.875rem 1rem;
+    }
+
+    .sigef-photo-capture-header h3 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 700;
+    }
+
+    .sigef-photo-capture-close {
+        display: grid;
+        width: 2rem;
+        height: 2rem;
+        place-items: center;
+        border: 0;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.16);
+        color: #ffffff;
+        cursor: pointer;
+    }
+
+    .sigef-photo-capture-close svg {
+        width: 1rem;
+        height: 1rem;
+        fill: currentColor;
+    }
+
+    .sigef-photo-capture-body {
+        position: relative;
+        margin: 1rem;
+        min-height: 28rem;
+        overflow: hidden;
+        border-radius: 0.5rem;
+        background: #020817;
+    }
+
+    .sigef-photo-capture-body video {
+        width: 100%;
+        height: min(58vh, 28rem);
+        min-height: 28rem;
+        object-fit: cover;
+        display: block;
+    }
+
+    .sigef-photo-capture-grid {
+        pointer-events: none;
+        position: absolute;
+        inset: 50%;
+        width: min(22rem, 52vw);
+        height: min(22rem, 52vw);
+        transform: translate(-50%, -50%);
+        border: 2px solid rgba(255, 255, 255, 0.82);
+        border-radius: 0.5rem;
+        box-shadow: 0 0 0 999px rgba(2, 8, 23, 0.34);
+    }
+
+    .sigef-photo-capture-status {
+        margin: 0 1rem;
+        color: #b91c1c;
+        font-size: 0.875rem;
+        font-weight: 600;
+    }
+
+    .sigef-photo-capture-actions {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0 1rem 1rem;
+    }
+
+    @media (max-width: 640px) {
+        .sigef-photo-capture-dialog {
+            margin: 1rem auto;
+        }
+
+        .sigef-photo-capture-body,
+        .sigef-photo-capture-body video {
+            min-height: 20rem;
+        }
+
+        .sigef-photo-capture-grid {
+            width: min(16rem, 72vw);
+            height: min(16rem, 72vw);
+        }
+
+        .sigef-photo-capture-actions {
+            justify-content: stretch;
+            flex-wrap: wrap;
+        }
+    }
+</style>
+HTML);
+    }
+
+    public static function normalizeIdentityDocument(mixed $identityDocument): ?string
+    {
+        $identityDocument = preg_replace('/\s+/u', '', trim((string) $identityDocument));
+
+        return $identityDocument === '' ? null : Str::upper($identityDocument);
+    }
+
+    protected static function fillTrainerDataFromIdentityCard(?string $identityDocument, callable $set): void
+    {
+        $identityDocument = static::normalizeIdentityDocument($identityDocument);
+
+        if ($identityDocument === null) {
+            return;
+        }
+
+        if (! preg_match('/^\d{9}[A-Z]{2}\d{3}$/', $identityDocument)) {
+            Notification::make()
+                ->title('Bilhete de Identidade inválido')
+                ->body('Informe o BI no formato angolano, por exemplo: 002976322LA032.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $data = static::lookupIdentityCard($identityDocument);
+
+        if ($data === null || ($data['error'] ?? false) === true) {
+            Notification::make()
+                ->title('BI não encontrado')
+                ->body('Não foi possível obter os dados deste Bilhete de Identidade na API.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $set('bilhete', $identityDocument);
+
+        if (filled($data['name'] ?? null)) {
+            $set('full_name', static::formatIdentityName((string) $data['name']));
+        }
+
+        if (filled($data['data_de_nascimento'] ?? null)) {
+            $set('birth_date', (string) $data['data_de_nascimento']);
+        }
+
+        if (filled($gender = static::extractIdentityGender($data))) {
+            $set('gender', $gender);
+        }
+
+        if (filled($province = static::extractIdentityProvince($data))) {
+            $set('province', $province);
+        }
+
+        $set('country_origin', 'Angola');
+
+        Notification::make()
+            ->title('Dados do BI carregados')
+            ->body('Os dados disponíveis do BI foram preenchidos automaticamente.')
+            ->success()
+            ->send();
+    }
+
+    protected static function lookupIdentityCard(string $identityDocument): ?array
+    {
+        $cacheKey = 'identity-card-lookup:'.$identityDocument;
+
+        if (Cache::has($cacheKey)) {
+            return Cache::get($cacheKey);
+        }
+
+        try {
+            $baseUrl = rtrim((string) config('services.identity_card_lookup.url', 'https://consulta.edgarsingui.ao/consultar'), '/');
+
+            $response = Http::acceptJson()
+                ->timeout(8)
+                ->retry(1, 250)
+                ->get($baseUrl.'/'.rawurlencode($identityDocument));
+
+            if (! $response->ok()) {
+                return null;
+            }
+
+            $data = $response->json();
+
+            if (! is_array($data)) {
+                return null;
+            }
+
+            if (($data['error'] ?? true) === false) {
+                Cache::put($cacheKey, $data, now()->addHours(12));
+            }
+
+            return $data;
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return null;
+        }
+    }
+
+    protected static function formatIdentityName(string $name): string
+    {
+        $name = preg_replace('/\s+/u', ' ', trim($name)) ?: '';
+
+        return mb_strtoupper($name, 'UTF-8');
+    }
+
+    protected static function extractIdentityGender(array $data): ?string
+    {
+        $gender = static::firstIdentityValue($data, [
+            'sexo',
+            'genero',
+            'gender',
+            'sex',
+        ]);
+
+        if ($gender === null) {
+            return null;
+        }
+
+        $gender = static::normalizeIdentityLookupText($gender);
+
+        return match ($gender) {
+            'm', 'masculino', 'male', 'homem' => 'Masculino',
+            'f', 'feminino', 'female', 'mulher' => 'Feminino',
+            default => null,
+        };
+    }
+
+    protected static function extractIdentityProvince(array $data): ?string
+    {
+        $province = static::firstIdentityValue($data, [
+            'provincia',
+            'province',
+            'naturalidade',
+            'local_nascimento',
+            'local_de_nascimento',
+            'provincia_nascimento',
+            'provincia_de_nascimento',
+            'birth_place',
+            'birth_province',
+            'province_birth',
+        ]);
+
+        if ($province === null) {
+            return null;
+        }
+
+        return static::matchIdentityProvince($province);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<int, string>  $keys
+     */
+    protected static function firstIdentityValue(array $data, array $keys): ?string
+    {
+        $keys = array_flip(array_map(static::normalizeIdentityLookupKey(...), $keys));
+
+        foreach ($data as $key => $value) {
+            if (is_array($value)) {
+                $nestedValue = static::firstIdentityValue($value, array_keys($keys));
+
+                if ($nestedValue !== null) {
+                    return $nestedValue;
+                }
+
+                continue;
+            }
+
+            if (! array_key_exists(static::normalizeIdentityLookupKey((string) $key), $keys)) {
+                continue;
+            }
+
+            if (is_scalar($value) && filled((string) $value)) {
+                return (string) $value;
+            }
+        }
+
+        return null;
+    }
+
+    protected static function matchIdentityProvince(string $province): ?string
+    {
+        $normalizedProvince = static::normalizeIdentityLookupText($province);
+        $normalizedProvince = preg_replace('/\b(provincia|province|prov|de|da|do)\b/u', ' ', $normalizedProvince) ?: $normalizedProvince;
+        $normalizedProvince = trim(preg_replace('/\s+/u', ' ', $normalizedProvince) ?: '');
+
+        $aliases = [
+            'kwanza norte' => 'cuanza norte',
+            'kwanza sul' => 'cuanza sul',
+            'kuando kubango' => 'cuando cubango',
+        ];
+
+        $normalizedProvince = $aliases[$normalizedProvince] ?? $normalizedProvince;
+
+        if ($normalizedProvince === '') {
+            return null;
+        }
+
+        $provinces = Province::query()->orderBy('name')->pluck('name')->all();
+
+        foreach ($provinces as $provinceName) {
+            if (static::normalizeIdentityLookupText((string) $provinceName) === $normalizedProvince) {
+                return (string) $provinceName;
+            }
+        }
+
+        foreach ($provinces as $provinceName) {
+            $normalizedName = static::normalizeIdentityLookupText((string) $provinceName);
+
+            if (strlen($normalizedName) >= 5 && str_contains($normalizedProvince, $normalizedName)) {
+                return (string) $provinceName;
+            }
+        }
+
+        return null;
+    }
+
+    protected static function normalizeIdentityLookupKey(string $key): string
+    {
+        $key = mb_strtolower(Str::ascii($key), 'UTF-8');
+
+        return trim(preg_replace('/[^a-z0-9]+/u', '_', $key) ?: '', '_');
+    }
+
+    protected static function normalizeIdentityLookupText(string $value): string
+    {
+        $value = mb_strtolower(Str::ascii($value), 'UTF-8');
+        $value = preg_replace('/[^a-z0-9]+/u', ' ', $value) ?: '';
+
+        return trim(preg_replace('/\s+/u', ' ', $value) ?: '');
+    }
+
+    protected static function professionalDataTabSchema(): array
+    {
+        return [
+            \Filament\Schemas\Components\Section::make('Dados profissionais')
+                ->schema([
+                    \Filament\Schemas\Components\Grid::make([
+                        'default' => 1,
+                        'lg' => 12,
+                    ])->schema([
+                        Forms\Components\FileUpload::make('photo')
+                            ->label('Foto')
+                            ->image()
+                            ->avatar()
+                            ->disk('public')
+                            ->directory('trainers')
+                            ->columnSpan([
+                                'default' => 1,
+                                'lg' => 3,
+                            ]),
+
+                        \Filament\Schemas\Components\Grid::make([
+                            'default' => 1,
+                            'md' => 2,
+                            'xl' => 3,
+                        ])->schema([
+                            Forms\Components\ToggleButtons::make('trainer_type')
+                                ->label('Tipo de Formador')
+                                ->options([
+                                    'Fardado' => 'Regime Especial',
+                                    'Civil' => 'Regime Geral',
+                                ])
+                                ->icons([
+                                    'Fardado' => 'heroicon-o-shield-check',
+                                    'Civil' => 'heroicon-o-user',
+                                ])
+                                ->default('Fardado')
+                                ->inline()
+                                ->grouped()
+                                ->required()
+                                ->live()
+                                ->columnSpanFull(),
+                            Forms\Components\TextInput::make('nip')
+                                ->label('NIP')
+                                ->placeholder('Ex: PROF-001')
+                                ->unique(ignoreRecord: true)
+                                ->maxLength(191),
+                            Forms\Components\TextInput::make('full_name')
+                                ->label('Nome Completo')
+                                ->required()
+                                ->maxLength(191)
+                                ->unique(ignoreRecord: true)
+                                ->validationMessages([
+                                    'unique' => 'Já existe um formador com este nome.',
+                                ]),
+                            Forms\Components\Select::make('gender')
+                                ->label('Sexo')
+                                ->options([
+                                    'Masculino' => 'Masculino',
+                                    'Feminino' => 'Feminino',
+                                ])
+                                ->required()
+                                ->searchable()
+                                ->preload(),
+                            Forms\Components\Select::make('country_origin')
+                                ->label('País de Origem')
+                                ->options(static::countryOptions())
+                                ->default('Angola')
+                                ->searchable()
+                                ->preload(),
+                            Forms\Components\Select::make('province')
+                                ->label('Província')
+                                ->options(fn (): array => Province::query()->orderBy('name')->pluck('name', 'name')->toArray())
+                                ->searchable()
+                                ->preload(),
+                            Forms\Components\DatePicker::make('birth_date')
+                                ->label('Data de nascimento')
+                                ->native(false)
+                                ->displayFormat('d/m/Y'),
+                            Forms\Components\Select::make('rank_id')
+                                ->label('Patente')
+                                ->relationship('rank', 'name')
+                                ->searchable()
+                                ->preload(),
+                            Forms\Components\Select::make('education_level')
+                                ->label('Grau Académico')
+                                ->options(static::educationLevelOptions())
+                                ->searchable()
+                                ->preload(),
+                            Forms\Components\Select::make('situation')
+                                ->label('Situação')
+                                ->options([
+                                    'Efectivo' => 'Efectivo',
+                                    'Contratado' => 'Contratado',
+                                    'Convidado' => 'Convidado',
+                                    'Reformado' => 'Reformado',
+                                    'Inactivo' => 'Inactivo',
+                                ])
+                                ->default('Efectivo')
+                                ->searchable()
+                                ->preload(),
+                            Forms\Components\TextInput::make('specialization')
+                                ->label('Especialização')
+                                ->placeholder('Ex: Direito Penal, Ciências Policiais')
+                                ->maxLength(191),
+                            Forms\Components\TextInput::make('job_function')
+                                ->label('Função')
+                                ->placeholder('Ex: Formador de Direito Penal')
+                                ->maxLength(191),
+                            Forms\Components\TextInput::make('department')
+                                ->label('Departamento')
+                                ->maxLength(191),
+                            Forms\Components\Select::make('organ')
+                                ->label('Órgão de colocação / proveniência')
+                                ->options(fn (): array => \App\Models\Provenance::orderBy('name')->get()->mapWithKeys(fn ($p) => [$p->name => $p->acronym ? "{$p->name} ({$p->acronym})" : $p->name])->toArray())
+                                ->searchable()
+                                ->preload(),
+                            Forms\Components\Select::make('institution_id')
+                                ->label('Escola')
+                                ->options(fn (): array => Institution::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                                ->searchable()
+                                ->preload(),
+                            Forms\Components\TextInput::make('phone')
+                                ->label('Telefone')
+                                ->tel()
+                                ->prefix('+244')
+                                ->placeholder('9XX XXX XXX')
+                                ->mask('999 999 999')
+                                ->maxLength(191),
+                            Forms\Components\TextInput::make('email')
+                                ->label('E-mail')
+                                ->email()
+                                ->placeholder('Opcional')
+                                ->maxLength(191),
+                            Forms\Components\TextInput::make('father_name')
+                                ->label('Nome do pai')
+                                ->maxLength(191),
+                            Forms\Components\TextInput::make('mother_name')
+                                ->label('Nome da mãe')
+                                ->maxLength(191),
+                            Forms\Components\DatePicker::make('admission_date')
+                                ->label('Data de Admissão')
+                                ->native(false)
+                                ->displayFormat('d/m/Y'),
+                            Forms\Components\Toggle::make('is_active')
+                                ->label('Activo')
+                                ->default(true)
+                                ->required(),
+                            Forms\Components\TextInput::make('bilhete')
+                                ->label('Bilhete de Identidade')
+                                ->maxLength(191)
+                                ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get): bool => $get('trainer_type') === 'Civil'),
+                        ])
+                            ->columnSpan([
+                                'default' => 1,
+                                'lg' => 9,
+                            ]),
+
+                        Forms\Components\Textarea::make('biography')
+                            ->label('Biografia')
+                            ->placeholder('Resumo profissional, experiência académica e áreas de investigação.')
+                            ->rows(3)
+                            ->columnSpanFull(),
+                    ]),
+                ])
+                ->columnSpanFull(),
+        ];
+    }
+
+    protected static function subjectsAndClassesTabSchema(): array
+    {
+        return [
+            \Filament\Schemas\Components\Section::make('Atribuição de disciplinas')
+                ->description('Registe as turmas, disciplinas e tempos lectivos associados ao formador.')
+                ->schema([
+                    Forms\Components\Repeater::make('classAssignments')
+                        ->label('Disciplinas, turmas e tempos')
+                        ->relationship()
+                        ->schema([
+                            Forms\Components\Select::make('academic_year_id')
+                                ->label('Ano Lectivo')
+                                ->options(fn (): array => AcademicYear::query()
+                                    ->orderByDesc('year')
+                                    ->pluck('year', 'id')
+                                    ->toArray())
+                                ->searchable()
+                                ->preload()
+                                ->live()
+                                ->afterStateUpdated(function (\Filament\Schemas\Components\Utilities\Set $set): void {
+                                    $set('class_id', null);
+                                }),
+                            Forms\Components\Select::make('course_id_helper')
+                                ->label('Curso')
+                                ->options(fn (): array => Course::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                                ->searchable()
+                                ->preload()
+                                ->live()
+                                ->dehydrated(false)
+                                ->afterStateHydrated(function (Forms\Components\Select $component, ?TrainerClassAssignment $record): void {
+                                    $component->state($record?->studentClass?->courseMap?->course_id);
+                                })
+                                ->afterStateUpdated(function (\Filament\Schemas\Components\Utilities\Set $set): void {
+                                    $set('frequency_year', null);
+                                    $set('class_id', null);
+                                    $set('subject_id', null);
+                                }),
+                            Forms\Components\Select::make('frequency_year')
+                                ->label('Ano Frequência')
+                                ->options(fn (\Filament\Schemas\Components\Utilities\Get $get): array => static::phaseOptionsForCourse($get('course_id_helper')))
+                                ->searchable()
+                                ->preload(),
+                            Forms\Components\Select::make('shift')
+                                ->label('Turno')
+                                ->options([
+                                    'Manhã' => 'Manhã',
+                                    'Tarde' => 'Tarde',
+                                    'Noite' => 'Noite',
+                                    'Integral' => 'Integral',
+                                ])
+                                ->searchable()
+                                ->preload(),
+                            Forms\Components\Select::make('class_id')
+                                ->label('Turma')
+                                ->options(fn (\Filament\Schemas\Components\Utilities\Get $get): array => static::classOptionsForAssignment(
+                                    $get('academic_year_id'),
+                                    $get('course_id_helper'),
+                                ))
+                                ->getOptionLabelUsing(fn ($value): ?string => StudentClass::with(['institution', 'courseMap.course'])->find($value)?->name)
+                                ->required()
+                                ->searchable()
+                                ->preload(),
+                            Forms\Components\Select::make('subject_id')
+                                ->label('Disciplina')
+                                ->options(fn (\Filament\Schemas\Components\Utilities\Get $get): array => static::subjectOptionsForCourse($get('course_id_helper')))
+                                ->getOptionLabelUsing(fn ($value): ?string => Subject::find($value)?->name)
+                                ->required()
+                                ->searchable()
+                                ->preload(),
+                            Forms\Components\Select::make('day_of_week')
+                                ->label('Dia da Semana')
+                                ->options(static::weekDayOptions())
+                                ->required()
+                                ->searchable()
+                                ->preload(),
+                            Forms\Components\TimePicker::make('start_time')
+                                ->label('Hora Início')
+                                ->required(),
+                            Forms\Components\TimePicker::make('end_time')
+                                ->label('Hora Fim')
+                                ->required(),
+                            Forms\Components\Select::make('lesson_type')
+                                ->label('Tipo de Aula')
+                                ->options([
+                                    'Teórica' => 'Teórica',
+                                    'Prática' => 'Prática',
+                                    'Teórico-prática' => 'Teórico-prática',
+                                ])
+                                ->default('Teórica')
+                                ->required()
+                                ->searchable()
+                                ->preload(),
+                            Forms\Components\Select::make('is_active')
+                                ->label('Estado')
+                                ->options([
+                                    1 => 'Activo',
+                                    0 => 'Inactivo',
+                                ])
+                                ->default(1)
+                                ->required()
+                                ->dehydrateStateUsing(fn ($state): bool => (bool) $state),
+                        ])
+                        ->mutateRelationshipDataBeforeCreateUsing(fn (array $data): array => static::prepareAssignmentData($data))
+                        ->mutateRelationshipDataBeforeSaveUsing(fn (array $data): array => static::prepareAssignmentData($data))
+                        ->columns(3)
+                        ->columnSpanFull()
+                        ->addActionLabel('Adicionar disciplina/turma')
+                        ->reorderable(false)
+                        ->collapsible()
+                        ->defaultItems(0),
+                ])
+                ->columnSpanFull(),
+        ];
+    }
+
+    protected static function teachingLoadTabSchema(): array
+    {
+        return [
+            \Filament\Schemas\Components\Section::make('Resumo de tempos, disciplinas e turmas')
+                ->schema([
+                    Forms\Components\Placeholder::make('teaching_load_summary')
+                        ->label(false)
+                        ->content(fn (?Trainer $record): HtmlString|string => static::teachingLoadSummary($record)),
+                ])
+                ->columnSpanFull(),
+        ];
+    }
+
+    protected static function prepareAssignmentData(array $data): array
+    {
+        $data['assigned_at'] ??= now();
+        $data['assigned_by'] ??= auth()->id();
+
+        unset($data['course_id_helper']);
+
+        return $data;
+    }
+
+    protected static function phaseOptionsForCourse(mixed $courseId): array
+    {
+        if (blank($courseId)) {
+            return [];
+        }
+
+        return CoursePhase::query()
+            ->where('course_id', $courseId)
+            ->orderBy('order')
+            ->orderBy('name')
+            ->pluck('name', 'name')
+            ->toArray();
+    }
+
+    protected static function classOptionsForAssignment(mixed $academicYearId, mixed $courseId): array
+    {
+        return StudentClass::query()
+            ->with(['institution', 'courseMap.course'])
+            ->when($academicYearId, fn (Builder $query): Builder => $query->where('academic_year_id', $academicYearId))
+            ->when($courseId, fn (Builder $query): Builder => $query->whereHas('courseMap', fn (Builder $courseMapQuery): Builder => $courseMapQuery->where('course_id', $courseId)))
+            ->orderBy('name')
+            ->get()
+            ->mapWithKeys(fn (StudentClass $class): array => [
+                $class->id => $class->name
+                    . ($class->courseMap?->course?->name ? ' - ' . $class->courseMap->course->name : '')
+                    . ($class->institution?->name ? ' (' . $class->institution->name . ')' : ''),
+            ])
+            ->toArray();
+    }
+
+    protected static function subjectOptionsForCourse(mixed $courseId): array
+    {
+        if (blank($courseId)) {
+            return Subject::query()->orderBy('name')->pluck('name', 'id')->toArray();
+        }
+
+        $courseMapSubjects = Subject::query()
+            ->whereHas('phase', fn (Builder $query): Builder => $query->where('course_id', $courseId))
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->toArray();
+
+        return $courseMapSubjects ?: Subject::query()->orderBy('name')->pluck('name', 'id')->toArray();
+    }
+
+    protected static function teachingLoadSummary(?Trainer $record): HtmlString|string
+    {
+        if (! $record?->exists) {
+            return 'Guarde o formador para consultar a carga docente.';
+        }
+
+        $assignments = $record->classAssignments()
+            ->with(['subject:id,name', 'studentClass:id,name'])
+            ->get()
+            ->filter(fn (TrainerClassAssignment $assignment): bool => (bool) $assignment->is_active)
+            ->sortBy(fn (TrainerClassAssignment $assignment): array => [
+                static::weekDayOrder($assignment->day_of_week),
+                static::timeToMinutes($assignment->start_time) ?? 9999,
+                $assignment->subject?->name ?? '',
+            ])
+            ->values();
+
+        $subjects = $assignments->pluck('subject_id')->filter()->unique()->count();
+        $classes = $assignments->pluck('class_id')->filter()->unique()->count();
+        $weeklyTimes = $assignments->count();
+        $totalMinutes = $assignments->sum(fn (TrainerClassAssignment $assignment): int => static::assignmentDurationMinutes($assignment));
+
+        $classIds = $assignments->pluck('class_id')->filter()->unique()->values();
+        $classrooms = $classIds->isEmpty()
+            ? collect()
+            : DB::table('student_class_enrollments')
+                ->select('class_id', DB::raw('MIN(classroom) as classroom'))
+                ->whereIn('class_id', $classIds)
+                ->whereNotNull('classroom')
+                ->where('classroom', '<>', '')
+                ->groupBy('class_id')
+                ->pluck('classroom', 'class_id');
+
+        $cards = [
+            ['Tempos semanais', $weeklyTimes],
+            ['Disciplinas', $subjects],
+            ['Turmas', $classes],
+            ['Carga horária', static::formatDuration($totalMinutes)],
+        ];
+
+        $cardsHtml = collect($cards)->map(function (array $card): string {
+            return '<div style="border:1px solid #cfd6e3;border-radius:6px;background:#fff;padding:12px 14px;min-height:64px;">'
+                . '<div style="font-size:11px;font-weight:700;color:#52627a;text-transform:uppercase;line-height:1.1;">' . e($card[0]) . '</div>'
+                . '<div style="font-size:21px;font-weight:800;color:#111827;line-height:1.25;margin-top:3px;">' . e((string) $card[1]) . '</div>'
+                . '</div>';
+        })->implode('');
+
+        $rowsHtml = $assignments->isEmpty()
+            ? '<tr><td colspan="5" style="padding:14px;border:1px solid #cfd6e3;text-align:center;color:#64748b;">Sem carga docente registada.</td></tr>'
+            : $assignments->map(function (TrainerClassAssignment $assignment) use ($classrooms): string {
+                $classroom = $classrooms->get($assignment->class_id) ?: '-';
+
+                return '<tr>'
+                    . '<td style="padding:8px 10px;border:1px solid #cfd6e3;">' . e($assignment->subject?->name ?? '-') . '</td>'
+                    . '<td style="padding:8px 10px;border:1px solid #cfd6e3;">' . e($assignment->studentClass?->name ?? '-') . '</td>'
+                    . '<td style="padding:8px 10px;border:1px solid #cfd6e3;">' . e($assignment->day_of_week ?: '-') . '</td>'
+                    . '<td style="padding:8px 10px;border:1px solid #cfd6e3;">' . e(static::formatTimeRange($assignment)) . '</td>'
+                    . '<td style="padding:8px 10px;border:1px solid #cfd6e3;">' . e($classroom) . '</td>'
+                    . '</tr>';
+            })->implode('');
+
+        return new HtmlString(
+            '<div style="border:1px solid #e5e7eb;border-radius:8px;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.08);overflow:hidden;">'
+            . '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;padding:16px;">' . $cardsHtml . '</div>'
+            . '<div style="padding:0 16px 16px;overflow-x:auto;">'
+            . '<table style="width:100%;border-collapse:collapse;border:1px solid #cfd6e3;font-size:13px;color:#1f2937;">'
+            . '<thead><tr style="background:#eef2f7;">'
+            . '<th style="padding:9px 10px;border:1px solid #cfd6e3;text-align:left;font-weight:700;">Disciplina</th>'
+            . '<th style="padding:9px 10px;border:1px solid #cfd6e3;text-align:left;font-weight:700;">Turma</th>'
+            . '<th style="padding:9px 10px;border:1px solid #cfd6e3;text-align:left;font-weight:700;">Dia</th>'
+            . '<th style="padding:9px 10px;border:1px solid #cfd6e3;text-align:left;font-weight:700;">Tempo</th>'
+            . '<th style="padding:9px 10px;border:1px solid #cfd6e3;text-align:left;font-weight:700;">Sala</th>'
+            . '</tr></thead><tbody>' . $rowsHtml . '</tbody></table>'
+            . '</div></div>'
+        );
+    }
+
+    protected static function weekDayOrder(?string $day): int
+    {
+        $order = array_flip(array_keys(static::weekDayOptions()));
+
+        return $order[$day] ?? 99;
+    }
+
+    protected static function assignmentDurationMinutes(TrainerClassAssignment $assignment): int
+    {
+        $start = static::timeToMinutes($assignment->start_time);
+        $end = static::timeToMinutes($assignment->end_time);
+
+        if ($start === null || $end === null) {
+            return 0;
+        }
+
+        if ($end < $start) {
+            $end += 24 * 60;
+        }
+
+        return max(0, $end - $start);
+    }
+
+    protected static function timeToMinutes(mixed $time): ?int
+    {
+        if ($time instanceof \DateTimeInterface) {
+            return ((int) $time->format('H')) * 60 + (int) $time->format('i');
+        }
+
+        if (blank($time)) {
+            return null;
+        }
+
+        if (! preg_match('/^(\d{1,2}):(\d{2})/', (string) $time, $matches)) {
+            return null;
+        }
+
+        return ((int) $matches[1]) * 60 + (int) $matches[2];
+    }
+
+    protected static function formatDuration(int $minutes): string
+    {
+        if ($minutes <= 0) {
+            return '0h';
+        }
+
+        $hours = intdiv($minutes, 60);
+        $remainingMinutes = $minutes % 60;
+
+        if ($remainingMinutes === 0) {
+            return $hours . 'h';
+        }
+
+        if ($hours === 0) {
+            return $remainingMinutes . 'm';
+        }
+
+        return $hours . 'h ' . $remainingMinutes . 'm';
+    }
+
+    protected static function formatTimeRange(TrainerClassAssignment $assignment): string
+    {
+        $start = static::formatTime($assignment->start_time);
+        $end = static::formatTime($assignment->end_time);
+
+        if ($start === '-' && $end === '-') {
+            return '-';
+        }
+
+        return $start . ' - ' . $end;
+    }
+
+    protected static function formatTime(mixed $time): string
+    {
+        if ($time instanceof \DateTimeInterface) {
+            return $time->format('H:i');
+        }
+
+        if (blank($time)) {
+            return '-';
+        }
+
+        if (preg_match('/^(\d{1,2}):(\d{2})/', (string) $time, $matches)) {
+            return str_pad((string) $matches[1], 2, '0', STR_PAD_LEFT) . ':' . $matches[2];
+        }
+
+        return (string) $time;
+    }
+
+    protected static function countryOptions(): array
+    {
+        return [
+            'Angola' => 'Angola',
+            'Brasil' => 'Brasil',
+            'Cabo Verde' => 'Cabo Verde',
+            'Guiné-Bissau' => 'Guiné-Bissau',
+            'Moçambique' => 'Moçambique',
+            'Portugal' => 'Portugal',
+            'São Tomé e Príncipe' => 'São Tomé e Príncipe',
+        ];
+    }
+
+    protected static function educationLevelOptions(): array
+    {
+        return [
+            'Ensino Primário' => 'Ensino Primário',
+            '7ª Classe' => '7ª Classe',
+            '8ª Classe' => '8ª Classe',
+            '9ª Classe' => '9ª Classe',
+            '10ª Classe' => '10ª Classe',
+            '11ª Classe' => '11ª Classe',
+            '12ª Classe' => '12ª Classe',
+            'Ensino Médio Técnico' => 'Ensino Médio Técnico',
+            'Bacharelato' => 'Bacharelato',
+            'Licenciatura' => 'Licenciatura',
+            'Pós-Graduação' => 'Pós-Graduação',
+            'Mestrado' => 'Mestrado',
+            'Doutoramento' => 'Doutoramento',
+        ];
+    }
+
+    protected static function weekDayOptions(): array
+    {
+        return [
+            'Segunda-feira' => 'Segunda-feira',
+            'Terça-feira' => 'Terça-feira',
+            'Quarta-feira' => 'Quarta-feira',
+            'Quinta-feira' => 'Quinta-feira',
+            'Sexta-feira' => 'Sexta-feira',
+            'Sábado' => 'Sábado',
+            'Domingo' => 'Domingo',
+        ];
+    }
+
+    protected static function legacyWizardForm(Schema $form): Schema
     {
         return $form
             ->schema([
@@ -283,29 +1645,73 @@ class TrainerResource extends Resource
             ->columns([
                 Tables\Columns\ImageColumn::make('photo')
                     ->label('Foto')
+                    ->disk('public')
                     ->circular()
+                    ->size(40)
                     ->defaultImageUrl(fn($record) => 'https://ui-avatars.com/api/?name=' . urlencode($record->full_name ?? 'F') . '&background=0D47A1&color=fff&size=128'),
                 Tables\Columns\TextColumn::make('full_name')
                     ->label('Nome')
                     ->searchable()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('nip')
-                    ->label('NIP')
-                    ->searchable()
+                Tables\Columns\TextColumn::make('effective_number')
+                    ->label('Nº Efectivo')
+                    ->getStateUsing(fn(Trainer $record): ?string => $record->nip ?: $record->bilhete)
+                    ->searchable(query: fn(Builder $query, string $search): Builder => $query
+                        ->where(fn(Builder $query): Builder => $query
+                            ->where('nip', 'like', "%{$search}%")
+                            ->orWhere('bilhete', 'like', "%{$search}%")))
                     ->placeholder('-'),
-                Tables\Columns\TextColumn::make('bilhete')
-                    ->label('Bilhete')
-                    ->searchable()
-                    ->placeholder('-')
-                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('rank.name')
                     ->label('Patente')
                     ->sortable()
                     ->placeholder('-'),
-                Tables\Columns\TextColumn::make('institution.name')
-                    ->label('Escola')
+                Tables\Columns\TextColumn::make('situation')
+                    ->label('Situação')
+                    ->badge()
+                    ->formatStateUsing(fn(?string $state): string => $state ?: 'Efectivo')
+                    ->color(fn(?string $state): string => match ($state) {
+                        'Inactivo' => 'danger',
+                        'Reformado' => 'warning',
+                        default => 'info',
+                    })
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('phone')
+                    ->label('Telefone')
+                    ->formatStateUsing(function (?string $state): string {
+                        $phone = trim((string) $state);
+
+                        if ($phone === '') {
+                            return '-';
+                        }
+
+                        return str_starts_with($phone, '+') ? $phone : '+244 ' . $phone;
+                    })
+                    ->searchable()
+                    ->placeholder('-'),
+                Tables\Columns\TextColumn::make('assigned_subjects_count')
+                    ->label('Disciplinas')
+                    ->badge()
+                    ->color('info')
+                    ->alignCenter()
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('assigned_classes_count')
+                    ->label('Turmas')
+                    ->badge()
+                    ->color('success')
+                    ->alignCenter()
+                    ->sortable()
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('teaching_times_count')
+                    ->label('Tempos')
+                    ->badge()
+                    ->color('warning')
+                    ->alignCenter()
+                    ->sortable()
+                    ->toggleable(),
+                Tables\Columns\IconColumn::make('is_active')
+                    ->label('Estado')
+                    ->boolean(),
                 Tables\Columns\TextColumn::make('trainer_type')
                     ->label('Tipo')
                     ->badge()
@@ -317,10 +1723,17 @@ class TrainerResource extends Resource
                     ->colors([
                         'primary' => 'Fardado',
                         'success' => 'Civil',
-                    ]),
-                Tables\Columns\IconColumn::make('is_active')
-                    ->label('Activo')
-                    ->boolean(),
+                    ])
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('institution.name')
+                    ->label('Escola')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('bilhete')
+                    ->label('Bilhete')
+                    ->searchable()
+                    ->placeholder('-')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Criado em')
                     ->dateTime()
@@ -426,7 +1839,7 @@ class TrainerResource extends Resource
                     }),
                 \Filament\Actions\CreateAction::make()
                     ->icon('heroicon-o-plus')
-                    ->modalWidth('6xl')
+                    ->modalWidth(Width::ScreenExtraLarge)
                     ->modalSubmitAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-check')->label('Criar'))
                     ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger'))
                     ->createAnotherAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-plus-circle')->label('Salvar e criar outro'))
@@ -437,170 +1850,51 @@ class TrainerResource extends Resource
             ->actions([
                 \Filament\Actions\ActionGroup::make([
                     \Filament\Actions\ViewAction::make()
+                        ->label('Visualizar')
                         ->icon('heroicon-o-eye')
-                        ->modalHeading('Detalhes do Formador')
-                        ->schema([
-                            \Filament\Schemas\Components\Section::make()
-                                ->schema([
-                                    \Filament\Schemas\Components\Grid::make(3)
-                                        ->schema([
-                                            \Filament\Schemas\Components\Group::make([
-                                                Infolists\Components\TextEntry::make('full_name')
-                                                    ->label('Nome Completo')
-                                                    ->weight('bold')
-                                                    ->size('lg'),
-                                                Infolists\Components\TextEntry::make('trainer_type')
-                                                    ->label('Tipo de Formador')
-                                                    ->badge()
-                                                    ->formatStateUsing(fn(?string $state): string => match ($state) {
-                                                        'Fardado' => 'REGIME ESPECIAL',
-                                                        'Civil' => 'REGIME GERAL',
-                                                        default => $state ?? '-',
-                                                    })
-                                                    ->color(fn(?string $state): string => match ($state) {
-                                                        'Fardado' => 'primary',
-                                                        'Civil' => 'success',
-                                                        default => 'gray',
-                                                    }),
-                                                Infolists\Components\TextEntry::make('gender')
-                                                    ->label('Género'),
-                                                Infolists\Components\TextEntry::make('phone')
-                                                    ->label('Telefone')
-                                                    ->icon('heroicon-o-phone')
-                                                    ->placeholder('Não informado'),
-                                            ])->columnSpan(1),
-                                            \Filament\Schemas\Components\Group::make([
-                                                Infolists\Components\TextEntry::make('nip')
-                                                    ->label('NIP')
-                                                    ->placeholder('N/A'),
-                                                Infolists\Components\TextEntry::make('bilhete')
-                                                    ->label('Bilhete de Identidade')
-                                                    ->placeholder('N/A'),
-                                                Infolists\Components\TextEntry::make('rank.name')
-                                                    ->label('Patente')
-                                                    ->placeholder('N/A'),
-                                                Infolists\Components\TextEntry::make('organ')
-                                                    ->label('Órgão/Unidade')
-                                                    ->placeholder('N/A'),
-                                                Infolists\Components\TextEntry::make('education_level')
-                                                    ->label('Nível Académico')
-                                                    ->placeholder('Não informado'),
-                                            ])->columnSpan(1),
-                                            \Filament\Schemas\Components\Group::make([
-                                                Infolists\Components\ImageEntry::make('photo')
-                                                    ->label('Foto')
-                                                    ->circular()
-                                                    ->size(120)
-                                                    ->defaultImageUrl(fn($record) => 'https://ui-avatars.com/api/?name=' . urlencode($record->full_name ?? 'F') . '&background=0D47A1&color=fff&size=128'),
-                                                Infolists\Components\TextEntry::make('institution.name')
-                                                    ->label('Instituição (Escola)')
-                                                    ->icon('heroicon-o-building-library'),
-                                                Infolists\Components\IconEntry::make('is_active')
-                                                    ->label('Estado')
-                                                    ->boolean()
-                                                    ->trueIcon('heroicon-o-check-circle')
-                                                    ->falseIcon('heroicon-o-x-circle'),
-                                            ])->columnSpan(1),
-                                        ]),
-                                ]),
-                            \Filament\Schemas\Components\Section::make('Disciplinas que Lecciona')
-                                ->icon('heroicon-o-book-open')
-                                ->collapsible()
-                                ->schema([
-                                    Infolists\Components\RepeatableEntry::make('subjectAuthorizations')
-                                        ->label('')
-                                        ->schema([
-                                            Infolists\Components\TextEntry::make('course.name')
-                                                ->label('Curso')
-                                                ->badge()
-                                                ->color('primary'),
-                                            Infolists\Components\TextEntry::make('subject.name')
-                                                ->label('Disciplina')
-                                                ->badge()
-                                                ->color('info'),
-                                        ])
-                                        ->columns(2)
-                                        ->columnSpanFull(),
-                                ]),
-                        ]),
-                    \Filament\Actions\Action::make('atribuirDisciplina')
-                        ->label('Atribuir Disciplina')
-                        ->icon('heroicon-o-book-open')
-                        ->color('primary')
-                        ->modalHeading(fn($record) => 'Atribuir Disciplina a ' . $record->full_name)
-                        ->modalWidth('6xl')
-                        ->form([
-                            \Filament\Schemas\Components\Grid::make(2)->schema([
-                                Forms\Components\Select::make('institution_id')
-                                    ->label('Instituição')
-                                    ->options(\App\Models\Institution::orderBy('name')->pluck('name', 'id'))
-                                    ->searchable()
-                                    ->preload()
-                                    ->required(),
-                                Forms\Components\Select::make('course_id')
-                                    ->label('Curso')
-                                    ->options(\App\Models\Course::orderBy('name')->pluck('name', 'id'))
-                                    ->searchable()
-                                    ->preload()
-                                    ->required(),
-                            ]),
-                            Forms\Components\Select::make('subject_ids')
-                                ->label('Disciplinas')
-                                ->options(fn() => \App\Models\Subject::orderBy('name')->pluck('name', 'id'))
-                                ->multiple()
-                                ->searchable()
-                                ->preload()
-                                ->required()
-                                ->columnSpanFull(),
-                        ])
-                        ->action(function (\App\Models\Trainer $record, array $data): void {
-                            $created = 0;
-                            $skipped = 0;
-                            $institutionId = $data['institution_id'];
-                            $courseId = $data['course_id'];
+                        ->color('info')
+                        ->modalHeading('Visualizar Formador')
+                        ->modalWidth(Width::ScreenExtraLarge)
+                        ->schema(static::trainerFormSchema())
+                        ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Fechar')->color('danger')),
+                    \Filament\Actions\Action::make('trainer_sheet')
+                        ->label('Ficha do Professor')
+                        ->icon('heroicon-o-document-text')
+                        ->color('info')
+                        ->modalHeading('Pre-visualizacao da Ficha do Professor')
+                        ->modalDescription(null)
+                        ->modalWidth(Width::SixExtraLarge)
+                        ->modalSubmitAction(false)
+                        ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action
+                            ->icon('heroicon-o-x-mark')
+                            ->label('Fechar Pre-visualizacao')
+                            ->color('danger'))
+                        ->stickyModalHeader()
+                        ->stickyModalFooter()
+                        ->closeModalByClickingAway(false)
+                        ->modalContent(function (Trainer $record) {
+                            $printUrl = route('trainers.sheet.print', ['trainer' => $record]);
+                            $trainerName = trim((string) ($record->full_name ?: 'Professor'));
+                            $identifierLabel = filled($record->bilhete) ? 'N&ordm; DO BI' : 'NIP';
+                            $identifierNumber = trim((string) ($record->bilhete ?: $record->nip ?: '-'));
+                            $frameId = 'sigef-trainer-sheet-frame-'.$record->getKey();
+                            $viewerId = 'sigef-trainer-sheet-viewer-'.$record->getKey();
 
-                            // Vincular instituição
-                            $record->institutions()->syncWithoutDetaching([$institutionId]);
-
-                            foreach ($data['subject_ids'] as $subjectId) {
-                                $exists = \App\Models\TrainerSubjectAuthorization::where([
-                                    'trainer_id' => $record->id,
-                                    'institution_id' => $institutionId,
-                                    'course_id' => $courseId,
-                                    'subject_id' => $subjectId,
-                                ])->exists();
-
-                                if ($exists) {
-                                    $skipped++;
-                                    continue;
-                                }
-
-                                \App\Models\TrainerSubjectAuthorization::create([
-                                    'trainer_id' => $record->id,
-                                    'institution_id' => $institutionId,
-                                    'course_id' => $courseId,
-                                    'subject_id' => $subjectId,
-                                    'authorized_by' => auth()->id(),
-                                ]);
-                                $created++;
-                            }
-
-                            $msg = [];
-                            if ($created > 0) $msg[] = "{$created} disciplinas atribuídas";
-                            if ($skipped > 0) $msg[] = "{$skipped} já existiam";
-
-                            \Filament\Notifications\Notification::make()
-                                ->title('Atribuição Concluída!')
-                                ->body(implode(', ', $msg) ?: 'Nenhuma alteração feita')
-                                ->success()
-                                ->duration(8000)
-                                ->send();
-                        })
-                        ->modalSubmitAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-check')->label('Atribuir')->color('primary'))
-                        ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger')),
+                            return view('trainers.sheet-modal', [
+                                'viewerId' => $viewerId,
+                                'frameId' => $frameId,
+                                'documentName' => 'Ficha do Professor - '.$trainerName,
+                                'documentBadge' => $identifierLabel.': '.$identifierNumber,
+                                'defaultOrientation' => 'horizontal',
+                                'embeddedHorizontalUrl' => $printUrl.'?embedded=1&autoprint=0&orientation=horizontal',
+                                'embeddedVerticalUrl' => $printUrl.'?embedded=1&autoprint=0&orientation=vertical',
+                                'fallbackPrintHorizontalUrl' => $printUrl.'?autoprint=1&orientation=horizontal',
+                                'fallbackPrintVerticalUrl' => $printUrl.'?autoprint=1&orientation=vertical',
+                            ]);
+                        }),
                     \Filament\Actions\EditAction::make()
                         ->icon('heroicon-o-pencil-square')
-                        ->modalWidth('6xl')
+                        ->modalWidth(Width::ScreenExtraLarge)
                         ->modalSubmitAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-check')->label('Salvar'))
                         ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger'))
                         ->successNotificationTitle('Registo atualizado com sucesso!'),
@@ -608,94 +1902,6 @@ class TrainerResource extends Resource
                 ])->icon('heroicon-s-cog-6-tooth')->tooltip('Ações'),
             ])
             ->bulkActions([
-                // Botão directo: Atribuir Disciplinas
-                \Filament\Actions\BulkAction::make('atribuirDisciplinas')
-                    ->label('Atribuir Disciplinas')
-                    ->icon('heroicon-o-book-open')
-                    ->color('primary')
-                    ->modalHeading('Atribuição de Disciplinas aos Formadores')
-                    ->modalDescription('Atribua instituições, cursos e disciplinas aos formadores selecionados.')
-                    ->modalWidth('6xl')
-                    ->form([
-                        \Filament\Schemas\Components\Grid::make(2)->schema([
-                            Forms\Components\Select::make('institution_ids')
-                                ->label('Instituições')
-                                ->options(\App\Models\Institution::orderBy('name')->pluck('name', 'id'))
-                                ->multiple()
-                                ->searchable()
-                                ->preload()
-                                ->required(),
-                            Forms\Components\Select::make('course_ids')
-                                ->label('Cursos')
-                                ->options(\App\Models\Course::orderBy('name')->pluck('name', 'id'))
-                                ->multiple()
-                                ->searchable()
-                                ->preload()
-                                ->required(),
-                        ]),
-                        \Filament\Schemas\Components\Grid::make(1)->schema([
-                            Forms\Components\Select::make('subject_ids')
-                                ->label('Disciplinas')
-                                ->options(fn() => \App\Models\Subject::orderBy('name')->pluck('name', 'id'))
-                                ->multiple()
-                                ->searchable()
-                                ->preload()
-                                ->required(),
-                        ]),
-                    ])
-                    ->action(function (\Illuminate\Database\Eloquent\Collection $records, array $data): void {
-                        $created = 0;
-                        $skipped = 0;
-
-                        $institutionIds = $data['institution_ids'] ?? [];
-                        $courseIds = $data['course_ids'] ?? [];
-                        $subjectIds = $data['subject_ids'] ?? [];
-
-                        foreach ($records as $trainer) {
-                            foreach ($institutionIds as $institutionId) {
-                                $trainer->institutions()->syncWithoutDetaching([$institutionId]);
-
-                                foreach ($courseIds as $courseId) {
-                                    foreach ($subjectIds as $subjectId) {
-                                        $exists = \App\Models\TrainerSubjectAuthorization::where([
-                                            'trainer_id' => $trainer->id,
-                                            'institution_id' => $institutionId,
-                                            'course_id' => $courseId,
-                                            'subject_id' => $subjectId,
-                                        ])->exists();
-
-                                        if ($exists) {
-                                            $skipped++;
-                                            continue;
-                                        }
-
-                                        \App\Models\TrainerSubjectAuthorization::create([
-                                            'trainer_id' => $trainer->id,
-                                            'institution_id' => $institutionId,
-                                            'course_id' => $courseId,
-                                            'subject_id' => $subjectId,
-                                            'authorized_by' => auth()->id(),
-                                        ]);
-                                        $created++;
-                                    }
-                                }
-                            }
-                        }
-
-                        $msg = [];
-                        if ($created > 0) $msg[] = "{$created} atribuições criadas";
-                        if ($skipped > 0) $msg[] = "{$skipped} já existiam (ignoradas)";
-
-                        \Filament\Notifications\Notification::make()
-                            ->title('Atribuição Concluída!')
-                            ->body(implode(', ', $msg) ?: 'Nenhuma alteração feita')
-                            ->success()
-                            ->duration(10000)
-                            ->send();
-                    })
-                    ->deselectRecordsAfterCompletion()
-                    ->modalSubmitAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-check')->label('Atribuir')->color('primary'))
-                    ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger')),
                 \Filament\Actions\BulkActionGroup::make([
                     \Filament\Actions\DeleteBulkAction::make(),
                 ]),

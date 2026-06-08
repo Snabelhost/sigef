@@ -98,6 +98,10 @@ Route::middleware(['auth'])->group(function () {
 | Cartões de Identificação dos Estudantes
 |--------------------------------------------------------------------------
 */
+Route::middleware(['auth'])->prefix('formadores')->name('trainers.')->group(function () {
+    Route::get('/{trainer}/ficha-professor', \App\Http\Controllers\TrainerSheetPrintController::class)->name('sheet.print');
+});
+
 Route::middleware(['auth'])->prefix('cartoes')->name('cartoes.')->group(function () {
     Route::get('/estudante/{student}', [\App\Http\Controllers\StudentCardController::class, 'show'])->name('show');
     Route::post('/imprimir-lote', [\App\Http\Controllers\StudentCardController::class, 'printBatch'])->name('batch');

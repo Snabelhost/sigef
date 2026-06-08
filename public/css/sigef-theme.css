@@ -14,6 +14,83 @@
     --sigef-menu-hover: #1a48ab;
     /* Cor do Logo */
     --sigef-logo-color: #041c4f;
+    --sigef-scrollbar-width: 0px;
+}
+
+/* ===== GLOBAL LAYOUT STABILITY ===== */
+html {
+    min-width: 320px;
+    scrollbar-gutter: stable;
+}
+
+body {
+    min-width: 320px;
+    overflow-x: clip;
+}
+
+@supports not (overflow: clip) {
+    body {
+        overflow-x: hidden;
+    }
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+.fi-layout,
+.fi-main,
+main.fi-main,
+.fi-page,
+.fi-page-content,
+.fi-section,
+.fi-ta,
+.fi-ta-ctn,
+.fi-ta-content,
+.fi-ta-table-ctn,
+.fi-modal,
+.fi-modal-window,
+.fi-modal-window-ctn {
+    min-width: 0;
+}
+
+.fi-ta-ctn,
+.fi-ta-content,
+.fi-ta-table-ctn,
+.fi-section,
+.fi-page-content {
+    max-width: 100%;
+}
+
+.fi-ta-table-ctn {
+    overflow-x: auto;
+}
+
+html.sigef-scroll-locked body,
+html.sigef-scroll-locked .fi-topbar,
+html.sigef-scroll-locked .fi-topbar-sticky {
+    padding-right: 0 !important;
+}
+
+.fi-modal-window-ctn {
+    width: 100%;
+    max-width: 100dvw;
+    overflow-x: clip;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+}
+
+.fi-modal-window {
+    min-width: 0;
+}
+
+@media (max-width: 640px) {
+    .fi-modal-window-ctn {
+        padding-left: 0.25rem;
+        padding-right: 0.25rem;
+    }
 }
 
 /* ===== LOGO SIGEF ===== */
@@ -139,9 +216,7 @@ aside.fi-sidebar>header>button,
 .fi-sidebar-header button:first-of-type:not(.brand-logo-btn),
 header.fi-sidebar-header>button,
 .fi-sidebar-header>*:first-child:is(button),
-button[x-on\\:click*="$store.sidebar"],
-.fi-icon-btn-size-md,
-button.fi-icon-btn {
+button[x-on\\:click*="$store.sidebar"] {
     display: none !important;
     visibility: hidden !important;
     opacity: 0 !important;
@@ -1402,8 +1477,7 @@ html.dark .fi-modal .fi-modal-header,
 
 /* Override da classe fi-width-7xl que limita max-width a 1280px */
 .fi-main.fi-width-7xl,
-main.fi-main.fi-width-7xl,
-.fi-width-7xl {
+main.fi-main.fi-width-7xl {
     max-width: 100% !important;
     width: 100% !important;
 }
@@ -1445,14 +1519,40 @@ main.fi-main {
     }
 }
 
-/* Force dashboard filter fields (Escola, Data Início, Data Fim) on one line for >= 768px */
-@media (min-width: 768px) {
-    .fi-page .fi-page-content>.fi-sc>.fi-grid-col>.fi-sc-component>.fi-sc.fi-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+/* Dashboard filters: occupy the full page width and keep fields responsive. */
+.sigef-dashboard-filters,
+.sigef-dashboard-filters > .fi-sc-component,
+.sigef-dashboard-filters .fi-sc,
+.sigef-dashboard-filters-form,
+.sigef-dashboard-filters-section {
+    width: 100% !important;
+    max-width: none !important;
+}
+
+.fi-grid-col.sigef-dashboard-filters,
+.fi-grid-col.sigef-dashboard-filters-section {
+    grid-column: 1 / -1 !important;
+}
+
+/* Standard height for the institution students chart on the dashboard. */
+.sigef-institution-students-chart .fi-wi-chart-canvas-ctn {
+    height: 330px !important;
+    max-height: 330px !important;
+}
+
+.sigef-institution-students-chart canvas {
+    height: 100% !important;
+    max-height: 330px !important;
+}
+
+@media (max-width: 768px) {
+    .sigef-institution-students-chart .fi-wi-chart-canvas-ctn {
+        height: 280px !important;
+        max-height: 280px !important;
     }
 
-    .fi-page .fi-page-content>.fi-sc>.fi-grid-col>.fi-sc-component>.fi-sc.fi-grid>.fi-grid-col {
-        grid-column: span 1 / span 1 !important;
+    .sigef-institution-students-chart canvas {
+        max-height: 280px !important;
     }
 }
 

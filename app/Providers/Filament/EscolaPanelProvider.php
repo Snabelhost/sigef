@@ -53,8 +53,11 @@ class EscolaPanelProvider extends PanelProvider
             ])
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn() => '
-                    <link rel="stylesheet" href="/css/sigef-theme.css?v=' . time() . '">
+                function (): string {
+                    $themeVersion = @filemtime(public_path('css/sigef-theme.css')) ?: time();
+
+                    return '
+                    <link rel="stylesheet" href="/css/sigef-theme.css?v=' . $themeVersion . '">
                     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
                     <link rel="icon" type="image/png" href="/favicon.png">
                     <link rel="shortcut icon" href="/favicon.png">
@@ -82,7 +85,8 @@ class EscolaPanelProvider extends PanelProvider
                             setTimeout(removeNativeCollapseButton, 1000);
                         });
                     </script>
-                '
+                ';
+                }
             )
             ->renderHook(
                 PanelsRenderHook::CONTENT_START,

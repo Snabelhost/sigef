@@ -2,18 +2,16 @@
 
 namespace App\Filament\Resources\CoursePlanResource\Pages;
 
+use App\Filament\Resources\CourseMapResource;
 use App\Filament\Resources\CoursePlanResource;
-use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 
 class ListCoursePlans extends ListRecords
 {
     protected static string $resource = CoursePlanResource::class;
 
-    protected function getHeaderActions(): array
+    public function mount(): void
     {
-        return [
-            Actions\CreateAction::make(),
-        ];
+        $this->redirect(CourseMapResource::getUrl('index'), navigate: true);
     }
 }

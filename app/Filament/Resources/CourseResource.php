@@ -26,24 +26,29 @@ class CourseResource extends Resource
     public static function form(Schema $form): Schema
     {
         return $form
-            ->schema([
-                \Filament\Schemas\Components\Section::make('Detalhes do Curso')
-                    ->schema([
-                        Forms\Components\TextInput::make('name')
-                            ->label('Nome do Curso')
-                            ->required()
-                            ->unique(ignoreRecord: true)
-                            ->maxLength(191),
-                        Forms\Components\TextInput::make('duration_months')
-                            ->label('Duração (Meses)')
-                            ->numeric()
-                            ->suffix('meses'),
-                        Forms\Components\Textarea::make('description')
-                            ->label('Descrição')
-                            ->rows(3)
-                            ->columnSpanFull(),
-                    ])->columns(2)->columnSpanFull(),
-            ]);
+            ->schema(static::courseFormSchema());
+    }
+
+    protected static function courseFormSchema(): array
+    {
+        return [
+            \Filament\Schemas\Components\Section::make('Detalhes do Curso')
+                ->schema([
+                    Forms\Components\TextInput::make('name')
+                        ->label('Nome do Curso')
+                        ->required()
+                        ->unique(ignoreRecord: true)
+                        ->maxLength(191),
+                    Forms\Components\TextInput::make('duration_months')
+                        ->label('Duração (Meses)')
+                        ->numeric()
+                        ->suffix('meses'),
+                    Forms\Components\Textarea::make('description')
+                        ->label('Descrição')
+                        ->rows(3)
+                        ->columnSpanFull(),
+                ])->columns(2)->columnSpanFull(),
+        ];
     }
 
     public static function table(Table $table): Table
@@ -83,37 +88,45 @@ class CourseResource extends Resource
             ])
             ->actions([
                 \Filament\Actions\ActionGroup::make([
-                \Filament\Actions\EditAction::make()
-                    ->icon('heroicon-o-pencil-square')
-                    ->modalWidth('3xl')
-                    ->modalSubmitAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-check')->label('Salvar'))
-                    ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger'))
-                    ->successNotificationTitle('Curso atualizado com sucesso!'),
-                \Filament\Actions\DeleteAction::make()
-                    ->icon('heroicon-o-trash')
-                    ->before(function (Course $record, \Filament\Actions\DeleteAction $action) {
-                        $courseMapsCount = \App\Models\CourseMap::where('course_id', $record->id)->count();
-                        $plansCount = \App\Models\CoursePlan::where('course_id', $record->id)->count();
+                    \Filament\Actions\ViewAction::make()
+                        ->label('Visualizar')
+                        ->icon('heroicon-o-eye')
+                        ->color('info')
+                        ->modalHeading('Visualizar Curso')
+                        ->modalWidth('3xl')
+                        ->schema(static::courseFormSchema())
+                        ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Fechar')->color('danger')),
+                    \Filament\Actions\EditAction::make()
+                        ->icon('heroicon-o-pencil-square')
+                        ->modalWidth('3xl')
+                        ->modalSubmitAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-check')->label('Salvar'))
+                        ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger'))
+                        ->successNotificationTitle('Curso atualizado com sucesso!'),
+                    \Filament\Actions\DeleteAction::make()
+                        ->icon('heroicon-o-trash')
+                        ->before(function (Course $record, \Filament\Actions\DeleteAction $action) {
+                            $courseMapsCount = \App\Models\CourseMap::where('course_id', $record->id)->count();
+                            $plansCount = \App\Models\CoursePlan::where('course_id', $record->id)->count();
 
-                        if ($courseMapsCount > 0 || $plansCount > 0) {
-                            $messages = [];
-                            if ($courseMapsCount > 0) $messages[] = "$courseMapsCount mapa(s) de curso";
-                            if ($plansCount > 0) $messages[] = "$plansCount plano(s)";
+                            if ($courseMapsCount > 0 || $plansCount > 0) {
+                                $messages = [];
+                                if ($courseMapsCount > 0) $messages[] = "$courseMapsCount mapa(s) de curso";
+                                if ($plansCount > 0) $messages[] = "$plansCount plano(s)";
 
-                            \Filament\Notifications\Notification::make()
-                                ->danger()
-                                ->title('Não é possível excluir')
-                                ->body('Este curso está vinculado a: ' . implode(', ', $messages) . '. Remova as dependências primeiro.')
-                                ->persistent()
-                                ->send();
+                                \Filament\Notifications\Notification::make()
+                                    ->danger()
+                                    ->title('Não é possível excluir')
+                                    ->body('Este curso está vinculado a: ' . implode(', ', $messages) . '. Remova as dependências primeiro.')
+                                    ->persistent()
+                                    ->send();
 
-                            $action->cancel();
-                            return;
-                        }
+                                $action->cancel();
+                                return;
+                            }
 
-                        // Excluir fases vinculadas automaticamente
-                        \App\Models\CoursePhase::where('course_id', $record->id)->delete();
-                    }),
+                            // Excluir fases vinculadas automaticamente
+                            \App\Models\CoursePhase::where('course_id', $record->id)->delete();
+                        }),
                 ])->icon('heroicon-s-cog-6-tooth')->tooltip('Ações'),
             ])
             ->bulkActions([

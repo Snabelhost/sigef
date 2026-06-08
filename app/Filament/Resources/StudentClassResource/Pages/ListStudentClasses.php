@@ -13,7 +13,9 @@ class ListStudentClasses extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            Actions\CreateAction::make()
+                ->modalWidth('5xl')
+                ->mutateFormDataUsing(fn (array $data): array => StudentClassResource::prepareClassData($data)),
         ];
     }
 }
