@@ -17,6 +17,241 @@
     --sigef-scrollbar-width: 0px;
 }
 
+/* ===== SIGEF PHOTO CAPTURE / UPLOAD ===== */
+.sigef-trainer-photo-upload {
+    width: 10.25rem;
+    max-width: 10.25rem;
+}
+
+.sigef-trainer-photo-upload .filepond--root {
+    width: 10rem !important;
+    height: 10rem !important;
+    min-height: 10rem !important;
+    margin-bottom: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    overflow: visible;
+}
+
+.sigef-trainer-photo-upload .filepond--drop-label {
+    display: grid !important;
+    height: 10rem !important;
+    min-height: 10rem;
+    align-items: center !important;
+    justify-items: center !important;
+    place-items: center !important;
+    color: inherit;
+    cursor: pointer;
+    overflow: visible;
+}
+
+.sigef-trainer-photo-upload .filepond--drop-label label {
+    display: grid !important;
+    width: 100%;
+    height: 100%;
+    place-items: center !important;
+    overflow: visible;
+    padding: 0 !important;
+    transform: none !important;
+}
+
+.sigef-trainer-photo-upload .filepond--panel-root {
+    background: #f6f8fb;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.5rem;
+    box-shadow: inset 0 0 0 1px rgba(226, 232, 240, 0.55);
+    height: 10rem !important;
+    min-height: 10rem;
+}
+
+.sigef-trainer-photo-upload .filepond--panel {
+    height: 10rem !important;
+    overflow: hidden;
+    border-radius: 0.5rem;
+}
+
+.sigef-trainer-photo-upload .filepond--label-action {
+    text-decoration: none;
+}
+
+.sigef-photo-idle {
+    position: relative;
+    display: grid;
+    width: 100%;
+    height: 10rem;
+    min-height: 10rem;
+    place-items: center;
+    line-height: 1;
+    transform: none;
+}
+
+.sigef-photo-camera {
+    display: grid;
+    width: 3.75rem;
+    height: 3.75rem;
+    place-items: center;
+    color: #dce3ed;
+}
+
+.sigef-photo-camera svg {
+    width: 100%;
+    height: 100%;
+}
+
+.sigef-photo-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    white-space: nowrap;
+}
+
+.sigef-photo-action {
+    appearance: none;
+    border: 0;
+    cursor: pointer;
+    display: inline-flex;
+    height: 2rem;
+    min-width: 6.25rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border-radius: 0.5rem;
+    padding: 0 0.75rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1;
+    box-shadow: 0 1px 1px rgba(15, 23, 42, 0.04);
+}
+
+.sigef-photo-action svg {
+    width: 0.875rem;
+    height: 0.875rem;
+}
+
+.sigef-photo-action-primary {
+    background: #061b42;
+    color: #ffffff;
+}
+
+.sigef-photo-action-secondary {
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #132544;
+}
+
+.sigef-photo-action:hover,
+.sigef-photo-action:focus-visible {
+    outline: 2px solid rgba(6, 27, 66, 0.18);
+    outline-offset: 2px;
+}
+
+.sigef-photo-capture-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: none;
+}
+
+.sigef-photo-capture-modal.is-open {
+    display: block;
+}
+
+.sigef-photo-capture-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.62);
+}
+
+.sigef-photo-capture-dialog {
+    position: relative;
+    width: min(840px, calc(100vw - 2rem));
+    margin: 4vh auto;
+    overflow: hidden;
+    border: 1px solid #d8e2f1;
+    border-radius: 0.875rem;
+    background: #ffffff;
+    box-shadow: 0 24px 44px rgba(15, 23, 42, 0.24);
+}
+
+.sigef-photo-capture-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    background: #061b42;
+    color: #ffffff;
+    padding: 0.875rem 1rem;
+}
+
+.sigef-photo-capture-header h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.sigef-photo-capture-close {
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    color: #ffffff;
+    cursor: pointer;
+}
+
+.sigef-photo-capture-close svg {
+    width: 1rem;
+    height: 1rem;
+    fill: currentColor;
+}
+
+.sigef-photo-capture-body {
+    position: relative;
+    margin: 1rem;
+    min-height: 28rem;
+    overflow: hidden;
+    border-radius: 0.5rem;
+    background: #020817;
+}
+
+.sigef-photo-capture-body video {
+    width: 100%;
+    height: min(58vh, 28rem);
+    min-height: 28rem;
+    object-fit: cover;
+    display: block;
+}
+
+.sigef-photo-capture-grid {
+    pointer-events: none;
+    position: absolute;
+    inset: 50%;
+    width: min(22rem, 52vw);
+    height: min(22rem, 52vw);
+    transform: translate(-50%, -50%);
+    border: 2px solid rgba(255, 255, 255, 0.82);
+    border-radius: 0.5rem;
+    box-shadow: 0 0 0 999px rgba(2, 8, 23, 0.34);
+}
+
+.sigef-photo-capture-status {
+    margin: 0 1rem;
+    color: #b91c1c;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.sigef-photo-capture-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0 1rem 1rem;
+}
+
 /* ===== GLOBAL LAYOUT STABILITY ===== */
 html {
     min-width: 320px;
@@ -1536,23 +1771,23 @@ main.fi-main {
 
 /* Standard height for the institution students chart on the dashboard. */
 .sigef-institution-students-chart .fi-wi-chart-canvas-ctn {
-    height: 330px !important;
-    max-height: 330px !important;
+    height: 380px !important;
+    max-height: 380px !important;
 }
 
 .sigef-institution-students-chart canvas {
     height: 100% !important;
-    max-height: 330px !important;
+    max-height: 380px !important;
 }
 
 @media (max-width: 768px) {
     .sigef-institution-students-chart .fi-wi-chart-canvas-ctn {
-        height: 280px !important;
-        max-height: 280px !important;
+        height: 320px !important;
+        max-height: 320px !important;
     }
 
     .sigef-institution-students-chart canvas {
-        max-height: 280px !important;
+        max-height: 320px !important;
     }
 }
 

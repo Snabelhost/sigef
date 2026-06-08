@@ -3,6 +3,7 @@
 namespace App\Filament\Escola\Resources;
 
 use App\Filament\Escola\Resources\StudentClassEnrollmentResource\Pages;
+use App\Filament\Resources\Concerns\StudentEnrollmentEditForm;
 use App\Models\StudentClassEnrollment;
 use App\Models\Student;
 use App\Models\StudentClass;
@@ -12,6 +13,7 @@ use App\Models\AcademicYear;
 use App\Models\StudentSubjectEnrollment;
 use App\Models\StudentType;
 use App\Models\StudentTransferHistory;
+use App\Services\StudentCardService;
 use Filament\Forms;
 use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
@@ -21,6 +23,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class StudentClassEnrollmentResource extends Resource
 {
+    use StudentEnrollmentEditForm;
+
     protected static bool $shouldSkipAuthorization = true;
 
     protected static ?string $model = Student::class;
@@ -294,7 +298,7 @@ class StudentClassEnrollmentResource extends Resource
             ->icon('heroicon-o-pencil-square')
             ->color('warning')
             ->modalHeading(fn(Student $record) => 'Editar - ' . ($record->candidate?->full_name ?? 'N/A'))
-            ->modalWidth('6xl')
+            ->modalWidth(\Filament\Support\Enums\Width::SevenExtraLarge)
             ->form([
                 \Filament\Schemas\Components\Section::make('Identificação Pessoal')
                     ->description('Dados pessoais do formando')
@@ -373,7 +377,7 @@ class StudentClassEnrollmentResource extends Resource
                             ->default(fn(Student $record) => $record->candidate?->phone)
                             ->maxLength(191),
                         Forms\Components\TextInput::make('candidate_email')
-                            ->label('Email')
+                            ->label('E-mail')
                             ->email()
                             ->default(fn(Student $record) => $record->candidate?->email)
                             ->maxLength(191),
@@ -408,6 +412,7 @@ class StudentClassEnrollmentResource extends Resource
                             ->previewable(),
                     ])->columns(3),
             ])
+            ->form(static::enrollmentEditFormSchema())
             ->action(function (Student $record, array $data): void {
                 if ($record->candidate) {
                     $record->candidate->update([
@@ -434,6 +439,9 @@ class StudentClassEnrollmentResource extends Resource
                     ->title('Formando atualizado com sucesso!')
                     ->success()
                     ->send();
+            })
+            ->action(function (Student $record, array $data): void {
+                static::updateEnrollmentFromEditForm($record, $data);
             })
             ->modalSubmitAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-check')->label('Salvar')->color('primary'))
             ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger'));
@@ -605,7 +613,8 @@ class StudentClassEnrollmentResource extends Resource
             ->icon('heroicon-o-academic-cap')
             ->color('success')
             ->modalHeading(fn(Student $record) => 'Inscrição - ' . ($record->candidate?->full_name ?? 'N/A'))
-            ->modalDescription('Atribua turma, disciplinas, NURI/NIP, CIA, pelotão e secção.')
+            ->modalDescription('Atribua ano lectivo, escola, turma, NURI/NIP, CIA, pelotão e secção.')
+            ->modalWidth(\Filament\Support\Enums\Width::SevenExtraLarge)
             ->form(function (Student $record) {
                 $lastEnrollment = $record->classEnrollments()->with('studentClass.courseMap.course')->latest()->first();
                 $defaultCourseId = $lastEnrollment?->studentClass?->courseMap?->course_id;
@@ -727,6 +736,7 @@ class StudentClassEnrollmentResource extends Resource
                         ->searchable(),
                 ];
             })
+            ->form(fn (Student $record): array => static::enrollmentInscriptionFormSchema($record))
             ->action(function (Student $record, array $data): void {
                 $record->update([
                     'nuri' => $data['nuri'] ?? $record->nuri,
@@ -796,6 +806,9 @@ class StudentClassEnrollmentResource extends Resource
                     );
                 }
             })
+            ->action(function (Student $record, array $data): void {
+                static::updateEnrollmentInscription($record, $data);
+            })
             ->modalSubmitAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-check')->label('Salvar Inscrição')->color('primary'))
             ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger'))
             ->successNotificationTitle('Inscrição actualizada com sucesso!');
@@ -804,52 +817,27 @@ class StudentClassEnrollmentResource extends Resource
     private static function gerarCartaoAction(): \Filament\Actions\Action
     {
         return \Filament\Actions\Action::make('gerarCartao')
-            ->label('Cartão')
+            ->label('Imprimir Cartão')
             ->icon('heroicon-o-identification')
             ->color('info')
-            ->modalHeading(fn(Student $record) => 'Cartão de Identificação - ' . ($record->candidate?->full_name ?? 'Formando'))
-            ->modalWidth('xl')
+            ->modalHeading('Pré-visualização do Cartão')
+            ->modalWidth(\Filament\Support\Enums\Width::SevenExtraLarge)
             ->modalContent(function (Student $record) {
-                $record->load(['candidate', 'institution', 'rank', 'provenance', 'classEnrollments.studentClass.courseMap.course']);
+                $data = app(StudentCardService::class)->build($record);
 
-                $institution = $record->institution;
-                $academicYear = \App\Models\AcademicYear::where('is_active', true)->first()?->name ?? date('Y');
-                $courseCategory = $record->student_type ?? 'CBP';
-
-                $courseAbbreviation = 'EPP';
-                $enrollment = $record->classEnrollments->first();
-                if ($enrollment && $enrollment->studentClass?->courseMap?->course) {
-                    $courseName = $enrollment->studentClass->courseMap->course->name;
-                    $words = explode(' ', $courseName);
-                    $abbreviation = '';
-                    foreach ($words as $word) {
-                        if (strlen($word) > 2 && !in_array(strtolower($word), ['de', 'da', 'do', 'das', 'dos', 'para', 'com'])) {
-                            $abbreviation .= strtoupper(substr($word, 0, 1));
-                        }
-                    }
-                    if (!empty($abbreviation)) {
-                        $courseAbbreviation = $abbreviation;
-                    }
-                }
-
-                return view('students.card-modal', [
-                    'student' => $record,
-                    'institution' => $institution,
-                    'academicYear' => $academicYear,
-                    'courseCategory' => $courseCategory,
-                    'courseAbbreviation' => $courseAbbreviation,
+                return view('cards.preview-modal', $data + [
+                    'viewerId' => 'sigef-student-card-viewer-'.$record->getKey(),
+                    'entityLabel' => 'Formandos',
+                    'documentName' => 'Formandos - '.($record->candidate?->full_name ?? 'Formando'),
+                    'statusLabel' => $record->status ?: ($record->student_type ?: 'ACTIVO'),
+                    'statusColor' => 'success',
                 ]);
             })
             ->modalSubmitAction(false)
-            ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Fechar')->color('danger'))
-            ->extraModalFooterActions([
-                \Filament\Actions\Action::make('imprimir')
-                    ->label('Imprimir Cartão')
-                    ->icon('heroicon-o-printer')
-                    ->color('primary')
-                    ->url(fn(Student $record): string => route('cartoes.show', $record))
-                    ->openUrlInNewTab(),
-            ]);
+            ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Fechar Pré-visualização')->color('danger'))
+            ->stickyModalHeader()
+            ->stickyModalFooter()
+            ->closeModalByClickingAway(false);
     }
 
     private static function moverInstituicaoAction(): \Filament\Actions\Action

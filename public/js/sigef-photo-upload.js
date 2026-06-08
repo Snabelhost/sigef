@@ -9,7 +9,9 @@
 
     const FIELD_SELECTOR = '.sigef-trainer-photo-upload[data-sigef-photo-upload]';
     const ACTION_ATTR = 'data-sigef-photo-action';
+    const PREVIEW_ATTR = 'data-sigef-photo-preview';
     const MODAL_ID = 'sigef-photo-capture-modal';
+    const PREVIEW_MODAL_ID = 'sigef-photo-preview-modal';
 
     const modalState = {
         root: null,
@@ -17,6 +19,12 @@
         status: null,
         stream: null,
         targetInput: null,
+    };
+
+    const previewState = {
+        root: null,
+        image: null,
+        name: null,
     };
 
     const cameraIcon =
@@ -36,6 +44,10 @@
             field.querySelector('input[type="file"].filepond--browser') ||
             field.querySelector('input[type="file"]')
         );
+    }
+
+    function isDisabledInput(input) {
+        return !input || input.disabled || input.hasAttribute('disabled') || input.getAttribute('aria-disabled') === 'true';
     }
 
     function findFieldFromElement(element) {
@@ -91,6 +103,21 @@
         setStatus('');
     }
 
+    function closePreviewModal() {
+        if (!previewState.root) {
+            return;
+        }
+
+        previewState.root.classList.remove('is-open');
+        previewState.root.setAttribute('aria-hidden', 'true');
+        window.SigefLayoutStability?.setLocked('photo-preview', false);
+
+        if (previewState.image) {
+            previewState.image.removeAttribute('src');
+            previewState.image.removeAttribute('alt');
+        }
+    }
+
     function setInputFile(input, file) {
         try {
             const dataTransfer = new DataTransfer();
@@ -103,7 +130,7 @@
     }
 
     function openUploadPicker(input) {
-        if (!input) {
+        if (isDisabledInput(input)) {
             return;
         }
 
@@ -113,7 +140,7 @@
     }
 
     function openCaptureFallback(input) {
-        if (!input) {
+        if (isDisabledInput(input)) {
             return;
         }
 
@@ -169,7 +196,7 @@
     }
 
     async function openCamera(input) {
-        if (!input) {
+        if (isDisabledInput(input)) {
             return;
         }
 
@@ -286,8 +313,134 @@
         modalState.status = modal.querySelector('[data-sigef-photo-status]');
     }
 
+    function ensurePreviewModal() {
+        if (previewState.root) {
+            return;
+        }
+
+        const existing = document.getElementById(PREVIEW_MODAL_ID);
+
+        if (existing) {
+            previewState.root = existing;
+            previewState.image = existing.querySelector('[data-sigef-photo-preview-image]');
+            previewState.name = existing.querySelector('[data-sigef-photo-preview-name]');
+            return;
+        }
+
+        const modal = document.createElement('div');
+        modal.id = PREVIEW_MODAL_ID;
+        modal.className = 'sigef-photo-preview-modal';
+        modal.setAttribute('aria-hidden', 'true');
+
+        modal.innerHTML = `
+            <div class="sigef-photo-preview-backdrop" data-sigef-photo-preview-close="true"></div>
+            <div class="sigef-photo-preview-dialog" role="dialog" aria-modal="true" aria-label="Visualizar foto">
+                <button type="button" class="sigef-photo-preview-close" data-sigef-photo-preview-close="true" aria-label="Fechar">X</button>
+                <div class="sigef-photo-preview-frame">
+                    <img data-sigef-photo-preview-image alt="">
+                </div>
+                <p class="sigef-photo-preview-name" data-sigef-photo-preview-name></p>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        modal.addEventListener('click', (event) => {
+            if (event.target.closest('[data-sigef-photo-preview-close="true"]')) {
+                closePreviewModal();
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && previewState.root?.classList.contains('is-open')) {
+                closePreviewModal();
+            }
+        });
+
+        previewState.root = modal;
+        previewState.image = modal.querySelector('[data-sigef-photo-preview-image]');
+        previewState.name = modal.querySelector('[data-sigef-photo-preview-name]');
+    }
+
+    function openPhotoPreview(button) {
+        const photoUrl = button.getAttribute('data-sigef-photo-url') || '';
+        const photoName = button.getAttribute('data-sigef-photo-name') || '';
+
+        if (!photoUrl) {
+            return;
+        }
+
+        ensurePreviewModal();
+
+        previewState.image.src = photoUrl;
+        previewState.image.alt = photoName ? `Foto de ${photoName}` : 'Foto';
+        previewState.name.textContent = photoName;
+        previewState.root.classList.add('is-open');
+        previewState.root.setAttribute('aria-hidden', 'false');
+        window.SigefLayoutStability?.setLocked('photo-preview', true);
+    }
+
     function setupActionDelegation() {
+        document.addEventListener(
+            'click',
+            (event) => {
+                const previewButton = event.target.closest(`[${PREVIEW_ATTR}="true"]`);
+
+                if (previewButton) {
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    if (typeof event.stopImmediatePropagation === 'function') {
+                        event.stopImmediatePropagation();
+                    }
+
+                    openPhotoPreview(previewButton);
+                    return;
+                }
+
+                const previewGroup = event.target.closest('.sigef-trainer-photo-view-group');
+
+                if (!previewGroup) {
+                    return;
+                }
+
+                if (event.target.closest(`[${ACTION_ATTR}], a, select, textarea, button:not([${PREVIEW_ATTR}="true"])`)) {
+                    return;
+                }
+
+                const groupPreviewButton = previewGroup.querySelector(`[${PREVIEW_ATTR}="true"]`);
+
+                if (!groupPreviewButton) {
+                    return;
+                }
+
+                const targetInput = event.target.closest('input');
+
+                if (targetInput && !isDisabledInput(targetInput)) {
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+
+                if (typeof event.stopImmediatePropagation === 'function') {
+                    event.stopImmediatePropagation();
+                }
+
+                openPhotoPreview(groupPreviewButton);
+            },
+            true,
+        );
+
         document.addEventListener('click', (event) => {
+            const previewButton = event.target.closest(`[${PREVIEW_ATTR}="true"]`);
+
+            if (previewButton) {
+                event.preventDefault();
+                openPhotoPreview(previewButton);
+                return;
+            }
+
             const button = event.target.closest(`[${ACTION_ATTR}]`);
 
             if (!button) {
@@ -297,7 +450,7 @@
             const field = findFieldFromElement(button);
             const input = getFileInput(field);
 
-            if (!input) {
+            if (isDisabledInput(input)) {
                 return;
             }
 
@@ -327,7 +480,7 @@
                 const field = dropLabel.closest(FIELD_SELECTOR);
                 const input = getFileInput(field);
 
-                if (!input) {
+                if (isDisabledInput(input)) {
                     return;
                 }
 

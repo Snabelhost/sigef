@@ -1,0 +1,974 @@
+<?php
+
+namespace App\Filament\Resources\Concerns;
+
+use App\Models\AcademicYear;
+use App\Models\CoursePlan;
+use App\Models\CoursePhase;
+use App\Models\Student;
+use App\Models\StudentClass;
+use App\Models\StudentClassEnrollment;
+use App\Models\StudentSubjectEnrollment;
+use App\Models\Subject;
+use Filament\Forms;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
+
+trait StudentEnrollmentEditForm
+{
+    public static function enrollmentInscriptionFormSchema(Student $record): array
+    {
+        $lastEnrollment = static::currentEnrollmentForEdit($record);
+        $defaultAcademicYearId = static::currentAcademicYearIdForEdit($record);
+        $defaultInstitutionId = $lastEnrollment?->studentClass?->institution_id
+            ?? $lastEnrollment?->studentClass?->courseMap?->institution_id
+            ?? $record->institution_id
+            ?? $record->candidate?->institution_id;
+        $defaultCourseId = static::currentCourseIdForEdit($record);
+
+        $studentType = strtolower($record->student_type ?? '');
+        $isNip = in_array($studentType, ['em formação', 'oficial', 'formando'], true)
+            || str_contains($studentType, 'em formação')
+            || str_contains($studentType, 'oficial')
+            || str_contains($studentType, 'formando');
+
+        return [
+            \Filament\Schemas\Components\Grid::make([
+                'default' => 1,
+                'md' => 3,
+            ])->schema([
+                Forms\Components\Select::make('academic_year_id')
+                    ->label('Ano Lectivo')
+                    ->options(fn (): array => AcademicYear::query()
+                        ->orderByDesc('year')
+                        ->get()
+                        ->mapWithKeys(fn (AcademicYear $year): array => [$year->id => $year->year ?: $year->name ?: (string) $year->id])
+                        ->toArray())
+                    ->default($defaultAcademicYearId)
+                    ->required()
+                    ->searchable()
+                    ->preload()
+                    ->live()
+                    ->afterStateUpdated(function (callable $set): void {
+                        $set('course_id', null);
+                        $set('class_id', null);
+                    }),
+                Forms\Components\Select::make('institution_id')
+                    ->label('Escola')
+                    ->options(fn (): array => \App\Models\Institution::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                    ->default($defaultInstitutionId)
+                    ->required()
+                    ->searchable()
+                    ->preload()
+                    ->live()
+                    ->afterStateUpdated(function (callable $set): void {
+                        $set('course_id', null);
+                        $set('class_id', null);
+                    }),
+                Forms\Components\Select::make('course_id')
+                    ->label('Curso')
+                    ->options(fn ($get): array => static::inscriptionCourseOptions($get('academic_year_id'), $get('institution_id')))
+                    ->default($defaultCourseId)
+                    ->required()
+                    ->live()
+                    ->searchable()
+                    ->preload()
+                    ->afterStateUpdated(function (callable $set): void {
+                        $set('class_id', null);
+                        $set('phase_filter', null);
+                    }),
+            ]),
+            \Filament\Schemas\Components\Grid::make([
+                'default' => 1,
+                'md' => 3,
+            ])->schema([
+                Forms\Components\Select::make('class_id')
+                    ->label('Turma')
+                    ->options(fn ($get): array => static::inscriptionClassOptions($get('academic_year_id'), $get('institution_id'), $get('course_id')))
+                    ->default($lastEnrollment?->class_id)
+                    ->required()
+                    ->live()
+                    ->searchable()
+                    ->preload()
+                    ->afterStateUpdated(function ($state, callable $set): void {
+                        $class = StudentClass::query()->with('courseMap')->find($state);
+
+                        if (! $class) {
+                            return;
+                        }
+
+                        $set('institution_id', $class->institution_id ?? $class->courseMap?->institution_id);
+                        $set('academic_year_id', $class->academic_year_id ?? $class->courseMap?->academic_year_id);
+                        $set('course_id', $class->courseMap?->course_id);
+                    }),
+                Forms\Components\Select::make('phase_filter')
+                    ->label('Fase')
+                    ->options(fn ($get): array => static::inscriptionPhaseOptions($get('course_id')))
+                    ->default(fn (): ?string => $lastEnrollment?->coursePhase?->name)
+                    ->live()
+                    ->searchable()
+                    ->preload(),
+                Forms\Components\TextInput::make('classroom')
+                    ->label('Sala')
+                    ->maxLength(50)
+                    ->placeholder('Ex: Sala 1, Sala A')
+                    ->default($lastEnrollment?->classroom),
+            ]),
+            \Filament\Schemas\Components\Grid::make([
+                'default' => 1,
+                'md' => 4,
+            ])->schema([
+                Forms\Components\TextInput::make('nuri')
+                    ->label($isNip ? 'NIP' : 'NURI')
+                    ->default($record->nuri)
+                    ->maxLength(9),
+                Forms\Components\Select::make('cia')
+                    ->label('CIA')
+                    ->options(collect(range(1, 15))->mapWithKeys(fn (int $number): array => [$number => "{$number}ª CIA"]))
+                    ->default($record->cia)
+                    ->searchable(),
+                Forms\Components\Select::make('platoon')
+                    ->label('Pelotão')
+                    ->options(collect(range(1, 15))->mapWithKeys(fn (int $number): array => [$number => "{$number}º Pelotão"]))
+                    ->default($record->platoon)
+                    ->searchable(),
+                Forms\Components\Select::make('section')
+                    ->label('Secção')
+                    ->options(collect(range(1, 15))->mapWithKeys(fn (int $number): array => [$number => "{$number}ª Secção"]))
+                    ->default($record->section)
+                    ->searchable(),
+            ]),
+        ];
+    }
+
+    public static function updateEnrollmentInscription(Student $record, array $data): void
+    {
+        $studentClass = StudentClass::query()
+            ->with(['courseMap', 'coursePlan'])
+            ->find($data['class_id'] ?? null);
+
+        $courseId = (int) ($data['course_id'] ?? $studentClass?->courseMap?->course_id ?? 0);
+        $academicYearId = $data['academic_year_id']
+            ?? $studentClass?->academic_year_id
+            ?? $studentClass?->courseMap?->academic_year_id
+            ?? AcademicYear::query()->where('is_active', true)->value('id');
+        $coursePhaseId = static::resolveCoursePhaseIdForInscription($courseId, $data['phase_filter'] ?? null);
+
+        $record->update([
+            'institution_id' => $data['institution_id'] ?? $studentClass?->institution_id ?? $studentClass?->courseMap?->institution_id ?? $record->institution_id,
+            'course_map_id' => $studentClass?->course_map_id ?? $record->course_map_id,
+            'current_phase_id' => $coursePhaseId ?? $record->current_phase_id,
+            'nuri' => $data['nuri'] ?? $record->nuri,
+            'cia' => $data['cia'] ?? null,
+            'platoon' => $data['platoon'] ?? null,
+            'section' => $data['section'] ?? null,
+        ]);
+
+        if (! $studentClass) {
+            return;
+        }
+
+        StudentClassEnrollment::query()->updateOrCreate(
+            [
+                'student_id' => $record->id,
+                'class_id' => $studentClass->id,
+            ],
+            [
+                'course_phase_id' => $coursePhaseId,
+                'academic_year_id' => $academicYearId,
+                'student_type' => $record->student_type,
+                'classroom' => $data['classroom'] ?? null,
+                'is_active' => true,
+                'enrolled_at' => now(),
+                'enrolled_by' => auth()->id(),
+            ],
+        );
+
+        $subjectIds = static::automaticSubjectIdsForInscription(
+            studentClass: $studentClass,
+            courseId: $courseId,
+            academicYearId: $academicYearId ? (int) $academicYearId : null,
+            phaseName: $data['phase_filter'] ?? null,
+            coursePhaseId: $coursePhaseId,
+        );
+
+        if ($subjectIds === []) {
+            \Filament\Notifications\Notification::make()
+                ->title('Inscrição salva, mas o plano do curso não tem disciplinas.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $deactivateQuery = StudentSubjectEnrollment::query()
+            ->where('student_id', $record->id)
+            ->where('class_id', $studentClass->id)
+            ->whereNotIn('subject_id', $subjectIds);
+
+        if ($coursePhaseId) {
+            $deactivateQuery->where('course_phase_id', $coursePhaseId);
+        }
+
+        $deactivateQuery->update(['is_active' => false]);
+
+        Subject::query()
+            ->whereIn('id', $subjectIds)
+            ->get(['id', 'course_phase_id'])
+            ->each(function (Subject $subject) use ($record, $studentClass, $coursePhaseId): void {
+                StudentSubjectEnrollment::query()->updateOrCreate(
+                    [
+                        'student_id' => $record->id,
+                        'subject_id' => $subject->id,
+                        'class_id' => $studentClass->id,
+                        'course_phase_id' => $coursePhaseId ?: $subject->course_phase_id,
+                    ],
+                    [
+                        'is_active' => true,
+                    ],
+                );
+            });
+    }
+
+    public static function enrollmentEditFormSchema(): array
+    {
+        return [
+            \Filament\Schemas\Components\Section::make('Dados da Matrícula')
+                ->schema([
+                    \Filament\Schemas\Components\Grid::make([
+                        'default' => 1,
+                        'lg' => 12,
+                    ])->schema([
+                        \Filament\Schemas\Components\Group::make([
+                            Forms\Components\FileUpload::make('candidate_photo')
+                                ->label('Foto')
+                                ->hiddenLabel()
+                                ->image()
+                                ->disk('public')
+                                ->directory('candidates/photos')
+                                ->visibility('public')
+                                ->acceptedFileTypes(['image/*'])
+                                ->extraInputAttributes([
+                                    'accept' => 'image/*',
+                                    'data-sigef-photo-input' => 'true',
+                                ])
+                                ->extraAttributes([
+                                    'class' => 'sigef-trainer-photo-upload',
+                                    'data-sigef-photo-upload' => 'student-enrollment',
+                                ])
+                                ->imageEditor()
+                                ->imagePreviewHeight('10rem')
+                                ->panelAspectRatio('1:1')
+                                ->panelLayout('integrated')
+                                ->placeholder(static::studentEnrollmentPhotoUploadPlaceholder())
+                                ->default(fn (Student $record) => $record->candidate?->photo)
+                                ->maxSize(4096),
+                            \Filament\Schemas\Components\Html::make(static::studentEnrollmentPhotoUploadActions()),
+                        ])->columnSpan(['default' => 1, 'lg' => 3]),
+
+                        \Filament\Schemas\Components\Grid::make([
+                            'default' => 1,
+                            'md' => 2,
+                        ])->schema([
+                            Forms\Components\Select::make('academic_year_id')
+                                ->label('Ano lectivo')
+                                ->options(fn (): array => AcademicYear::query()->orderByDesc('year')->pluck('year', 'id')->toArray())
+                                ->default(fn (Student $record) => static::currentAcademicYearIdForEdit($record))
+                                ->required()
+                                ->searchable()
+                                ->preload()
+                                ->live()
+                                ->afterStateUpdated(fn (callable $set) => $set('class_id', null)),
+                            Forms\Components\TextInput::make('candidate_full_name')
+                                ->label('Nome completo')
+                                ->default(fn (Student $record) => $record->candidate?->full_name)
+                                ->required()
+                                ->maxLength(191),
+                            Forms\Components\Select::make('candidate_gender')
+                                ->label('Sexo')
+                                ->options([
+                                    'Masculino' => 'Masculino',
+                                    'Feminino' => 'Feminino',
+                                ])
+                                ->default(fn (Student $record) => $record->candidate?->gender)
+                                ->native(false),
+                            Forms\Components\DatePicker::make('candidate_birth_date')
+                                ->label('Data de Nascimento')
+                                ->default(fn (Student $record) => $record->candidate?->birth_date)
+                                ->native(false)
+                                ->displayFormat('d/m/Y'),
+                        ])->columnSpan(['default' => 1, 'lg' => 9]),
+
+                        \Filament\Schemas\Components\Grid::make([
+                            'default' => 1,
+                            'md' => 3,
+                        ])->schema([
+                            Forms\Components\Select::make('course_id')
+                                ->label('Curso')
+                                ->options(fn (): array => \App\Models\Course::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                                ->default(fn (Student $record) => static::currentCourseIdForEdit($record))
+                                ->required()
+                                ->searchable()
+                                ->preload()
+                                ->live()
+                                ->afterStateUpdated(function (callable $set): void {
+                                    $set('course_phase_id', null);
+                                    $set('class_id', null);
+                                    $set('class_shift', null);
+                                }),
+                            Forms\Components\Select::make('course_phase_id')
+                                ->label('Ano de frequência')
+                                ->options(fn ($get): array => static::coursePhaseOptionsForEnrollmentEdit($get('course_id')))
+                                ->default(fn (Student $record) => static::currentEnrollmentForEdit($record)?->course_phase_id)
+                                ->searchable()
+                                ->preload(),
+                            Forms\Components\Select::make('class_shift')
+                                ->label('Turno')
+                                ->options(static::shiftOptions())
+                                ->default(fn (Student $record) => static::currentEnrollmentForEdit($record)?->studentClass?->shift)
+                                ->native(false)
+                                ->disabled()
+                                ->dehydrated(false),
+                            Forms\Components\Select::make('class_id')
+                                ->label('Turma')
+                                ->options(fn ($get): array => static::classOptionsForEnrollmentEdit($get('academic_year_id'), $get('course_id')))
+                                ->default(fn (Student $record) => static::currentEnrollmentForEdit($record)?->class_id)
+                                ->required()
+                                ->searchable()
+                                ->preload()
+                                ->live()
+                                ->afterStateUpdated(function ($state, callable $set): void {
+                                    $set('class_shift', StudentClass::find($state)?->shift);
+                                }),
+                            Forms\Components\Select::make('mechanographic_mode')
+                                ->label('Modo do Nº Mecanográfico')
+                                ->options(['automatico' => 'Automático'])
+                                ->default('automatico')
+                                ->native(false)
+                                ->disabled()
+                                ->dehydrated(false),
+                            Forms\Components\Select::make('student_status')
+                                ->label('Estado académico')
+                                ->options(fn (?Student $record = null): array => static::academicStatusOptions($record))
+                                ->default(fn (Student $record) => $record->status ?: 'matriculado')
+                                ->native(false)
+                                ->searchable(),
+                            Forms\Components\Toggle::make('is_scientific')
+                                ->label('Aluno científico?')
+                                ->default(false)
+                                ->inline(false)
+                                ->dehydrated(false),
+                        ])->columnSpanFull(),
+                    ]),
+                ])
+                ->columnSpanFull(),
+
+            \Filament\Schemas\Components\Tabs::make('matricula_tabs')
+                ->columnSpanFull()
+                ->tabs([
+                    \Filament\Schemas\Components\Tabs\Tab::make('Identidade')
+                        ->icon('heroicon-o-identification')
+                        ->schema([
+                            \Filament\Schemas\Components\Section::make('Dados de Identidade')
+                                ->columns(3)
+                                ->schema([
+                                    Forms\Components\Select::make('candidate_country')
+                                        ->label('País')
+                                        ->options(['Angola' => 'Angola'])
+                                        ->default('Angola')
+                                        ->searchable()
+                                        ->native(false)
+                                        ->dehydrated(false),
+                                    Forms\Components\Select::make('candidate_province_id')
+                                        ->label('Província')
+                                        ->options(fn (): array => \App\Models\Province::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                                        ->default(fn (Student $record) => $record->candidate?->province_id)
+                                        ->searchable()
+                                        ->preload()
+                                        ->live()
+                                        ->afterStateUpdated(fn (callable $set) => $set('candidate_municipality_id', null)),
+                                    Forms\Components\Select::make('candidate_municipality_id')
+                                        ->label('Naturalidade (município)')
+                                        ->options(function ($get): array {
+                                            $provinceId = $get('candidate_province_id');
+
+                                            return \App\Models\Municipality::query()
+                                                ->when($provinceId, fn (Builder $query) => $query->where('province_id', $provinceId))
+                                                ->orderBy('name')
+                                                ->pluck('name', 'id')
+                                                ->toArray();
+                                        })
+                                        ->default(fn (Student $record) => $record->candidate?->municipality_id)
+                                        ->searchable()
+                                        ->preload(),
+                                    Forms\Components\Select::make('identity_document_type')
+                                        ->label('Tipo de Documento')
+                                        ->options(['Bilhete de Identidade' => 'Bilhete de Identidade'])
+                                        ->default('Bilhete de Identidade')
+                                        ->native(false)
+                                        ->dehydrated(false),
+                                    Forms\Components\TextInput::make('candidate_id_number')
+                                        ->label('Nº do Documento')
+                                        ->default(fn (Student $record) => $record->candidate?->id_number)
+                                        ->maxLength(191),
+                                    Forms\Components\TextInput::make('identity_issued_place')
+                                        ->label('Local Emitido')
+                                        ->dehydrated(false)
+                                        ->maxLength(191),
+                                    Forms\Components\DatePicker::make('identity_issued_at')
+                                        ->label('Data Emissão')
+                                        ->native(false)
+                                        ->displayFormat('d/m/Y')
+                                        ->dehydrated(false),
+                                    Forms\Components\DatePicker::make('identity_expires_at')
+                                        ->label('Data Validade')
+                                        ->native(false)
+                                        ->displayFormat('d/m/Y')
+                                        ->dehydrated(false),
+                                ]),
+                        ]),
+                    \Filament\Schemas\Components\Tabs\Tab::make('Agregado Familiar')
+                        ->icon('heroicon-o-users')
+                        ->schema([
+                            \Filament\Schemas\Components\Section::make('Agregado Familiar')
+                                ->columns(3)
+                                ->schema([
+                                    Forms\Components\TextInput::make('candidate_father_name')
+                                        ->label('Nome do Pai')
+                                        ->default(fn (Student $record) => $record->candidate?->father_name)
+                                        ->maxLength(191),
+                                    Forms\Components\TextInput::make('candidate_mother_name')
+                                        ->label('Nome da Mãe')
+                                        ->default(fn (Student $record) => $record->candidate?->mother_name)
+                                        ->maxLength(191),
+                                    Forms\Components\Select::make('candidate_marital_status')
+                                        ->label('Estado civil')
+                                        ->options([
+                                            'solteiro' => 'Solteiro(a)',
+                                            'casado' => 'Casado(a)',
+                                            'divorciado' => 'Divorciado(a)',
+                                            'viuvo' => 'Viúvo(a)',
+                                        ])
+                                        ->default(fn (Student $record) => $record->candidate?->marital_status)
+                                        ->native(false),
+                                ]),
+                        ]),
+                    \Filament\Schemas\Components\Tabs\Tab::make('Contactos')
+                        ->icon('heroicon-o-phone')
+                        ->schema([
+                            \Filament\Schemas\Components\Section::make('Contactos')
+                                ->columns(3)
+                                ->schema([
+                                    Forms\Components\TextInput::make('candidate_phone')
+                                        ->label('Telefone')
+                                        ->tel()
+                                        ->default(fn (Student $record) => $record->candidate?->phone ?? $record->phone)
+                                        ->maxLength(191),
+                                    Forms\Components\TextInput::make('candidate_email')
+                                        ->label('E-mail')
+                                        ->email()
+                                        ->default(fn (Student $record) => $record->candidate?->email)
+                                        ->maxLength(191),
+                                    Forms\Components\TextInput::make('candidate_address')
+                                        ->label('Endereço')
+                                        ->default(fn (Student $record) => $record->candidate?->address)
+                                        ->maxLength(191)
+                                        ->columnSpanFull(),
+                                ]),
+                        ]),
+                    \Filament\Schemas\Components\Tabs\Tab::make('Escola de Proveniência')
+                        ->icon('heroicon-o-academic-cap')
+                        ->schema([
+                            \Filament\Schemas\Components\Section::make('Escola de Proveniência')
+                                ->columns(3)
+                                ->schema([
+                                    Forms\Components\Select::make('candidate_institution_id')
+                                        ->label('Instituição')
+                                        ->options(fn (): array => \App\Models\Institution::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                                        ->default(fn (Student $record) => $record->candidate?->institution_id ?? $record->institution_id)
+                                        ->searchable()
+                                        ->preload(),
+                                    Forms\Components\Select::make('candidate_provenance_id')
+                                        ->label('Órgão de Proveniência')
+                                        ->options(fn (): array => \App\Models\Provenance::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                                        ->default(fn (Student $record) => $record->candidate?->provenance_id ?? $record->provenance_id)
+                                        ->searchable()
+                                        ->preload(),
+                                    Forms\Components\TextInput::make('previous_school')
+                                        ->label('Escola anterior')
+                                        ->dehydrated(false)
+                                        ->maxLength(191),
+                                ]),
+                        ]),
+                    \Filament\Schemas\Components\Tabs\Tab::make('Dados Profissionais')
+                        ->icon('heroicon-o-briefcase')
+                        ->schema([
+                            \Filament\Schemas\Components\Section::make('Dados Profissionais')
+                                ->columns(3)
+                                ->schema([
+                                    Forms\Components\Select::make('candidate_current_rank_id')
+                                        ->label('Posto')
+                                        ->options(fn (): array => \App\Models\Rank::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                                        ->default(fn (Student $record) => $record->candidate?->current_rank_id ?? $record->rank_id)
+                                        ->searchable()
+                                        ->preload(),
+                                    Forms\Components\TextInput::make('candidate_education_level')
+                                        ->label('Grau académico')
+                                        ->default(fn (Student $record) => $record->candidate?->education_level)
+                                        ->maxLength(191),
+                                    Forms\Components\TextInput::make('candidate_education_area')
+                                        ->label('Área de formação')
+                                        ->default(fn (Student $record) => $record->candidate?->education_area)
+                                        ->maxLength(191),
+                                    Forms\Components\DatePicker::make('candidate_pna_entry_date')
+                                        ->label('Data de entrada na PNA')
+                                        ->default(fn (Student $record) => $record->candidate?->pna_entry_date)
+                                        ->native(false)
+                                        ->displayFormat('d/m/Y'),
+                                    Forms\Components\TextInput::make('student_nuri')
+                                        ->label('NURI / NIP')
+                                        ->default(fn (Student $record) => $record->nuri)
+                                        ->maxLength(191),
+                                ]),
+                        ]),
+                    \Filament\Schemas\Components\Tabs\Tab::make('Estado de Saúde')
+                        ->icon('heroicon-o-heart')
+                        ->schema([
+                            \Filament\Schemas\Components\Section::make('Estado de Saúde')
+                                ->columns(3)
+                                ->schema([
+                                    Forms\Components\TextInput::make('blood_type')
+                                        ->label('Grupo sanguíneo')
+                                        ->dehydrated(false)
+                                        ->maxLength(10),
+                                    Forms\Components\Textarea::make('health_notes')
+                                        ->label('Observações')
+                                        ->rows(3)
+                                        ->dehydrated(false)
+                                        ->columnSpanFull(),
+                                ]),
+                        ]),
+                    \Filament\Schemas\Components\Tabs\Tab::make('Arquivos')
+                        ->icon('heroicon-o-paper-clip')
+                        ->schema([
+                            \Filament\Schemas\Components\Section::make('Arquivos')
+                                ->columns(3)
+                                ->schema([
+                                    Forms\Components\FileUpload::make('candidate_bilhete_identidade')
+                                        ->label('Bilhete de Identidade')
+                                        ->disk('public')
+                                        ->directory('candidates/documents')
+                                        ->default(fn (Student $record) => $record->candidate?->bilhete_identidade)
+                                        ->acceptedFileTypes(['application/pdf', 'image/*'])
+                                        ->openable()
+                                        ->previewable(),
+                                    Forms\Components\FileUpload::make('candidate_certificado_doc')
+                                        ->label('Certificado')
+                                        ->disk('public')
+                                        ->directory('candidates/documents')
+                                        ->default(fn (Student $record) => $record->candidate?->certificado_doc)
+                                        ->acceptedFileTypes(['application/pdf', 'image/*'])
+                                        ->openable()
+                                        ->previewable(),
+                                    Forms\Components\FileUpload::make('candidate_curriculum')
+                                        ->label('Curriculum')
+                                        ->disk('public')
+                                        ->directory('candidates/documents')
+                                        ->default(fn (Student $record) => $record->candidate?->curriculum)
+                                        ->acceptedFileTypes(['application/pdf', 'image/*'])
+                                        ->openable()
+                                        ->previewable(),
+                                ]),
+                        ]),
+                ]),
+        ];
+    }
+
+    public static function updateEnrollmentFromEditForm(Student $record, array $data): void
+    {
+        $candidate = $record->candidate;
+
+        if ($candidate) {
+            $candidate->update([
+                'academic_year_id' => $data['academic_year_id'] ?? $candidate->academic_year_id,
+                'institution_id' => $data['candidate_institution_id'] ?? $candidate->institution_id,
+                'provenance_id' => $data['candidate_provenance_id'] ?? $candidate->provenance_id,
+                'current_rank_id' => $data['candidate_current_rank_id'] ?? $candidate->current_rank_id,
+                'id_number' => $data['candidate_id_number'] ?? null,
+                'full_name' => $data['candidate_full_name'] ?? $candidate->full_name,
+                'birth_date' => $data['candidate_birth_date'] ?? null,
+                'gender' => $data['candidate_gender'] ?? null,
+                'marital_status' => $data['candidate_marital_status'] ?? null,
+                'father_name' => $data['candidate_father_name'] ?? null,
+                'mother_name' => $data['candidate_mother_name'] ?? null,
+                'province_id' => $data['candidate_province_id'] ?? null,
+                'municipality_id' => $data['candidate_municipality_id'] ?? null,
+                'address' => $data['candidate_address'] ?? null,
+                'phone' => $data['candidate_phone'] ?? null,
+                'email' => $data['candidate_email'] ?? null,
+                'photo' => $data['candidate_photo'] ?? null,
+                'education_level' => $data['candidate_education_level'] ?? null,
+                'education_area' => $data['candidate_education_area'] ?? null,
+                'pna_entry_date' => $data['candidate_pna_entry_date'] ?? null,
+                'bilhete_identidade' => $data['candidate_bilhete_identidade'] ?? null,
+                'certificado_doc' => $data['candidate_certificado_doc'] ?? null,
+                'curriculum' => $data['candidate_curriculum'] ?? null,
+            ]);
+        }
+
+        $studentClass = ! empty($data['class_id'])
+            ? StudentClass::query()->with('courseMap')->find($data['class_id'])
+            : null;
+
+        $record->update([
+            'institution_id' => $data['candidate_institution_id'] ?? $studentClass?->institution_id ?? $record->institution_id,
+            'provenance_id' => $data['candidate_provenance_id'] ?? $record->provenance_id,
+            'rank_id' => $data['candidate_current_rank_id'] ?? $record->rank_id,
+            'course_map_id' => $studentClass?->course_map_id ?? $record->course_map_id,
+            'current_phase_id' => $data['course_phase_id'] ?? $record->current_phase_id,
+            'status' => $data['student_status'] ?? $record->status,
+            'nuri' => $data['student_nuri'] ?? $record->nuri,
+            'phone' => $data['candidate_phone'] ?? $record->phone,
+            'photo' => $data['candidate_photo'] ?? $record->photo,
+            'bilhete_identidade' => $data['candidate_bilhete_identidade'] ?? $record->bilhete_identidade,
+            'certificado_doc' => $data['candidate_certificado_doc'] ?? $record->certificado_doc,
+        ]);
+
+        if ($studentClass) {
+            $enrollment = static::currentEnrollmentForEdit($record);
+            $payload = [
+                'class_id' => $studentClass->id,
+                'course_phase_id' => $data['course_phase_id'] ?? null,
+                'academic_year_id' => $data['academic_year_id'] ?? $studentClass->academic_year_id,
+                'student_type' => $record->student_type,
+                'classroom' => $enrollment?->classroom,
+                'is_active' => true,
+                'enrolled_at' => $enrollment?->enrolled_at ?? now(),
+                'enrolled_by' => $enrollment?->enrolled_by ?? auth()->id(),
+            ];
+
+            if ($enrollment) {
+                $enrollment->update($payload);
+            } else {
+                StudentClassEnrollment::query()->create([
+                    'student_id' => $record->id,
+                    ...$payload,
+                ]);
+            }
+        }
+
+        \Filament\Notifications\Notification::make()
+            ->title('Formando atualizado com sucesso!')
+            ->success()
+            ->send();
+    }
+
+    protected static function inscriptionCourseOptions($academicYearId = null, $institutionId = null): array
+    {
+        $academicYearId = $academicYearId ? (int) $academicYearId : null;
+        $institutionId = $institutionId ? (int) $institutionId : null;
+
+        if (! $academicYearId && ! $institutionId) {
+            return \App\Models\Course::query()
+                ->orderBy('name')
+                ->pluck('name', 'id')
+                ->toArray();
+        }
+
+        $courseIds = \App\Models\CourseMap::query()
+            ->when($academicYearId, fn (Builder $query) => $query->where('academic_year_id', $academicYearId))
+            ->when($institutionId, fn (Builder $query) => $query->where('institution_id', $institutionId))
+            ->pluck('course_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($courseIds->isEmpty()) {
+            return [];
+        }
+
+        return \App\Models\Course::query()
+            ->whereIn('id', $courseIds)
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->toArray();
+    }
+
+    protected static function inscriptionClassOptions($academicYearId = null, $institutionId = null, $courseId = null): array
+    {
+        $academicYearId = $academicYearId ? (int) $academicYearId : null;
+        $institutionId = $institutionId ? (int) $institutionId : null;
+        $courseId = $courseId ? (int) $courseId : null;
+
+        return StudentClass::query()
+            ->with(['courseMap.course', 'academicYear'])
+            ->when($courseId, fn (Builder $query) => $query->whereHas('courseMap', fn (Builder $courseMapQuery) => $courseMapQuery->where('course_id', $courseId)))
+            ->when($academicYearId, function (Builder $query) use ($academicYearId): void {
+                $query->where(function (Builder $yearQuery) use ($academicYearId): void {
+                    $yearQuery
+                        ->where('academic_year_id', $academicYearId)
+                        ->orWhereHas('courseMap', fn (Builder $courseMapQuery) => $courseMapQuery->where('academic_year_id', $academicYearId));
+                });
+            })
+            ->when($institutionId, function (Builder $query) use ($institutionId): void {
+                $query->where(function (Builder $schoolQuery) use ($institutionId): void {
+                    $schoolQuery
+                        ->where('institution_id', $institutionId)
+                        ->orWhereHas('courseMap', fn (Builder $courseMapQuery) => $courseMapQuery->where('institution_id', $institutionId));
+                });
+            })
+            ->orderBy('name')
+            ->get()
+            ->mapWithKeys(function (StudentClass $studentClass): array {
+                $parts = array_filter([
+                    $studentClass->name,
+                    $studentClass->shift,
+                    $studentClass->room_number ? 'Sala '.$studentClass->room_number : null,
+                ]);
+
+                return [$studentClass->id => implode(' - ', $parts)];
+            })
+            ->toArray();
+    }
+
+    protected static function inscriptionPhaseOptions($courseId = null): array
+    {
+        $courseId = $courseId ? (int) $courseId : null;
+
+        $options = CoursePhase::query()
+            ->when($courseId, fn (Builder $query) => $query->where('course_id', $courseId))
+            ->orderBy('order')
+            ->orderBy('name')
+            ->pluck('name', 'name')
+            ->toArray();
+
+        return $options ?: [
+            '1ª Fase' => '1ª Fase',
+            '2ª Fase' => '2ª Fase',
+        ];
+    }
+
+    protected static function resolveCoursePhaseIdForInscription(int $courseId, ?string $phaseName): ?int
+    {
+        $phaseName = trim((string) $phaseName);
+
+        if ($courseId <= 0 || $phaseName === '') {
+            return null;
+        }
+
+        return CoursePhase::query()->firstOrCreate(
+            ['course_id' => $courseId, 'name' => $phaseName],
+            ['order' => ((int) CoursePhase::query()->where('course_id', $courseId)->max('order')) + 1],
+        )->id;
+    }
+
+    protected static function automaticSubjectIdsForInscription(
+        StudentClass $studentClass,
+        int $courseId,
+        ?int $academicYearId,
+        ?string $phaseName,
+        ?int $coursePhaseId,
+    ): array {
+        $phaseName = trim((string) $phaseName);
+
+        $coursePlan = $studentClass->course_plan_id
+            ? CoursePlan::query()->find($studentClass->course_plan_id)
+            : null;
+
+        if (! $coursePlan && $courseId > 0 && $academicYearId) {
+            $coursePlan = CoursePlan::query()
+                ->where('course_id', $courseId)
+                ->where('academic_year_id', $academicYearId)
+                ->orderByDesc('is_active')
+                ->orderBy('id')
+                ->first();
+        }
+
+        if (! $coursePlan && $courseId > 0) {
+            $coursePlan = CoursePlan::query()
+                ->where('course_id', $courseId)
+                ->orderByDesc('is_active')
+                ->orderByDesc('academic_year_id')
+                ->orderBy('id')
+                ->first();
+        }
+
+        if ($coursePlan) {
+            $planSubjectIds = $coursePlan->subjects()
+                ->when($phaseName !== '' || $coursePhaseId, function (Builder $query) use ($phaseName, $coursePhaseId): void {
+                    $query->where(function (Builder $subjectQuery) use ($phaseName, $coursePhaseId): void {
+                        if ($phaseName !== '') {
+                            $subjectQuery->whereJsonContains('subjects.phases', $phaseName);
+                        }
+
+                        if ($coursePhaseId) {
+                            $method = $phaseName !== '' ? 'orWhere' : 'where';
+                            $subjectQuery->{$method}('subjects.course_phase_id', $coursePhaseId);
+                        }
+                    });
+                })
+                ->orderBy('course_plan_subjects.order')
+                ->orderBy('subjects.name')
+                ->pluck('subjects.id')
+                ->map(fn ($id): int => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+
+            if ($planSubjectIds !== []) {
+                return $planSubjectIds;
+            }
+        }
+
+        if ($courseId <= 0) {
+            return [];
+        }
+
+        $coursePhaseIds = CoursePhase::query()
+            ->where('course_id', $courseId)
+            ->pluck('id');
+
+        return Subject::query()
+            ->whereIn('course_phase_id', $coursePhaseIds)
+            ->when($phaseName !== '' || $coursePhaseId, function (Builder $query) use ($phaseName, $coursePhaseId): void {
+                $query->where(function (Builder $subjectQuery) use ($phaseName, $coursePhaseId): void {
+                    if ($phaseName !== '') {
+                        $subjectQuery->whereJsonContains('phases', $phaseName);
+                    }
+
+                    if ($coursePhaseId) {
+                        $method = $phaseName !== '' ? 'orWhere' : 'where';
+                        $subjectQuery->{$method}('course_phase_id', $coursePhaseId);
+                    }
+                });
+            })
+            ->orderBy('name')
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    protected static function currentEnrollmentForEdit(Student $student): ?StudentClassEnrollment
+    {
+        static $cache = [];
+
+        return $cache[$student->getKey()] ??= $student->classEnrollments()
+            ->with(['studentClass.courseMap', 'coursePhase', 'academicYear'])
+            ->latest('enrolled_at')
+            ->latest('id')
+            ->first();
+    }
+
+    protected static function currentCourseIdForEdit(Student $student): ?int
+    {
+        $enrollment = static::currentEnrollmentForEdit($student);
+
+        return $enrollment?->studentClass?->courseMap?->course_id
+            ?? $student->courseMap?->course_id;
+    }
+
+    protected static function currentAcademicYearIdForEdit(Student $student): ?int
+    {
+        $enrollment = static::currentEnrollmentForEdit($student);
+
+        return $enrollment?->academic_year_id
+            ?? $enrollment?->studentClass?->academic_year_id
+            ?? $enrollment?->studentClass?->courseMap?->academic_year_id
+            ?? $student->candidate?->academic_year_id
+            ?? AcademicYear::query()->where('is_active', true)->value('id');
+    }
+
+    protected static function classOptionsForEnrollmentEdit($academicYearId, $courseId): array
+    {
+        $academicYearId = $academicYearId ? (int) $academicYearId : null;
+        $courseId = $courseId ? (int) $courseId : null;
+
+        return StudentClass::query()
+            ->with(['courseMap.course', 'academicYear'])
+            ->when($courseId, fn (Builder $query) => $query->whereHas('courseMap', fn (Builder $courseMapQuery) => $courseMapQuery->where('course_id', $courseId)))
+            ->when($academicYearId, function (Builder $query) use ($academicYearId): void {
+                $query->where(function (Builder $yearQuery) use ($academicYearId): void {
+                    $yearQuery
+                        ->where('academic_year_id', $academicYearId)
+                        ->orWhereHas('courseMap', fn (Builder $courseMapQuery) => $courseMapQuery->where('academic_year_id', $academicYearId));
+                });
+            })
+            ->orderBy('name')
+            ->get()
+            ->mapWithKeys(function (StudentClass $studentClass): array {
+                $parts = array_filter([
+                    $studentClass->name,
+                    $studentClass->shift,
+                ]);
+
+                return [$studentClass->id => implode(' - ', $parts)];
+            })
+            ->toArray();
+    }
+
+    protected static function coursePhaseOptionsForEnrollmentEdit($courseId): array
+    {
+        $courseId = $courseId ? (int) $courseId : null;
+
+        return CoursePhase::query()
+            ->when($courseId, fn (Builder $query) => $query->where('course_id', $courseId))
+            ->orderBy('order')
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->toArray();
+    }
+
+    protected static function academicStatusOptions(?Student $record = null): array
+    {
+        $options = [
+            'matriculado' => 'Matriculado',
+            'reconfirmado' => 'Reconfirmado',
+            'ano_cancelado' => 'Ano cancelado',
+            'transferido' => 'Transferido',
+            'suspenso' => 'Suspenso',
+            'concluido' => 'Concluído',
+            'alistado' => 'Alistado',
+            'recruta' => 'Recruta',
+            'instruendo' => 'Instruendo',
+            'formando' => 'Formando',
+        ];
+
+        $current = trim((string) ($record?->status ?? ''));
+
+        if ($current !== '' && ! array_key_exists($current, $options)) {
+            $options[$current] = ucfirst($current);
+        }
+
+        return $options;
+    }
+
+    protected static function shiftOptions(): array
+    {
+        return [
+            'Manhã' => 'Manhã',
+            'Tarde' => 'Tarde',
+            'Noite' => 'Noite',
+            'Integral' => 'Integral',
+            'Pós - Laboral' => 'Pós - Laboral',
+        ];
+    }
+
+    protected static function studentEnrollmentPhotoUploadPlaceholder(): string
+    {
+        return '<span class="sigef-photo-idle">'
+            . '<span class="sigef-photo-camera" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 4.5 7.6 7H5.5A2.5 2.5 0 0 0 3 9.5v8A2.5 2.5 0 0 0 5.5 20h13a2.5 2.5 0 0 0 2.5-2.5v-8A2.5 2.5 0 0 0 18.5 7h-2.1L15 4.5H9Zm3 13a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9Zm0-2a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/></svg></span>'
+            . '</span>';
+    }
+
+    protected static function studentEnrollmentPhotoUploadActions(): HtmlString
+    {
+        return new HtmlString(
+            '<div class="sigef-photo-actions" data-sigef-photo-actions="student-enrollment">'
+            . '<button type="button" class="sigef-photo-action sigef-photo-action-primary" data-sigef-photo-action="capture"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-9A2.5 2.5 0 0 0 3 6.5v11A2.5 2.5 0 0 0 5.5 20h13a2.5 2.5 0 0 0 2.5-2.5v-8A2.5 2.5 0 0 0 18.5 7H17l-2.5-3Z"/><circle cx="12" cy="13" r="3"/></svg><span>Capturar</span></button>'
+            . '<button type="button" class="sigef-photo-action sigef-photo-action-secondary" data-sigef-photo-action="upload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span>Carregar</span></button>'
+            . '</div>'
+        );
+    }
+}
