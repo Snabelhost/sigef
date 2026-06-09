@@ -1,5 +1,5 @@
 @php
-    $reportInstitution = \App\Models\SystemSetting::getReportInstitutionConfig();
+    $reportInstitution = \App\Models\SystemSetting::getReportInstitutionConfig($candidate->institution ?? $candidate->institution_id ?? null);
     $publicAsset = function (?string $path, ?string $fallback = null): ?string {
         if (! filled($path)) {
             return $fallback;

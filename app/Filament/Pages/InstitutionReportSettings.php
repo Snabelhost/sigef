@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\Institution;
 use App\Models\SystemSetting;
 use Filament\Forms;
 use Filament\Notifications\Notification;
@@ -22,6 +23,7 @@ class InstitutionReportSettings extends Page
 
     protected string $view = 'filament.pages.institution-report-settings';
 
+    public int|string|null $institution_id = null;
     public ?string $report_institution_republic_line = '';
     public ?string $report_institution_ministry_line = '';
     public ?string $report_institution_organ_line = '';
@@ -43,21 +45,35 @@ class InstitutionReportSettings extends Page
 
     public function mount(): void
     {
-        $config = SystemSetting::getReportInstitutionConfig();
+        $this->institution_id = auth()->user()?->institution_id
+            ?: Institution::query()->orderBy('name')->value('id');
 
-        foreach ($config as $key => $value) {
-            $property = "report_institution_{$key}";
-
-            if (property_exists($this, $property)) {
-                $this->{$property} = (string) $value;
-            }
-        }
+        $this->loadInstitutionConfig();
     }
 
     public function schema(Schema $schema): Schema
     {
         return $schema
             ->components([
+                \Filament\Schemas\Components\Section::make('Instituição dos relatórios')
+                    ->description('Escolha a instituição antes de configurar o cabeçalho, contactos e rodapé dos relatórios.')
+                    ->icon('heroicon-o-building-office-2')
+                    ->schema([
+                        Forms\Components\Select::make('institution_id')
+                            ->label('Instituição')
+                            ->options(fn() => Institution::query()->orderBy('name')->pluck('name', 'id'))
+                            ->searchable()
+                            ->preload()
+                            ->native(false)
+                            ->required()
+                            ->live()
+                            ->afterStateUpdated(function ($state): void {
+                                $this->institution_id = filled($state) ? (int) $state : null;
+                                $this->loadInstitutionConfig();
+                            })
+                            ->helperText('Cada instituição pode ter logótipo, cabeçalho, responsável, contactos e rodapé próprios.'),
+                    ]),
+
                 \Filament\Schemas\Components\Section::make('Cabeçalho dos relatórios')
                     ->description('Linhas institucionais exibidas no topo das fichas e relatórios.')
                     ->icon('heroicon-o-document-text')
@@ -146,7 +162,28 @@ class InstitutionReportSettings extends Page
 
     public function save(): void
     {
-        foreach (array_keys(SystemSetting::getReportInstitutionConfig()) as $key) {
+        if (! $this->institution_id || ! Institution::query()->whereKey($this->institution_id)->exists()) {
+            Notification::make()
+                ->title('Selecione uma instituição.')
+                ->body('É necessário escolher a instituição antes de guardar as configurações dos relatórios.')
+                ->danger()
+                ->icon('heroicon-o-exclamation-triangle')
+                ->send();
+
+            return;
+        }
+
+        if (blank($this->report_institution_name)) {
+            Notification::make()
+                ->title('Informe o nome da instituição.')
+                ->danger()
+                ->icon('heroicon-o-exclamation-triangle')
+                ->send();
+
+            return;
+        }
+
+        foreach (SystemSetting::getReportInstitutionKeys() as $key) {
             $property = "report_institution_{$key}";
             $value = $this->{$property} ?? '';
 
@@ -154,13 +191,27 @@ class InstitutionReportSettings extends Page
                 $value = reset($value) ?: '';
             }
 
-            SystemSetting::set($property, (string) $value, 'report_institution');
+            SystemSetting::setReportInstitutionConfigValue($key, (string) $value, (int) $this->institution_id);
         }
 
         Notification::make()
             ->title('Configuração da instituição guardada!')
+            ->body('Os relatórios desta instituição passam a usar estes dados automaticamente.')
             ->success()
             ->icon('heroicon-o-check-circle')
             ->send();
+    }
+
+    private function loadInstitutionConfig(): void
+    {
+        $config = SystemSetting::getReportInstitutionConfig($this->institution_id);
+
+        foreach ($config as $key => $value) {
+            $property = "report_institution_{$key}";
+
+            if (property_exists($this, $property)) {
+                $this->{$property} = (string) $value;
+            }
+        }
     }
 }

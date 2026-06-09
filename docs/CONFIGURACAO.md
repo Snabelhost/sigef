@@ -179,9 +179,11 @@ LIVEWIRE_TEMP_UPLOAD_DISK=local
 
 O disco `local` evita expor uploads temporarios no diretorio publico. Tipos aceites devem ficar limitados a documentos e imagens necessarias.
 
-## Configuracao institucional
+## Configuracao institucional por instituicao
 
-No painel, configure dados usados em relatorios:
+No painel, configure dados usados em relatorios em `Configuracoes > Configurar Instituicao`.
+
+Cada instituicao pode ter a sua propria identidade de relatorio. Ao abrir a pagina, selecione a instituicao antes de editar os campos:
 
 - Nome da instituicao.
 - Sigla.
@@ -192,7 +194,19 @@ No painel, configure dados usados em relatorios:
 - Logotipo.
 - Texto de rodape.
 
-Estes dados alimentam cabecalhos e rodapes de relatorios, fichas e documentos.
+Estes dados alimentam cabecalhos e rodapes de relatorios, fichas e documentos emitidos para a instituicao selecionada.
+
+Regras de fallback:
+
+1. Se existir configuracao personalizada da instituicao, ela e usada.
+2. Se ainda nao existir configuracao personalizada, o SIGEF usa os dados cadastrados na propria instituicao, como nome, sigla, contactos, endereco e logotipo.
+3. Se o relatorio nao tiver uma instituicao unica, o sistema usa a configuracao global/padrao.
+
+Boas praticas:
+
+- Configure primeiro os dados basicos em `Instituicoes > Instituicoes`.
+- Depois ajuste cabecalho, responsavel e rodape em `Configurar Instituicao`.
+- Revise uma ficha ou PDF antes de emitir documentos oficiais em massa.
 
 ## Configuracao de cartoes
 

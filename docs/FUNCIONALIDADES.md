@@ -460,9 +460,25 @@ Como usar:
 
 Funcionalidades:
 
-- Definir dados institucionais para relatorios.
-- Informar nome, sigla, orgao, NIF, telefone, e-mail, endereco, logotipo e rodape.
-- Alimentar cabecalhos e rodapes de fichas, relatorios, certificados e cartoes.
+- Selecionar cada instituicao e definir as suas configuracoes proprias de relatorio.
+- Configurar logotipo, linhas de cabecalho, nome, sigla, orgao, NIF, telefone, e-mail, endereco, responsavel e rodape.
+- Alimentar cabecalhos e rodapes de fichas, relatorios, certificados e documentos emitidos para aquela instituicao.
+- Usar dados cadastrados na propria instituicao como fallback quando ainda nao existir configuracao personalizada.
+- Manter configuracoes separadas entre escolas, centros, academias e faculdades.
+
+Como usar:
+
+1. Abrir `Configuracoes > Configurar Instituicao`.
+2. Selecionar a instituicao no campo `Instituicao`.
+3. Confirmar ou ajustar logotipo, cabecalho, contactos, responsavel e rodape.
+4. Guardar.
+5. Repetir o processo para cada instituicao que precisa de identidade propria nos relatorios.
+
+Observacoes:
+
+- Relatorios filtrados por instituicao usam automaticamente a configuracao da instituicao selecionada.
+- A ficha do formando usa a configuracao da instituicao vinculada ao formando.
+- Relatorios gerais, sem instituicao unica, usam a configuracao global/padrao do SIGEF.
 
 #### Servidor de E-mail
 
@@ -516,7 +532,7 @@ Funcionalidades:
 
 - Emitir relatorios administrativos.
 - Gerar PDFs com dados filtrados.
-- Usar cabecalho e rodape da configuracao institucional.
+- Usar cabecalho e rodape da configuracao institucional da instituicao filtrada.
 - Apoiar auditoria, impressao e arquivo.
 
 ## Painel Escola

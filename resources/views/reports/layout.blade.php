@@ -2,6 +2,28 @@
 <html>
 
 <head>
+    @php
+        $reportInstitution = \App\Models\SystemSetting::getReportInstitutionConfig($institution ?? null);
+        $logoPath = $reportInstitution['logo_path'] ?? '';
+        $logoAbsolutePath = $logoPath
+            ? \Illuminate\Support\Facades\Storage::disk('public')->path($logoPath)
+            : public_path('images/logo-pna.png');
+        $logoExists = is_file($logoAbsolutePath);
+        $headerLines = array_filter([
+            $reportInstitution['republic_line'] ?? null,
+            $reportInstitution['ministry_line'] ?? null,
+            $reportInstitution['organ_line'] ?? null,
+            $reportInstitution['department_line'] ?? null,
+        ]);
+        $footerContacts = array_filter([
+            $reportInstitution['address'] ?? null,
+            ! empty($reportInstitution['phone']) ? 'Tel.: '.$reportInstitution['phone'] : null,
+            $reportInstitution['email'] ?? null,
+            $reportInstitution['website'] ?? null,
+        ]);
+        $footerText = $reportInstitution['footer_text']
+            ?: implode(' | ', array_filter([$reportInstitution['name'] ?? 'SIGEF', ...$footerContacts]));
+    @endphp
     <meta charset="utf-8">
     <title>@yield('title', 'Relatório SIGEF')</title>
     <style>
@@ -35,6 +57,22 @@
 
         .header-logo img {
             height: 60px;
+        }
+
+        .header-lines {
+            color: #041c4f;
+            font-size: 10px;
+            line-height: 1.35;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .header-institution {
+            font-size: 13px;
+            color: #041c4f;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 5px;
         }
 
         .header h1 {
@@ -183,11 +221,21 @@
 
 <body>
     <div class="header">
-        <div class="header-logo">
-            <img src="{{ public_path('images/logo-pna.png') }}" alt="Logo PNA">
-        </div>
+        @if($logoExists)
+            <div class="header-logo">
+                <img src="{{ $logoAbsolutePath }}" alt="Logotipo">
+            </div>
+        @endif
+        @if(count($headerLines) > 0)
+            <div class="header-lines">
+                @foreach($headerLines as $line)
+                    <div>{{ $line }}</div>
+                @endforeach
+            </div>
+        @endif
+        <div class="header-institution">{{ $reportInstitution['name'] ?? 'SIGEF' }}</div>
         <h1>@yield('title', 'Relatório')</h1>
-        <h2>Sistema Integrado de Gestão Escolar e Formação</h2>
+        <h2>{{ $reportInstitution['acronym'] ?? 'SIGEF' }}</h2>
         <p class="subtitle">Gerado em: {{ now()->format('d/m/Y H:i') }}</p>
     </div>
 
@@ -206,7 +254,7 @@
     @yield('content')
 
     <div class="footer">
-        <span>SIGEF — {{ now()->format('d/m/Y H:i') }} | Página <span class="page-number"></span></span>
+        <span>{{ $footerText }} | {{ now()->format('d/m/Y H:i') }} | Página <span class="page-number"></span></span>
     </div>
 </body>
 
