@@ -186,7 +186,7 @@ class SharedForms
                 // Etapa 4 - Documentos
                 \Filament\Schemas\Components\Wizard\Step::make('Documentos')
                     ->icon('heroicon-o-document-text')
-                    ->description('Upload de documentos')
+                    ->description('Carregamento de documentos')
                     ->schema([
                         Forms\Components\FileUpload::make('bilhete_identidade')
                             ->label('Bilhete de Identidade')

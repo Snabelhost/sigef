@@ -42,7 +42,7 @@ class CandidateResource extends Resource
                     $query->orWhere('status', $status);
                 }
             })
-            ->with(['recruitmentType', 'academicYear']);
+            ->with(['recruitmentType', 'academicYear', 'institution', 'province', 'municipalityRelation', 'provenance']);
     }
 
     /**
@@ -121,13 +121,26 @@ class CandidateResource extends Resource
                         Forms\Components\TextInput::make('mother_name')
                             ->label('Nome da Mãe')
                             ->maxLength(191),
-                    ])->columns(3)->columnSpanFull(),
-
-                // Localização e Contacto
-                \Filament\Schemas\Components\Section::make('Localização e Contacto')
-                    ->icon('heroicon-o-map-pin')
-                    ->description('Endereço e contactos')
-                    ->schema([
+                        Forms\Components\TextInput::make('phone')
+                            ->label('Telefone')
+                            ->tel()
+                            ->prefix('+244')
+                            ->placeholder('9XX XXX XXX')
+                            ->mask('999 999 999')
+                            ->maxLength(191)
+                            ->required()
+                            ->unique(ignoreRecord: true)
+                            ->validationMessages([
+                                'unique' => 'Já existe um formando com este telefone.',
+                            ]),
+                        Forms\Components\TextInput::make('email')
+                            ->label('E-mail')
+                            ->email()
+                            ->maxLength(191)
+                            ->unique(ignoreRecord: true)
+                            ->validationMessages([
+                                'unique' => 'Já existe um candidato com este e-mail.',
+                            ]),
                         Forms\Components\Select::make('province_id')
                             ->label('Província')
                             ->options(\App\Models\Province::orderBy('name')->pluck('name', 'id'))
@@ -153,26 +166,6 @@ class CandidateResource extends Resource
                         Forms\Components\Textarea::make('address')
                             ->label('Endereço')
                             ->rows(2),
-                        Forms\Components\TextInput::make('phone')
-                            ->label('Telefone')
-                            ->tel()
-                            ->prefix('+244')
-                            ->placeholder('9XX XXX XXX')
-                            ->mask('999 999 999')
-                            ->maxLength(191)
-                            ->required()
-                            ->unique(ignoreRecord: true)
-                            ->validationMessages([
-                                'unique' => 'Já existe um formando com este telefone.',
-                            ]),
-                        Forms\Components\TextInput::make('email')
-                            ->label('E-mail')
-                            ->email()
-                            ->maxLength(191)
-                            ->unique(ignoreRecord: true)
-                            ->validationMessages([
-                                'unique' => 'Já existe um candidato com este e-mail.',
-                            ]),
                     ])->columns(3)->columnSpanFull(),
 
                 \Filament\Schemas\Components\Section::make('Classificação')
@@ -276,6 +269,8 @@ class CandidateResource extends Resource
                         'Feminino' => 'Feminino',
                     ]),
             ])
+            ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContentCollapsible)
+            ->filtersFormColumns(4)
             ->headerActions([
                 // Botão de Importação Excel
                 \Filament\Actions\Action::make('sincronizarPortal')
@@ -519,6 +514,7 @@ class CandidateResource extends Resource
                         ->modalWidth('6xl')
                         ->schema(static::candidateFormSchema())
                         ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Fechar')->color('danger')),
+                    static::imprimirFichaAction(),
                     \Filament\Actions\EditAction::make()
                         ->icon('heroicon-o-pencil-square')
                         ->modalWidth('6xl')
@@ -584,15 +580,14 @@ class CandidateResource extends Resource
                         })
                         ->modalSubmitAction(fn(\Filament\Actions\Action $action) => $action->label('Transferir')->icon('heroicon-o-check')->color('primary'))
                         ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->label('Cancelar')->icon('heroicon-o-x-mark')->color('danger')),
-                    // Vincular Alistado e Converter em Recruta
+                    // Vincular alistado/formando e enviar para Gestão de Formandos.
                     \Filament\Actions\Action::make('vincularEConverterRecruta')
                         ->label('Enviar para uma Instituição')
                         ->icon('heroicon-o-user-plus')
                         ->color('success')
                         ->visible(fn(Candidate $record): bool => empty($record->institution_id))
                         ->requiresConfirmation()
-                        ->modalHeading('Vincular Alistado e Converter em Recruta')
-                        ->modalDescription(fn(Candidate $record) => 'O alistado "' . ($record->full_name ?? 'N/A') . '" será vinculado à escola selecionada e convertido em Recruta (1ª Fase).')
+                        ->modalHeading('Vincular à Instituição')
                         ->modalIcon('heroicon-o-academic-cap')
                         ->form([
                             Forms\Components\Select::make('institution_id')
@@ -601,15 +596,16 @@ class CandidateResource extends Resource
                                 ->required()
                                 ->searchable()
                                 ->preload()
-                                ->helperText('Selecione a escola onde o alistado será formado'),
+                                ->helperText('Selecione a escola onde o registo será formado.'),
                         ])
                         ->action(function (Candidate $record, array $data): void {
                             $institution = Institution::find($data['institution_id']);
+                            $studentType = static::studentTypeAfterInstitutionLink($record->student_type);
+                            $studentTypeId = StudentType::getIdByName($studentType);
 
-                            // Vincular à instituição
                             $record->update([
                                 'institution_id' => $data['institution_id'],
-                                'student_type' => '1ª Fase - Recruta',
+                                'student_type' => $studentType,
                             ]);
 
                             // Criar ou atualizar Student
@@ -618,22 +614,24 @@ class CandidateResource extends Resource
                             if ($existingStudent) {
                                 $existingStudent->update([
                                     'institution_id' => $data['institution_id'],
-                                    'student_type' => '1ª Fase - Recruta',
+                                    'student_type' => $studentType,
+                                    'student_type_id' => $studentTypeId,
                                 ]);
                             } else {
                                 \App\Models\Student::create([
                                     'candidate_id' => $record->id,
                                     'institution_id' => $data['institution_id'],
                                     'student_number' => 'ALT-' . $record->id,
-                                    'student_type' => '1ª Fase - Recruta',
+                                    'student_type' => $studentType,
+                                    'student_type_id' => $studentTypeId,
                                     'nuri' => $record->nuri ?? null,
                                     'enrollment_date' => now(),
                                 ]);
                             }
 
                             \Filament\Notifications\Notification::make()
-                                ->title('Alistado Vinculado e Convertido!')
-                                ->body("Vinculado à escola \"{$institution->name}\" e convertido em Recruta (1ª Fase).")
+                                ->title('Registo Vinculado!')
+                                ->body("Vinculado à escola \"{$institution->name}\" como \"{$studentType}\".")
                                 ->success()
                                 ->send();
                         })
@@ -659,7 +657,6 @@ class CandidateResource extends Resource
                     ])
                     ->requiresConfirmation()
                     ->modalHeading('Vincular Alistados e Converter em Recrutas')
-                    ->modalDescription('Os alistados selecionados serão vinculados à escola escolhida e automaticamente convertidos em Recrutas (1ª Fase). Eles aparecerão na listagem de Gestão de Formandos.')
                     ->modalIcon('heroicon-o-academic-cap')
                     ->form([
                         Forms\Components\Select::make('institution_id')
@@ -668,51 +665,53 @@ class CandidateResource extends Resource
                             ->required()
                             ->searchable()
                             ->preload()
-                            ->helperText('Selecione a escola onde os alistados serão formados'),
+                            ->helperText('Selecione a escola onde os registos serão formados.'),
                     ])
                     ->action(function (\Illuminate\Database\Eloquent\Collection $records, array $data): void {
                         $institution = Institution::find($data['institution_id']);
-                        $countConverted = 0;
-
-                        // Obter o ID do tipo de aluno dinamicamente
-                        $studentTypeId = \App\Models\StudentType::getIdByName('1ª Fase - Recruta');
+                        $countRecrutas = 0;
+                        $countEmFormacao = 0;
 
                         foreach ($records as $candidate) {
-                            // Atualizar institution_id e student_type do Candidate
-                            // Mudar para '1ª Fase - Recruta' para remover da listagem de Alistados
+                            $studentType = static::studentTypeAfterInstitutionLink($candidate->student_type);
+                            $studentTypeId = StudentType::getIdByName($studentType);
+
                             $candidate->update([
                                 'institution_id' => $data['institution_id'],
-                                'student_type' => '1ª Fase - Recruta',
+                                'student_type' => $studentType,
                             ]);
 
                             // Verificar se já existe Student para este Candidate
                             $existingStudent = \App\Models\Student::where('candidate_id', $candidate->id)->first();
 
                             if ($existingStudent) {
-                                // Já existe, apenas atualizar institution_id e student_type
                                 $existingStudent->update([
                                     'institution_id' => $data['institution_id'],
-                                    'student_type' => '1ª Fase - Recruta',
+                                    'student_type' => $studentType,
                                     'student_type_id' => $studentTypeId,
                                 ]);
                             } else {
-                                // Criar novo Student como Recruta
                                 \App\Models\Student::create([
                                     'candidate_id' => $candidate->id,
                                     'institution_id' => $data['institution_id'],
                                     'student_number' => 'ALT-' . $candidate->id,
-                                    'student_type' => '1ª Fase - Recruta',
+                                    'student_type' => $studentType,
                                     'student_type_id' => $studentTypeId,
                                     'nuri' => $candidate->nuri ?? null,
                                     'enrollment_date' => now(),
                                 ]);
                             }
-                            $countConverted++;
+
+                            if ($studentType === 'Em Formação') {
+                                $countEmFormacao++;
+                            } else {
+                                $countRecrutas++;
+                            }
                         }
 
                         \Filament\Notifications\Notification::make()
-                            ->title('Alistados Convertidos em Recrutas!')
-                            ->body("{$countConverted} alistados foram vinculados à escola \"{$institution->name}\" e convertidos em Recrutas. Eles foram removidos desta listagem e estão agora em Gestão de Formandos.")
+                            ->title('Registos Vinculados!')
+                            ->body("Escola: \"{$institution->name}\". Recrutas: {$countRecrutas}. Em Formação: {$countEmFormacao}.")
                             ->success()
                             ->duration(10000)
                             ->send();
@@ -727,7 +726,6 @@ class CandidateResource extends Resource
                     ->color('info')
                     ->requiresConfirmation()
                     ->modalHeading('Atribuir Escola aos Alistados')
-                    ->modalDescription('Os alistados serão atribuídos à escola, mas NÃO serão convertidos em Recrutas ainda.')
                     ->form([
                         Forms\Components\Select::make('institution_id')
                             ->label('Instituição de Ensino')
@@ -756,7 +754,7 @@ class CandidateResource extends Resource
                     ->deselectRecordsAfterCompletion(),
                 // Enviar SMS em massa
                 \Filament\Actions\BulkAction::make('enviarSmsEmMassa')
-                    ->label('Enviar SMS de Apresentação')
+                    ->label('Enviar SMS para Alistados e Formandos')
                     ->icon('heroicon-o-chat-bubble-left-right')
                     ->color('warning')
                     ->extraAttributes([
@@ -764,14 +762,13 @@ class CandidateResource extends Resource
                         'class' => '[&>svg]:!text-white',
                     ])
                     ->requiresConfirmation()
-                    ->modalHeading('Enviar SMS de Apresentação')
-                    ->modalDescription('Será enviado um SMS aos alistados selecionados para se apresentarem na instituição. Apenas alistados com telefone e vinculados a uma escola receberão o SMS.')
+                    ->modalHeading('Enviar SMS para Alistados e Formandos')
                     ->modalIcon('heroicon-o-chat-bubble-left-right')
                     ->form([
                         Forms\Components\Textarea::make('mensagem')
                             ->label('Mensagem')
                             ->default("Prezado(a) {nome}, informamos que deve apresentar-se na {escola} para obter informacoes sobre o aquartelamento. Compareça com documento de identificacao. Policia Nacional de Angola.")
-                            ->helperText('Use {nome} para o nome do alistado e {escola} para o nome da escola.')
+                            ->helperText('Use {nome} para o nome do alistado/formando e {escola} para o nome da escola.')
                             ->required()
                             ->rows(4),
                     ])
@@ -785,7 +782,7 @@ class CandidateResource extends Resource
                         foreach ($records as $record) {
                             $phone = $record->phone;
                             $escola = $record->institution?->name;
-                            $nome = $record->full_name ?? 'Alistado';
+                            $nome = $record->full_name ?? 'Registo';
 
                             if (empty($phone)) {
                                 $semTelefone++;
@@ -846,7 +843,7 @@ class CandidateResource extends Resource
 
                         $msg = "{$enviados} SMS enviados com sucesso.";
                         if ($semTelefone > 0) $msg .= " {$semTelefone} sem telefone.";
-                        if ($semEscola > 0) $msg .= " {$semEscola} sem escola.";
+                        if ($semEscola > 0) $msg .= " {$semEscola} sem instituição.";
                         if ($falhas > 0) $msg .= " {$falhas} falharam.";
 
                         \Filament\Notifications\Notification::make()
@@ -863,9 +860,43 @@ class CandidateResource extends Resource
             ]);
     }
 
+    protected static function imprimirFichaAction(): \Filament\Actions\Action
+    {
+        return \Filament\Actions\Action::make('imprimirFicha')
+            ->label('Imprimir Ficha')
+            ->icon('heroicon-o-printer')
+            ->color('gray')
+            ->modalHeading(fn(Candidate $record): string => 'Ficha do Formando - ' . ($record->full_name ?? 'N/A'))
+            ->modalWidth('7xl')
+            ->modalSubmitAction(false)
+            ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Fechar')->color('danger'))
+            ->stickyModalHeader()
+            ->stickyModalFooter()
+            ->closeModalByClickingAway(false)
+            ->modalContent(function (Candidate $record) {
+                return view('candidates.ficha-modal', [
+                    'candidate' => $record->loadMissing([
+                        'institution',
+                        'province',
+                        'municipalityRelation',
+                        'provenance',
+                        'academicYear',
+                        'recruitmentType',
+                    ]),
+                ]);
+            });
+    }
+
     protected static function approvedRecruitmentStatuses(): array
     {
         return ['Apurado', 'approved', 'aprovado', 'admitted', 'apto'];
+    }
+
+    protected static function studentTypeAfterInstitutionLink(?string $studentType): string
+    {
+        return str_contains(strtolower(trim((string) $studentType)), 'formando')
+            ? 'Em Formação'
+            : '1ª Fase - Recruta';
     }
 
     protected static function formatRecruitmentStatus(?string $state): string

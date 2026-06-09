@@ -2,53 +2,22 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Student;
-use App\Models\Institution;
 use App\Models\AcademicYear;
+use App\Models\Student;
+use App\Services\StudentCardService;
 use Illuminate\Http\Request;
 
 class StudentCardController extends Controller
 {
-    /**
-     * Exibe o cartão de identificação de um estudante
-     */
-    public function show(Student $student)
+    public function show(Student $student, StudentCardService $studentCardService)
     {
-        $student->load(['candidate', 'institution', 'rank', 'provenance', 'classEnrollments.studentClass.courseMap.course']);
-        
-        $institution = $student->institution;
-        $academicYear = AcademicYear::where('is_active', true)->first()?->name ?? date('Y');
-        $courseCategory = $student->student_type ?? 'CBP';
-        
-        // Buscar abreviação do curso do aluno
-        $courseAbbreviation = 'EPP'; // Valor padrão
-        $enrollment = $student->classEnrollments->first();
-        if ($enrollment && $enrollment->studentClass?->courseMap?->course) {
-            $courseName = $enrollment->studentClass->courseMap->course->name;
-            // Criar abreviação a partir das primeiras letras de cada palavra
-            $words = explode(' ', $courseName);
-            $abbreviation = '';
-            foreach ($words as $word) {
-                // Ignorar palavras pequenas como "de", "da", "do", "e", etc.
-                if (strlen($word) > 2 && !in_array(strtolower($word), ['de', 'da', 'do', 'das', 'dos', 'para', 'com'])) {
-                    $abbreviation .= strtoupper(substr($word, 0, 1));
-                }
-            }
-            if (!empty($abbreviation)) {
-                $courseAbbreviation = $abbreviation;
-            }
-        }
-
-        return view('students.card', compact('student', 'institution', 'academicYear', 'courseCategory', 'courseAbbreviation'));
+        return view('students.card', $studentCardService->build($student));
     }
 
-    /**
-     * Exibe cartões de múltiplos estudantes para impressão em lote
-     */
     public function printBatch(Request $request)
     {
         $studentIds = $request->input('students', []);
-        
+
         if (empty($studentIds)) {
             return back()->with('error', 'Nenhum estudante selecionado.');
         }
@@ -62,9 +31,6 @@ class StudentCardController extends Controller
         return view('students.cards-batch', compact('students', 'academicYear'));
     }
 
-    /**
-     * Lista todos os estudantes com opção de gerar cartão
-     */
     public function index(Request $request)
     {
         $students = Student::with(['candidate', 'institution', 'rank'])

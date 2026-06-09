@@ -41,15 +41,26 @@ class Dashboard extends BaseDashboard
     public function getFiltersFormContentComponent(): Component
     {
         return EmbeddedSchema::make('filtersForm')
-            ->columnSpanFull();
+            ->columnSpanFull()
+            ->extraAttributes(['class' => 'sigef-dashboard-filters']);
     }
 
     public function filtersForm(Schema $schema): Schema
     {
         return $schema
+            ->extraAttributes(['class' => 'sigef-dashboard-filters-form'])
+            ->columns([
+                'default' => 1,
+                'sm' => 1,
+                'md' => 1,
+                'lg' => 1,
+                'xl' => 1,
+                '2xl' => 1,
+            ])
             ->components([
                 Section::make('Filtros dos gráficos')
                     ->columnSpanFull()
+                    ->extraAttributes(['class' => 'sigef-dashboard-filters-section'])
                     ->columns([
                         'default' => 1,
                         'md' => 2,

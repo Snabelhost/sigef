@@ -68,6 +68,7 @@ class StudentClassEnrollmentResource extends Resource
             'Instruendo',
             '2ª Fase - Instruendo',
             'Em Formação',
+            'Formando Concluído',
         ];
 
         return Student::query()
@@ -126,7 +127,7 @@ class StudentClassEnrollmentResource extends Resource
                 ->wrap()
                 ->toggleable(),
             Tables\Columns\TextColumn::make('nuri')
-                ->label(fn($record) => in_array(strtolower($record->student_type ?? ''), ['em formação', 'oficial']) ? 'NIP' : 'NURI')
+                ->label('NIP/NURI')
                 ->searchable()
                 ->sortable(query: function (Builder $query, string $direction): Builder {
                     $direction = strtolower($direction) === 'desc' ? 'DESC' : 'ASC';
@@ -280,6 +281,7 @@ class StudentClassEnrollmentResource extends Resource
     {
         return [
             static::recrutaParaInstruendoBulkAction(),
+            static::emFormacaoParaConcluidoBulkAction(),
             static::atribuirEmMassaBulkAction(),
         ];
     }
@@ -940,53 +942,24 @@ class StudentClassEnrollmentResource extends Resource
             ->deselectRecordsAfterCompletion()
             ->requiresConfirmation()
             ->modalHeading('Promover Recrutas para Instruendo')
-            ->modalDescription('Os recrutas selecionados serão promovidos para Instruendo e as disciplinas do curso serão adicionadas automaticamente.')
             ->modalIcon('heroicon-o-arrow-up-circle')
             ->modalIconColor('info')
             ->action(function (\Illuminate\Database\Eloquent\Collection $records): void {
                 $newType = '2ª Fase - Instruendo';
+                $studentTypeId = StudentType::getIdByName($newType);
                 $count = 0;
                 $skipped = 0;
 
                 foreach ($records as $student) {
-                    if (!str_contains(strtolower($student->student_type ?? ''), 'recruta')) {
+                    if (! static::studentTypeContains($student->student_type, 'recruta')) {
                         $skipped++;
                         continue;
                     }
 
-                    $student->update(['student_type' => $newType]);
-
-                    $lastEnrollment = $student->classEnrollments()
-                        ->with('studentClass.courseMap.course.phases')
-                        ->latest()
-                        ->first();
-
-                    if ($lastEnrollment) {
-                        $courseId = $lastEnrollment->studentClass?->courseMap?->course_id;
-                        $classId = $lastEnrollment->class_id;
-
-                        if ($courseId) {
-                            $coursePhaseIds = CoursePhase::where('course_id', $courseId)->pluck('id');
-
-                            $subjects = Subject::whereIn('course_phase_id', $coursePhaseIds)
-                                ->whereJsonContains('phases', '2ª Fase')
-                                ->get();
-
-                            foreach ($subjects as $subject) {
-                                StudentSubjectEnrollment::updateOrCreate(
-                                    [
-                                        'student_id' => $student->id,
-                                        'subject_id' => $subject->id,
-                                        'class_id' => $classId,
-                                    ],
-                                    [
-                                        'course_phase_id' => $subject->course_phase_id,
-                                        'is_active' => true,
-                                    ]
-                                );
-                            }
-                        }
-                    }
+                    $student->update([
+                        'student_type' => $newType,
+                        'student_type_id' => $studentTypeId,
+                    ]);
 
                     $count++;
                 }
@@ -1004,6 +977,65 @@ class StudentClassEnrollmentResource extends Resource
             })
             ->modalSubmitAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-check')->label('Promover')->color('primary'))
             ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger'));
+    }
+
+    private static function emFormacaoParaConcluidoBulkAction(): \Filament\Actions\BulkAction
+    {
+        return \Filament\Actions\BulkAction::make('emFormacaoParaConcluido')
+            ->label('Em Formação → Concluído')
+            ->icon('heroicon-o-check-badge')
+            ->color('success')
+            ->deselectRecordsAfterCompletion()
+            ->requiresConfirmation()
+            ->modalHeading('Concluir Formandos em Formação')
+            ->modalIcon('heroicon-o-check-circle')
+            ->modalIconColor('success')
+            ->action(function (\Illuminate\Database\Eloquent\Collection $records): void {
+                $newType = 'Formando Concluído';
+                $studentTypeId = StudentType::getIdByName($newType);
+                $count = 0;
+                $skipped = 0;
+
+                foreach ($records as $student) {
+                    if (! static::studentTypeContains($student->student_type, 'em forma')) {
+                        $skipped++;
+                        continue;
+                    }
+
+                    $student->update([
+                        'student_type' => $newType,
+                        'student_type_id' => $studentTypeId,
+                        'status' => 'concluiu',
+                        'conclusion_date' => now(),
+                    ]);
+
+                    if ($student->candidate) {
+                        $student->candidate->update([
+                            'student_type' => $newType,
+                        ]);
+                    }
+
+                    $count++;
+                }
+
+                $msg = "$count formandos concluídos";
+                if ($skipped > 0) {
+                    $msg .= " ($skipped ignorados por não estarem Em Formação)";
+                }
+
+                \Filament\Notifications\Notification::make()
+                    ->title('Conclusão concluída!')
+                    ->body($msg)
+                    ->success()
+                    ->send();
+            })
+            ->modalSubmitAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-check')->label('Concluir')->color('primary'))
+            ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger'));
+    }
+
+    private static function studentTypeContains(?string $studentType, string $needle): bool
+    {
+        return str_contains(strtolower(trim((string) $studentType)), strtolower($needle));
     }
 
     private static function atribuirEmMassaBulkAction(): \Filament\Actions\BulkAction

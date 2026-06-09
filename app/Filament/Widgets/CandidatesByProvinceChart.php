@@ -2,22 +2,25 @@
 
 namespace App\Filament\Widgets;
 
-use App\Models\Candidate;
 use App\Models\Student;
 use App\Models\Institution;
+use App\Services\SigaDashboardStatsService;
+use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 class CandidatesByProvinceChart extends ChartWidget
 {
     use InteractsWithPageFilters;
     
+    protected string $view = 'filament.widgets.institution-students-chart';
     protected ?string $heading = 'Alunos por Instituição de Ensino';
     protected static ?int $sort = 2;
     protected int | string | array $columnSpan = 'full';
     protected ?string $pollingInterval = '30s';
-    protected ?string $maxHeight = '320px';
+    protected ?string $maxHeight = '380px';
     protected static bool $isLazy = true;
 
     protected function getData(): array
@@ -35,23 +38,9 @@ class CandidatesByProvinceChart extends ChartWidget
             $institutions = Institution::all();
         }
         
-        $labels = [];
-        $totals = [];
+        $combined = [];
         
         foreach ($institutions as $institution) {
-            // Query candidatos
-            $candidateQuery = Candidate::where('institution_id', $institution->id);
-            if ($courseId) {
-                $candidateQuery->whereRaw('1 = 0');
-            }
-            if ($startDate) {
-                $candidateQuery->whereDate('created_at', '>=', Carbon::parse($startDate));
-            }
-            if ($endDate) {
-                $candidateQuery->whereDate('created_at', '<=', Carbon::parse($endDate));
-            }
-            $candidateCount = $candidateQuery->count();
-            
             // Query estudantes
             $studentQuery = Student::where('institution_id', $institution->id);
             if ($courseId) {
@@ -65,44 +54,68 @@ class CandidatesByProvinceChart extends ChartWidget
             }
             $studentCount = $studentQuery->count();
             
-            $total = $candidateCount + $studentCount;
-            
-            if ($total > 0) {
-                $labels[] = $institution->name;
-                $totals[] = $total;
+            if ($studentCount > 0) {
+                $this->addInstitutionTotal($combined, $institution->name, $studentCount, 0);
             }
         }
-        
-        // Ordenar por total decrescente e limitar a 10
-        if (!empty($labels)) {
-            $combined = array_combine($labels, $totals);
-            arsort($combined);
-            $combined = array_slice($combined, 0, 10, true);
-        } else {
-            $combined = ['Sem dados' => 0];
+
+        foreach (app(SigaDashboardStatsService::class)->institutionStudents([
+            'institution_id' => $institutionId,
+            'course_id' => $courseId,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+        ]) as $row) {
+            $this->addInstitutionTotal(
+                $combined,
+                $row['institution_name'] ?? 'Faculdade SIGA',
+                0,
+                (int) ($row['total_alunos'] ?? 0),
+            );
         }
+
+        if ($combined === []) {
+            $combined = [
+                'sem-dados' => [
+                    'label' => 'Sem dados',
+                    'sistema' => 0,
+                    'api' => 0,
+                    'total' => 0,
+                ],
+            ];
+        }
+
+        usort($combined, fn (array $first, array $second): int => $second['total'] <=> $first['total']);
+        $combined = array_slice(array_values($combined), 0, 10);
+        $barCount = count($combined);
+        $systemBackgroundColors = $this->chartPalette($barCount, 0.86);
+        $systemBorderColors = $this->chartPalette($barCount, 1);
+        $apiBackgroundColors = $this->chartPalette($barCount, 0.38);
+        $apiBorderColors = $this->chartPalette($barCount, 0.95);
         
         return [
             'datasets' => [
                 [
-                    'label' => 'Alunos',
-                    'data' => array_values($combined),
-                    'backgroundColor' => [
-                        'rgba(59, 130, 246, 0.8)',
-                        'rgba(16, 185, 129, 0.8)',
-                        'rgba(245, 158, 11, 0.8)',
-                        'rgba(239, 68, 68, 0.8)',
-                        'rgba(139, 92, 246, 0.8)',
-                        'rgba(236, 72, 153, 0.8)',
-                        'rgba(20, 184, 166, 0.8)',
-                        'rgba(249, 115, 22, 0.8)',
-                        'rgba(99, 102, 241, 0.8)',
-                        'rgba(34, 197, 94, 0.8)',
-                    ],
-                    'borderWidth' => 0,
+                    'label' => 'Sistema',
+                    'data' => array_column($combined, 'sistema'),
+                    'backgroundColor' => $systemBackgroundColors,
+                    'borderColor' => $systemBorderColors,
+                    'borderWidth' => 1,
+                    'borderRadius' => 8,
+                    'barPercentage' => 0.78,
+                    'categoryPercentage' => 0.72,
+                ],
+                [
+                    'label' => 'API SIGA',
+                    'data' => array_column($combined, 'api'),
+                    'backgroundColor' => $apiBackgroundColors,
+                    'borderColor' => $apiBorderColors,
+                    'borderWidth' => 1,
+                    'borderRadius' => 8,
+                    'barPercentage' => 0.78,
+                    'categoryPercentage' => 0.72,
                 ],
             ],
-            'labels' => array_keys($combined),
+            'labels' => array_column($combined, 'label'),
         ];
     }
 
@@ -111,23 +124,100 @@ class CandidatesByProvinceChart extends ChartWidget
         return 'bar';
     }
 
-    protected function getOptions(): array
+    protected function getOptions(): RawJs
     {
-        return [
-            'aspectRatio' => 4.6,
-            'scales' => [
-                'y' => [
-                    'beginAtZero' => true,
-                    'ticks' => [
-                        'precision' => 0,
-                    ],
-                ],
-            ],
-            'plugins' => [
-                'legend' => [
-                    'display' => false,
-                ],
-            ],
+        return RawJs::make(<<<'JS'
+{
+    maintainAspectRatio: false,
+    interaction: {
+        mode: 'index',
+        intersect: false,
+    },
+    scales: {
+        y: {
+            beginAtZero: true,
+            stacked: false,
+            ticks: {
+                precision: 0,
+            },
+            grid: {
+                color: 'rgba(15, 23, 42, 0.08)',
+            },
+        },
+        x: {
+            stacked: false,
+            ticks: {
+                autoSkip: false,
+                maxRotation: 22,
+                minRotation: 0,
+                callback: function(value) {
+                    const label = this.getLabelForValue(value) || '';
+                    return label.length > 34 ? label.slice(0, 34) + '...' : label;
+                },
+            },
+            grid: {
+                display: false,
+            },
+        },
+    },
+    plugins: {
+        legend: {
+            display: true,
+        },
+        tooltip: {
+            callbacks: {
+                label: (context) => `${context.dataset.label}: ${context.parsed.y || 0} aluno(s)`,
+                footer: (items) => {
+                    const total = items.reduce((sum, item) => sum + (item.parsed.y || 0), 0);
+                    return `Total: ${total} aluno(s)`;
+                },
+            },
+        },
+    },
+}
+JS);
+    }
+
+    private function chartPalette(int $count, float $alpha, int $offset = 0): array
+    {
+        $palette = [
+            [37, 99, 235],
+            [16, 185, 129],
+            [245, 158, 11],
+            [239, 68, 68],
+            [139, 92, 246],
+            [14, 165, 233],
+            [236, 72, 153],
+            [34, 197, 94],
+            [249, 115, 22],
+            [100, 116, 139],
         ];
+
+        $colors = [];
+
+        for ($index = 0; $index < $count; $index++) {
+            [$red, $green, $blue] = $palette[($index + $offset) % count($palette)];
+            $colors[] = "rgba({$red}, {$green}, {$blue}, {$alpha})";
+        }
+
+        return $colors;
+    }
+
+    private function addInstitutionTotal(array &$combined, string $label, int $systemTotal, int $apiTotal): void
+    {
+        $key = Str::of($label)->ascii()->lower()->trim()->squish()->toString();
+
+        if (! isset($combined[$key])) {
+            $combined[$key] = [
+                'label' => $label,
+                'sistema' => 0,
+                'api' => 0,
+                'total' => 0,
+            ];
+        }
+
+        $combined[$key]['sistema'] += $systemTotal;
+        $combined[$key]['api'] += $apiTotal;
+        $combined[$key]['total'] = $combined[$key]['sistema'] + $combined[$key]['api'];
     }
 }

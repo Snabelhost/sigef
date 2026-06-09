@@ -4,10 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Candidate;
+use App\Models\Course;
+use App\Models\CourseMap;
 use App\Models\Student;
 use App\Models\Trainer;
 use App\Models\Institution;
 use App\Models\Evaluation;
+use App\Models\Subject;
+use App\Services\DashboardCourseStatsService;
 use App\Services\GradeCalculator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +25,122 @@ class DashboardApiController extends Controller
      * Corresponde ao widget StatsOverview.
      */
     public function getStats(Request $request)
+    {
+        return response()->json($this->resolveStatsOverview($request));
+    }
+
+    private function resolveStatsOverview(Request $request): array
+    {
+        $filters = $this->getFilters($request);
+        $institutionId = $filters['institution_id'];
+        $courseId = $filters['course_id'];
+        $startDate = $filters['start_date'];
+        $endDate = $filters['end_date'];
+        $validInstitutionIds = Institution::pluck('id')->toArray();
+
+        $alistadosQuery = Candidate::query()
+            ->whereNotNull('institution_id')
+            ->when($institutionId, fn($q) => $q->where('institution_id', $institutionId))
+            ->when($courseId, fn($q) => $q->whereRaw('1 = 0'))
+            ->when($startDate, fn($q) => $q->whereDate('created_at', '>=', $startDate))
+            ->when($endDate, fn($q) => $q->whereDate('created_at', '<=', $endDate));
+
+        $alistados = $alistadosQuery
+            ->where('student_type', 'like', '%Alistado%')
+            ->count();
+
+        $studentsBaseQuery = Student::query()
+            ->whereNotNull('institution_id')
+            ->when($institutionId, fn($q) => $q->where('institution_id', $institutionId))
+            ->when($courseId, fn($q) => $q->whereHas('courseMap', fn($courseQuery) => $courseQuery->where('course_id', $courseId)))
+            ->when($startDate, fn($q) => $q->whereDate('created_at', '>=', $startDate))
+            ->when($endDate, fn($q) => $q->whereDate('created_at', '<=', $endDate));
+
+        $recrutas = (clone $studentsBaseQuery)
+            ->where(function ($q) {
+                $q->where('student_type', 'like', '%Recruta%')
+                    ->orWhere('student_type', 'like', '%1% Fase%');
+            })
+            ->count();
+
+        $instruendos = (clone $studentsBaseQuery)
+            ->where(function ($q) {
+                $q->where('student_type', 'like', '%Instruendo%')
+                    ->orWhere('student_type', 'like', '%cadete%')
+                    ->orWhere('student_type', 'like', '%praca%')
+                    ->orWhere('student_type', 'like', '%pra%a%')
+                    ->orWhere('student_type', 'like', '%2% Fase%');
+            })
+            ->count();
+
+        $recrutasInstruendos = $recrutas + $instruendos;
+        $totalAlunos = $alistados + $recrutasInstruendos;
+
+        $formandosStudents = (clone $studentsBaseQuery)
+            ->where('student_type', 'like', '%Em Forma%')
+            ->count();
+
+        $formandosCandidates = Candidate::query()
+            ->whereNotNull('institution_id')
+            ->when($institutionId, fn($q) => $q->where('institution_id', $institutionId))
+            ->when($courseId, fn($q) => $q->whereRaw('1 = 0'))
+            ->when($startDate, fn($q) => $q->whereDate('created_at', '>=', $startDate))
+            ->when($endDate, fn($q) => $q->whereDate('created_at', '<=', $endDate))
+            ->where('student_type', 'like', '%Em Forma%')
+            ->count();
+
+        $formandos = $formandosStudents + $formandosCandidates;
+
+        $formadores = Trainer::where('is_active', true)
+            ->when($institutionId, fn($q) => $q->where('institution_id', $institutionId))
+            ->when($courseId, fn($q) => $q->whereHas('subjectAuthorizations', fn($subQuery) => $subQuery->where('course_id', $courseId)))
+            ->count();
+
+        $escolas = $institutionId ? 1 : count($validInstitutionIds);
+
+        $courseMapsQuery = CourseMap::query()
+            ->when($institutionId, fn($q) => $q->where('institution_id', $institutionId))
+            ->when($courseId, fn($q) => $q->where('course_id', $courseId))
+            ->when($startDate, fn($q) => $q->whereDate('created_at', '>=', $startDate))
+            ->when($endDate, fn($q) => $q->whereDate('created_at', '<=', $endDate));
+
+        $courseMaps = (clone $courseMapsQuery)->count();
+        $courseMapsActive = (clone $courseMapsQuery)->where('is_active', true)->count();
+
+        $courses = Course::query()
+            ->when($institutionId, fn($q) => $q->where('institution_id', $institutionId))
+            ->when($courseId, fn($q) => $q->whereKey($courseId))
+            ->when($startDate, fn($q) => $q->whereDate('created_at', '>=', $startDate))
+            ->when($endDate, fn($q) => $q->whereDate('created_at', '<=', $endDate))
+            ->count();
+
+        $subjects = Subject::query()
+            ->when($institutionId, fn($q) => $q->where('institution_id', $institutionId))
+            ->when($courseId, fn($q) => $q->whereHas('coursePhase', fn($phaseQuery) => $phaseQuery->where('course_id', $courseId)))
+            ->when($startDate, fn($q) => $q->whereDate('created_at', '>=', $startDate))
+            ->when($endDate, fn($q) => $q->whereDate('created_at', '<=', $endDate))
+            ->count();
+
+        return [
+            'total_alunos' => $totalAlunos,
+            'total_alistados' => $alistados,
+            'alistados' => $alistados,
+            'recrutas' => $recrutas,
+            'instruendos' => $instruendos,
+            'recrutas_instruendos' => $recrutasInstruendos,
+            'formandos' => $formandos,
+            'formandos_superior' => $formandos,
+            'formadores' => $formadores,
+            'formadores_activos' => $formadores,
+            'instituicoes_ensino' => $escolas,
+            'mapas_planos_curso' => $courseMaps,
+            'mapas_planos_curso_activos' => $courseMapsActive,
+            'cursos' => $courses,
+            'disciplinas' => $subjects,
+        ];
+    }
+
+    private function getLegacyStats(Request $request)
     {
         $institutionId = $request->query('institution_id');
         $validInstitutionIds = Institution::pluck('id')->toArray();
@@ -205,6 +325,14 @@ class DashboardApiController extends Controller
     }
 
     /**
+     * Obter total de alunos do ensino superior por curso.
+     */
+    public function getStudentsByCourse(Request $request, DashboardCourseStatsService $courseStats)
+    {
+        return response()->json($courseStats->studentsByCourse($this->getFilters($request)));
+    }
+
+    /**
      * Obter lista de formandos recentes.
      * Corresponde ao widget StudentManagement.
      */
@@ -240,6 +368,7 @@ class DashboardApiController extends Controller
     {
         return [
             'institution_id' => $request->query('institution_id'),
+            'course_id' => $request->query('course_id'),
             'start_date' => $request->query('start_date') ? Carbon::parse($request->query('start_date')) : null,
             'end_date' => $request->query('end_date') ? Carbon::parse($request->query('end_date')) : null,
         ];

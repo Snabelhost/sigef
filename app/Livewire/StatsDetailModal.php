@@ -43,7 +43,7 @@ class StatsDetailModal extends Component
 
     protected function loadAlunosData(?int $institutionId): void
     {
-        $this->modalTitle = 'Detalhes — Total de Alunos';
+        $this->modalTitle = 'Detalhes - Alistados, Recrutas e Instruendos';
 
         $institutions = Institution::all();
         $labels = [];
@@ -124,7 +124,7 @@ class StatsDetailModal extends Component
 
     protected function loadFormandosData(?int $institutionId): void
     {
-        $this->modalTitle = 'Detalhes — Formandos Ensino Superior';
+        $this->modalTitle = 'Detalhes - Formandos';
 
         $institutions = Institution::all();
         $labels = [];
@@ -222,7 +222,7 @@ class StatsDetailModal extends Component
 
     protected function loadFormadoresData(?int $institutionId): void
     {
-        $this->modalTitle = 'Detalhes — Formadores Activos';
+        $this->modalTitle = 'Detalhes - Formadores';
 
         $institutions = Institution::all();
         $labels = [];

@@ -15,6 +15,7 @@ use App\Models\Subject;
 use App\Models\Trainer;
 use App\Models\TrainerClassAssignment;
 use App\Models\TrainerSubjectAuthorization;
+use App\Services\TrainerCardService;
 use Filament\Forms;
 use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
@@ -37,8 +38,8 @@ class TrainerResource extends Resource
     protected static ?string $model = Trainer::class;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-presentation-chart-bar';
-    protected static string|\UnitEnum|null $navigationGroup = 'Gestão Escolar';
-    protected static ?int $navigationSort = 1;
+    protected static string|\UnitEnum|null $navigationGroup = 'Recursos Humanos';
+    protected static ?int $navigationSort = 0;
     protected static ?string $modelLabel = 'Formador';
     protected static ?string $pluralModelLabel = 'Formadores';
 
@@ -114,8 +115,14 @@ class TrainerResource extends Resource
                                     ->panelLayout('integrated')
                                     ->placeholder(static::trainerPhotoUploadPlaceholder())
                                     ->maxSize(4096),
-                                \Filament\Schemas\Components\Html::make(static::trainerPhotoUploadActions()),
+                                \Filament\Schemas\Components\Html::make(static::trainerPhotoUploadActions())
+                                    ->hiddenOn('view'),
+                                \Filament\Schemas\Components\Html::make(fn (?Trainer $record): HtmlString => static::trainerPhotoPreviewTrigger($record))
+                                    ->visibleOn('view'),
                             ])
+                                ->extraAttributes([
+                                    'class' => 'sigef-trainer-photo-view-group',
+                                ])
                                 ->columnSpan([
                                     'default' => 1,
                                     'lg' => 3,
@@ -316,6 +323,42 @@ class TrainerResource extends Resource
         );
     }
 
+    protected static function trainerPhotoPreviewTrigger(?Trainer $record): HtmlString
+    {
+        $photoUrl = static::trainerPhotoUrl($record);
+
+        if ($photoUrl === null) {
+            return new HtmlString('');
+        }
+
+        $name = trim((string) ($record?->full_name ?: 'Formador'));
+
+        return new HtmlString(
+            '<button type="button" class="sigef-photo-preview-trigger"'
+            . ' data-sigef-photo-preview="true"'
+            . ' data-sigef-photo-url="' . e($photoUrl) . '"'
+            . ' data-sigef-photo-name="' . e($name) . '"'
+            . ' aria-label="Visualizar foto de ' . e($name) . '">'
+            . '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>'
+            . '</button>'
+        );
+    }
+
+    protected static function trainerPhotoUrl(?Trainer $record): ?string
+    {
+        $photo = trim((string) ($record?->photo ?? ''));
+
+        if ($photo === '') {
+            return null;
+        }
+
+        if (Str::startsWith($photo, ['http://', 'https://', 'data:'])) {
+            return $photo;
+        }
+
+        return asset('storage/' . ltrim($photo, '/'));
+    }
+
     protected static function trainerPhotoUploadStyles(): HtmlString
     {
         return new HtmlString(<<<'HTML'
@@ -445,6 +488,141 @@ class TrainerResource extends Resource
     .sigef-photo-action:hover,
     .sigef-photo-action:focus-visible {
         outline: 2px solid rgba(6, 27, 66, 0.18);
+        outline-offset: 2px;
+    }
+
+    .sigef-trainer-photo-view-group {
+        position: relative;
+        width: 10.25rem;
+    }
+
+    .sigef-trainer-photo-view-group:has(.sigef-photo-preview-trigger) {
+        cursor: zoom-in;
+    }
+
+    .sigef-trainer-photo-view-group:has(.sigef-photo-preview-trigger) .sigef-trainer-photo-upload,
+    .sigef-trainer-photo-view-group:has(.sigef-photo-preview-trigger) .filepond--root,
+    .sigef-trainer-photo-view-group:has(.sigef-photo-preview-trigger) .filepond--drop-label,
+    .sigef-trainer-photo-view-group:has(.sigef-photo-preview-trigger) .filepond--item,
+    .sigef-trainer-photo-view-group:has(.sigef-photo-preview-trigger) .filepond--file-wrapper {
+        cursor: zoom-in !important;
+    }
+
+    .sigef-photo-preview-trigger {
+        position: absolute;
+        right: 0.45rem;
+        bottom: 0.45rem;
+        z-index: 8;
+        display: grid;
+        width: 2.25rem;
+        height: 2.25rem;
+        place-items: center;
+        border: 0;
+        border-radius: 999px;
+        background: #061b42;
+        color: #ffffff;
+        box-shadow: 0 10px 22px rgba(6, 27, 66, 0.22);
+        cursor: pointer;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(0.25rem) scale(0.92);
+        transition: opacity 0.16s ease, transform 0.16s ease, background 0.16s ease;
+    }
+
+    .sigef-photo-preview-trigger svg {
+        width: 1rem;
+        height: 1rem;
+    }
+
+    .sigef-trainer-photo-view-group:hover .sigef-photo-preview-trigger,
+    .sigef-trainer-photo-view-group:focus-within .sigef-photo-preview-trigger,
+    .sigef-photo-preview-trigger:focus-visible {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0) scale(1);
+    }
+
+    .sigef-photo-preview-trigger:hover,
+    .sigef-photo-preview-trigger:focus-visible {
+        outline: 2px solid rgba(6, 27, 66, 0.22);
+        outline-offset: 2px;
+        background: #08265f;
+    }
+
+    .sigef-photo-preview-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 10000;
+        display: none;
+    }
+
+    .sigef-photo-preview-modal.is-open {
+        display: block;
+    }
+
+    .sigef-photo-preview-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.68);
+    }
+
+    .sigef-photo-preview-dialog {
+        position: relative;
+        width: min(610px, calc(100vw - 2rem));
+        margin: 6vh auto;
+        overflow: hidden;
+        border-radius: 0.5rem;
+        background: #ffffff;
+        box-shadow: 0 24px 54px rgba(15, 23, 42, 0.3);
+    }
+
+    .sigef-photo-preview-frame {
+        margin: 1.25rem 1.25rem 0;
+        border: 1px solid #111827;
+        background: #ffffff;
+    }
+
+    .sigef-photo-preview-frame img {
+        display: block;
+        width: 100%;
+        max-height: min(70vh, 680px);
+        object-fit: contain;
+        background: #ffffff;
+    }
+
+    .sigef-photo-preview-name {
+        margin: 0;
+        padding: 0.9rem 1.25rem 1.1rem;
+        color: #061b42;
+        font-size: 0.95rem;
+        font-weight: 800;
+        text-align: center;
+        text-transform: uppercase;
+    }
+
+    .sigef-photo-preview-close {
+        position: absolute;
+        top: 0.75rem;
+        right: 0.75rem;
+        z-index: 2;
+        display: grid;
+        width: 2.25rem;
+        height: 2.25rem;
+        place-items: center;
+        border: 0;
+        border-radius: 0.4rem;
+        background: #061b42;
+        color: #ffffff;
+        cursor: pointer;
+        font-size: 1.25rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+
+    .sigef-photo-preview-close:hover,
+    .sigef-photo-preview-close:focus-visible {
+        background: #08265f;
+        outline: 2px solid rgba(255, 255, 255, 0.85);
         outline-offset: 2px;
     }
 
@@ -1119,8 +1297,8 @@ HTML);
         return [
             \Filament\Schemas\Components\Section::make('Resumo de tempos, disciplinas e turmas')
                 ->schema([
-                    Forms\Components\Placeholder::make('teaching_load_summary')
-                        ->label(false)
+                    Forms\Components\Placeholder::make('resumo_carga_docente')
+                        ->label('Resumo da carga docente')
                         ->content(fn (?Trainer $record): HtmlString|string => static::teachingLoadSummary($record)),
                 ])
                 ->columnSpanFull(),
@@ -1752,8 +1930,45 @@ HTML);
                     ->relationship('rank', 'name')
                     ->searchable()
                     ->preload(),
+                Tables\Filters\SelectFilter::make('situation')
+                    ->label('Situação')
+                    ->options([
+                        'Efectivo' => 'Efectivo',
+                        'Contratado' => 'Contratado',
+                        'Convidado' => 'Convidado',
+                        'Reformado' => 'Reformado',
+                        'Inactivo' => 'Inactivo',
+                    ])
+                    ->searchable()
+                    ->preload(),
+                Tables\Filters\SelectFilter::make('class_id')
+                    ->label('Turma')
+                    ->options(fn (): array => StudentClass::query()
+                        ->orderBy('name')
+                        ->pluck('name', 'id')
+                        ->toArray())
+                    ->query(fn (Builder $query, array $data): Builder => filled($data['value'] ?? null)
+                        ? $query->whereHas('classAssignments', fn (Builder $query): Builder => $query
+                            ->where('class_id', $data['value'])
+                            ->where('is_active', true))
+                        : $query)
+                    ->searchable()
+                    ->preload(),
+                Tables\Filters\SelectFilter::make('subject_id')
+                    ->label('Disciplina')
+                    ->options(fn (): array => Subject::query()
+                        ->orderBy('name')
+                        ->pluck('name', 'id')
+                        ->toArray())
+                    ->query(fn (Builder $query, array $data): Builder => filled($data['value'] ?? null)
+                        ? $query->whereHas('classAssignments', fn (Builder $query): Builder => $query
+                            ->where('subject_id', $data['value'])
+                            ->where('is_active', true))
+                        : $query)
+                    ->searchable()
+                    ->preload(),
                 Tables\Filters\TernaryFilter::make('is_active')
-                    ->label('Status'),
+                    ->label('Estado'),
             ])
             ->headerActions([
                 // Botão Importar Excel
@@ -1892,6 +2107,7 @@ HTML);
                                 'fallbackPrintVerticalUrl' => $printUrl.'?autoprint=1&orientation=vertical',
                             ]);
                         }),
+                    static::printCardAction(),
                     \Filament\Actions\EditAction::make()
                         ->icon('heroicon-o-pencil-square')
                         ->modalWidth(Width::ScreenExtraLarge)
@@ -1906,6 +2122,35 @@ HTML);
                     \Filament\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    protected static function printCardAction(): \Filament\Actions\Action
+    {
+        return \Filament\Actions\Action::make('print_card')
+            ->label('Imprimir Cartão')
+            ->icon('heroicon-o-identification')
+            ->color('warning')
+            ->modalHeading('Pré-visualização do Cartão')
+            ->modalDescription(null)
+            ->modalWidth(Width::SevenExtraLarge)
+            ->modalSubmitAction(false)
+            ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action
+                ->icon('heroicon-o-x-mark')
+                ->label('Fechar Pré-visualização')
+                ->color('danger'))
+            ->stickyModalHeader()
+            ->stickyModalFooter()
+            ->closeModalByClickingAway(false)
+            ->modalContent(function (Trainer $record) {
+                $data = app(TrainerCardService::class)->build($record);
+
+                return view('cards.preview-modal', $data + [
+                    'entityLabel' => 'Formadores',
+                    'documentName' => 'Formadores - '.($record->full_name ?: 'Formador'),
+                    'statusLabel' => $record->is_active ? 'ACTIVO' : 'INACTIVO',
+                    'statusColor' => $record->is_active ? 'success' : 'danger',
+                ]);
+            });
     }
 
     public static function getRelations(): array

@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\InstitutionResource\Pages;
 
 use App\Filament\Resources\InstitutionResource;
-use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 
 class EditInstitution extends EditRecord
@@ -13,7 +12,7 @@ class EditInstitution extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\DeleteAction::make(),
+            InstitutionResource::guardedDeleteAction(),
         ];
     }
 }

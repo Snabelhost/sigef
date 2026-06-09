@@ -106,6 +106,8 @@ class AdminPanelProvider extends PanelProvider
                 \Filament\Navigation\NavigationGroup::make()
                     ->label('Gestão Escolar'),
                 \Filament\Navigation\NavigationGroup::make()
+                    ->label('Recursos Humanos'),
+                \Filament\Navigation\NavigationGroup::make()
                     ->label('Instituições'),
                 \Filament\Navigation\NavigationGroup::make()
                     ->label('Comunicação'),
@@ -118,11 +120,13 @@ class AdminPanelProvider extends PanelProvider
                 \App\Filament\Resources\AcademicYearResource::class,
                 \App\Filament\Resources\CandidateResource::class,
                 \App\Filament\Resources\CandidateTransferHistories\CandidateTransferHistoryResource::class,
+                \App\Filament\Resources\CardTemplateResource::class,
                 \App\Filament\Resources\CertificadoResource::class,
                 \App\Filament\Resources\CourseMapResource::class,
                 \App\Filament\Resources\CoursePlanResource::class,
                 \App\Filament\Resources\CourseResource::class,
                 \App\Filament\Resources\DocumentResource::class,
+                \App\Filament\Resources\EffectiveResource::class,
                 \App\Filament\Resources\EquipmentAssignmentResource::class,
                 \App\Filament\Resources\EvaluationResource::class,
                 \App\Filament\Resources\InstitutionResource::class,
@@ -147,6 +151,7 @@ class AdminPanelProvider extends PanelProvider
                 \App\Filament\Pages\Dashboard::class,
                 \App\Filament\Pages\AttendanceManagement::class,
                 \App\Filament\Pages\BackupSettings::class,
+                \App\Filament\Pages\InstitutionReportSettings::class,
                 \App\Filament\Pages\MailSettings::class,
                 \App\Filament\Pages\Relatorios::class,
                 \App\Filament\Pages\TransferHistory::class,
@@ -156,7 +161,7 @@ class AdminPanelProvider extends PanelProvider
                 \App\Filament\Widgets\CandidatesByProvinceChart::class,
                 \App\Filament\Widgets\CandidateStatusChart::class,
                 \App\Filament\Widgets\StudentStatusChart::class,
-                \App\Filament\Widgets\StudentManagement::class,
+                \App\Filament\Widgets\StudentsByCourseChart::class,
             ])
             ->middleware([
                 EncryptCookies::class,

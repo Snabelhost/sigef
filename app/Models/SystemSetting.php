@@ -51,6 +51,33 @@ class SystemSetting extends Model
     }
 
     /**
+     * Get report institution data used in report headers and footers.
+     */
+    public static function getReportInstitutionConfig(): array
+    {
+        return [
+            'republic_line' => static::get('report_institution_republic_line', 'República de Angola'),
+            'ministry_line' => static::get('report_institution_ministry_line', 'Ministério do Interior'),
+            'organ_line' => static::get('report_institution_organ_line', 'Polícia Nacional de Angola'),
+            'department_line' => static::get('report_institution_department_line', 'Sistema Integrado de Gestão Escolar e Formação'),
+            'name' => static::get('report_institution_name', 'SIGEF'),
+            'acronym' => static::get('report_institution_acronym', 'SIGEF'),
+            'director_name' => static::get('report_institution_director_name', ''),
+            'director_title' => static::get('report_institution_director_title', 'Director'),
+            'nif' => static::get('report_institution_nif', ''),
+            'phone' => static::get('report_institution_phone', ''),
+            'email' => static::get('report_institution_email', ''),
+            'website' => static::get('report_institution_website', ''),
+            'country' => static::get('report_institution_country', 'Angola'),
+            'province' => static::get('report_institution_province', ''),
+            'municipality' => static::get('report_institution_municipality', ''),
+            'address' => static::get('report_institution_address', ''),
+            'logo_path' => static::get('report_institution_logo_path', ''),
+            'footer_text' => static::get('report_institution_footer_text', ''),
+        ];
+    }
+
+    /**
      * Check if mail is properly configured (not using log driver and has essential fields).
      */
     public static function isMailConfigured(): bool
