@@ -50,5 +50,7 @@ debug_*.php
 update_*.php
 *.md
 !README.md
+!docs/
+!docs/*.md
 !composer.json
 !package.json
