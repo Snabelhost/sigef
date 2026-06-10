@@ -50,7 +50,7 @@ class InstitutionResource extends Resource
                     ->label('Telefone')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('email')
-                    ->label('Email')
+                    ->label('E-mail')
                     ->searchable(),
                 Tables\Columns\IconColumn::make('is_active')
                     ->label('Activa')

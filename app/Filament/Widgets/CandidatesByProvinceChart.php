@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Models\Student;
 use App\Models\Institution;
+use App\Filament\Widgets\Concerns\UsesDashboardChartCache;
 use App\Services\SigaDashboardStatsService;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
@@ -14,22 +15,35 @@ use Illuminate\Support\Str;
 class CandidatesByProvinceChart extends ChartWidget
 {
     use InteractsWithPageFilters;
+    use UsesDashboardChartCache;
     
     protected string $view = 'filament.widgets.institution-students-chart';
     protected ?string $heading = 'Alunos por Instituição de Ensino';
     protected static ?int $sort = 2;
     protected int | string | array $columnSpan = 'full';
-    protected ?string $pollingInterval = '30s';
+    protected ?string $pollingInterval = null;
     protected ?string $maxHeight = '380px';
-    protected static bool $isLazy = true;
+    protected static bool $isLazy = false;
 
     protected function getData(): array
     {
+        $filters = $this->dashboardChartFilters();
+
+        return $this->rememberDashboardChart(
+            'institution_students',
+            $filters,
+            fn (): array => $this->buildData($filters),
+            $this->emptyBarChartData(),
+        );
+    }
+
+    private function buildData(array $filters): array
+    {
         // Obter filtros do dashboard
-        $institutionId = $this->filters['institution_id'] ?? null;
-        $courseId = $this->filters['course_id'] ?? null;
-        $startDate = $this->filters['start_date'] ?? null;
-        $endDate = $this->filters['end_date'] ?? null;
+        $institutionId = $filters['institution_id'] ?? null;
+        $courseId = $filters['course_id'] ?? null;
+        $startDate = $filters['start_date'] ?? null;
+        $endDate = $filters['end_date'] ?? null;
         
         // Se uma instituição específica foi selecionada
         if ($institutionId) {

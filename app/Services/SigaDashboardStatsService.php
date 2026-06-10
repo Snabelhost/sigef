@@ -13,38 +13,72 @@ use Throwable;
 
 class SigaDashboardStatsService
 {
+    private bool $consultationStudentsUnavailable = false;
+    private ?Collection $institutionMatches = null;
+    private ?Collection $courseMatches = null;
+
     public function institutionStudents(array $filters = []): array
     {
-        $rows = $this->fetchEndpointRows('institution_students', $filters, 'institution_name')
-            ->map(fn (array $row): array => $this->normalizeInstitutionRow($row))
-            ->filter(fn (array $row): bool => filled($row['institution_name']) || $row['total_alunos'] > 0)
-            ->values();
+        return $this->rememberResult('institution_students', $filters, function () use ($filters): array {
+            $rows = $this->fetchEndpointRows('institution_students', $filters, 'institution_name')
+                ->map(fn (array $row): array => $this->normalizeInstitutionRow($row))
+                ->filter(fn (array $row): bool => filled($row['institution_name']) || $row['total_alunos'] > 0)
+                ->values();
 
-        if ($rows->isEmpty()) {
-            $rows = $this->consultationStudentsByInstitution($filters);
-        }
+            if ($rows->isEmpty()) {
+                $rows = $this->consultationStudentsByInstitution($filters);
+            }
 
-        return $rows
-            ->filter(fn (array $row): bool => $this->matchesInstitutionFilter($row, $filters))
-            ->values()
-            ->all();
+            return $rows
+                ->filter(fn (array $row): bool => $this->matchesInstitutionFilter($row, $filters))
+                ->values()
+                ->all();
+        });
     }
 
     public function studentsByCourse(array $filters = []): array
     {
-        $rows = $this->fetchEndpointRows('students_by_course', $filters, 'course_name')
-            ->map(fn (array $row): array => $this->normalizeCourseRow($row))
-            ->filter(fn (array $row): bool => filled($row['course_name']) || $row['total_alunos'] > 0)
-            ->values();
+        return $this->rememberResult('students_by_course', $filters, function () use ($filters): array {
+            $rows = $this->fetchEndpointRows('students_by_course', $filters, 'course_name')
+                ->map(fn (array $row): array => $this->normalizeCourseRow($row))
+                ->filter(fn (array $row): bool => filled($row['course_name']) || $row['total_alunos'] > 0)
+                ->values();
 
-        if ($rows->isEmpty()) {
-            $rows = $this->consultationStudentsByCourse($filters);
-        }
+            if ($rows->isEmpty()) {
+                $rows = $this->consultationStudentsByCourse($filters);
+            }
 
-        return $rows
-            ->filter(fn (array $row): bool => $this->matchesCourseFilter($row, $filters))
+            return $rows
+                ->filter(fn (array $row): bool => $this->matchesCourseFilter($row, $filters))
+                ->values()
+                ->all();
+        });
+    }
+
+    public function studentTrainingTypes(array $filters = []): array
+    {
+        return $this->rememberResult('student_training_types', $filters, fn (): array => $this->consultationStudentRows($filters)
+            ->groupBy('training_type_label')
+            ->map(fn (Collection $rows, string $label): array => [
+                'label' => $label,
+                'total_alunos' => $rows->sum('total_alunos'),
+            ])
+            ->filter(fn (array $row): bool => $row['total_alunos'] > 0)
             ->values()
-            ->all();
+            ->all());
+    }
+
+    public function studentResults(array $filters = []): array
+    {
+        return $this->rememberResult('student_results', $filters, fn (): array => $this->consultationStudentRows($filters)
+            ->groupBy('result_label')
+            ->map(fn (Collection $rows, string $label): array => [
+                'label' => $label,
+                'total_alunos' => $rows->sum('total_alunos'),
+            ])
+            ->filter(fn (array $row): bool => $row['total_alunos'] > 0)
+            ->values()
+            ->all());
     }
 
     private function fetchEndpointRows(string $endpointKey, array $filters, string $labelKey): Collection
@@ -60,46 +94,55 @@ class SigaDashboardStatsService
             'filters' => $this->normalizeFilters($filters),
         ]));
 
-        return Cache::remember($cacheKey, $this->cacheTtl(), function () use ($url, $filters, $labelKey) {
-            try {
-                $response = $this->httpRequest()->get($url, $this->queryParams($filters));
+        $failureKey = $this->failureCacheKey($cacheKey);
 
-                if (! $response->successful()) {
-                    Log::warning('SIGA dashboard API returned an error.', [
-                        'url' => $url,
-                        'status' => $response->status(),
-                    ]);
+        if ($this->hasRecentFailure($failureKey)) {
+            return $this->cachedCollection($cacheKey)
+                ?? $this->cachedCollection($this->staleCacheKey($cacheKey))
+                ?? collect();
+        }
 
-                    return collect();
-                }
+        if ($cached = $this->cachedCollection($cacheKey)) {
+            return $cached;
+        }
 
-                return collect($this->extractRows($response->json(), $labelKey))
-                    ->filter(fn ($row): bool => is_array($row))
-                    ->values();
-            } catch (Throwable $exception) {
-                Log::warning('SIGA dashboard API request failed.', [
+        try {
+            $response = $this->httpRequest()->get($url, $this->queryParams($filters));
+
+            if (! $response->successful()) {
+                Log::warning('SIGA dashboard API returned an error.', [
                     'url' => $url,
-                    'error' => $exception->getMessage(),
+                    'status' => $response->status(),
                 ]);
 
-                return collect();
+                $this->markFailure($failureKey);
+
+                return $this->cachedCollection($this->staleCacheKey($cacheKey)) ?? collect();
             }
-        });
+
+            $rows = collect($this->extractRows($response->json(), $labelKey))
+                ->filter(fn ($row): bool => is_array($row))
+                ->values();
+
+            $this->storeCollection($cacheKey, $rows, $this->cacheTtl());
+            Cache::forget($failureKey);
+
+            return $rows;
+        } catch (Throwable $exception) {
+            Log::warning('SIGA dashboard API request failed.', [
+                'url' => $url,
+                'error' => $exception->getMessage(),
+            ]);
+
+            $this->markFailure($failureKey);
+
+            return $this->cachedCollection($this->staleCacheKey($cacheKey)) ?? collect();
+        }
     }
 
     private function consultationStudentsByInstitution(array $filters): Collection
     {
-        $programRows = $this->hasDateFilter($filters)
-            ? collect()
-            : $this->consultationProgramsByInstitution($filters);
-
-        if ($programRows->isNotEmpty()) {
-            return $programRows;
-        }
-
-        return $this->fetchConsultationStudents()
-            ->map(fn (array $student): array => $this->normalizeConsultationStudentInstitutionRow($student))
-            ->filter(fn (array $row): bool => $this->matchesDateFilter($row, $filters))
+        $studentRows = $this->consultationStudentRows($filters)
             ->groupBy(fn (array $row): string => $this->statsKey($row['institution_name'] ?? null, $row['institution_id'] ?? null))
             ->map(function (Collection $rows): array {
                 $first = $rows->first();
@@ -113,21 +156,23 @@ class SigaDashboardStatsService
                 ];
             })
             ->values();
+
+        if ($studentRows->isNotEmpty()) {
+            return $studentRows;
+        }
+
+        if ($this->consultationStudentsUnavailable) {
+            return collect();
+        }
+
+        return $this->hasDateFilter($filters)
+            ? collect()
+            : $this->consultationProgramsByInstitution($filters);
     }
 
     private function consultationStudentsByCourse(array $filters): Collection
     {
-        $programRows = $this->hasDateFilter($filters)
-            ? collect()
-            : $this->consultationProgramsByCourse($filters);
-
-        if ($programRows->isNotEmpty()) {
-            return $programRows;
-        }
-
-        return $this->fetchConsultationStudents()
-            ->map(fn (array $student): array => $this->normalizeConsultationStudentCourseRow($student))
-            ->filter(fn (array $row): bool => $this->matchesDateFilter($row, $filters))
+        $studentRows = $this->consultationStudentRows($filters)
             ->groupBy(fn (array $row): string => $this->statsKey($row['course_name'] ?? null, $row['course_id'] ?? null))
             ->map(function (Collection $rows): array {
                 $first = $rows->first();
@@ -143,6 +188,18 @@ class SigaDashboardStatsService
                 ];
             })
             ->values();
+
+        if ($studentRows->isNotEmpty()) {
+            return $studentRows;
+        }
+
+        if ($this->consultationStudentsUnavailable) {
+            return collect();
+        }
+
+        return $this->hasDateFilter($filters)
+            ? collect()
+            : $this->consultationProgramsByCourse($filters);
     }
 
     private function consultationProgramsByInstitution(array $filters): Collection
@@ -195,8 +252,19 @@ class SigaDashboardStatsService
             ->values();
     }
 
+    private function consultationStudentRows(array $filters): Collection
+    {
+        return $this->fetchConsultationStudents()
+            ->map(fn (array $student): array => $this->normalizeConsultationStudentRow($student))
+            ->filter(fn (array $row): bool => $this->matchesDateFilter($row, $filters))
+            ->filter(fn (array $row): bool => $this->matchesCourseFilter($row, $filters))
+            ->values();
+    }
+
     private function fetchConsultationStudents(): Collection
     {
+        $this->consultationStudentsUnavailable = false;
+
         $url = $this->endpointUrl('students');
 
         if (! filled($url) || $this->isOwnDashboardEndpoint($url)) {
@@ -204,21 +272,38 @@ class SigaDashboardStatsService
         }
 
         $cacheKey = 'siga.consultation.students.' . md5(json_encode([
+            'version' => 2,
             'url' => $url,
             'auth' => md5((string) config('services.siga.api_key') . '|' . (string) config('services.siga.token')),
+            'per_page' => $this->perPage(),
+            'max_pages' => $this->maxPages(),
         ]));
 
-        return Cache::remember($cacheKey, $this->cacheTtl(), function () use ($url): Collection {
+        $cacheTtl = $this->consultationStudentsCacheTtl();
+        $failureKey = $this->failureCacheKey($cacheKey);
+
+        if ($cached = $this->cachedCollection($cacheKey)) {
+            return $cached;
+        }
+
+        if ($this->hasRecentFailure($failureKey)) {
+            $this->consultationStudentsUnavailable = true;
+
+            return $this->cachedCollection($this->staleCacheKey($cacheKey)) ?? collect();
+        }
+
+        $loader = function () use ($url): array {
             $students = collect();
             $page = 1;
             $lastPage = 1;
             $maxPages = $this->maxPages();
+            $expectedTotal = null;
 
             try {
                 do {
                     $response = $this->httpRequest()->get($url, [
                         'page' => $page,
-                        'per_page' => 100,
+                        'per_page' => $this->perPage(),
                     ]);
 
                     if (! $response->successful()) {
@@ -227,14 +312,20 @@ class SigaDashboardStatsService
                             'status' => $response->status(),
                         ]);
 
-                        return $students->values();
+                        return [
+                            'rows' => $students->values(),
+                            'complete' => false,
+                        ];
                     }
 
                     $payload = $response->json();
                     $items = data_get($payload, 'data', []);
 
                     if (! is_array($items)) {
-                        return $students;
+                        return [
+                            'rows' => $students->values(),
+                            'complete' => false,
+                        ];
                     }
 
                     $students = $students->merge(
@@ -243,20 +334,61 @@ class SigaDashboardStatsService
                             ->values()
                     );
 
+                    $total = data_get($payload, 'meta.total');
+                    $expectedTotal = is_numeric($total) ? (int) $total : $expectedTotal;
                     $lastPage = max(1, (int) data_get($payload, 'meta.last_page', 1));
                     $page++;
                 } while ($page <= $lastPage && $page <= $maxPages);
 
-                return $students->values();
+                $rows = $students->values();
+                $complete = $page > $lastPage;
+
+                if (! $complete) {
+                    Log::warning('SIGA consultation students API returned partial pagination.', [
+                        'url' => $url,
+                        'loaded' => $rows->count(),
+                        'expected' => $expectedTotal,
+                        'last_page' => $lastPage,
+                        'max_pages' => $maxPages,
+                    ]);
+                } elseif ($expectedTotal !== null && $rows->count() !== $expectedTotal) {
+                    Log::info('SIGA consultation students API meta total differs from loaded rows.', [
+                        'url' => $url,
+                        'loaded' => $rows->count(),
+                        'expected' => $expectedTotal,
+                    ]);
+                }
+
+                return [
+                    'rows' => $rows,
+                    'complete' => $complete,
+                ];
             } catch (Throwable $exception) {
                 Log::warning('SIGA consultation students API request failed.', [
                     'url' => $url,
                     'error' => $exception->getMessage(),
                 ]);
 
-                return $students->values();
+                return [
+                    'rows' => $students->values(),
+                    'complete' => false,
+                ];
             }
-        });
+        };
+
+        $result = $loader();
+
+        if ($cacheTtl > 0 && ($result['complete'] ?? false)) {
+            $this->storeCollection($cacheKey, $result['rows'], $cacheTtl);
+            Cache::forget($failureKey);
+
+            return $result['rows'];
+        }
+
+        $this->markFailure($failureKey);
+        $this->consultationStudentsUnavailable = true;
+
+        return $this->cachedCollection($this->staleCacheKey($cacheKey)) ?? $result['rows'];
     }
 
     private function fetchConsultationPrograms(): Collection
@@ -268,59 +400,80 @@ class SigaDashboardStatsService
         }
 
         $cacheKey = 'siga.consultation.programs.' . md5(json_encode([
+            'version' => 2,
             'url' => $url,
             'auth' => md5((string) config('services.siga.api_key') . '|' . (string) config('services.siga.token')),
+            'per_page' => $this->perPage(),
+            'max_pages' => $this->maxPages(),
         ]));
 
-        return Cache::remember($cacheKey, $this->cacheTtl(), function () use ($url): Collection {
-            $programs = collect();
-            $page = 1;
-            $lastPage = 1;
-            $maxPages = $this->maxPages();
+        $failureKey = $this->failureCacheKey($cacheKey);
 
-            try {
-                do {
-                    $response = $this->httpRequest()->get($url, [
-                        'page' => $page,
-                        'per_page' => 100,
-                    ]);
+        if ($cached = $this->cachedCollection($cacheKey)) {
+            return $cached;
+        }
 
-                    if (! $response->successful()) {
-                        Log::warning('SIGA consultation programs API returned an error.', [
-                            'url' => $url,
-                            'status' => $response->status(),
-                        ]);
+        if ($this->hasRecentFailure($failureKey)) {
+            return $this->cachedCollection($this->staleCacheKey($cacheKey)) ?? collect();
+        }
 
-                        return $programs->values();
-                    }
+        $programs = collect();
+        $page = 1;
+        $lastPage = 1;
+        $maxPages = $this->maxPages();
 
-                    $payload = $response->json();
-                    $items = data_get($payload, 'data', []);
-
-                    if (! is_array($items)) {
-                        return $programs->values();
-                    }
-
-                    $programs = $programs->merge(
-                        collect($items)
-                            ->filter(fn ($row): bool => is_array($row))
-                            ->values()
-                    );
-
-                    $lastPage = max(1, (int) data_get($payload, 'meta.last_page', 1));
-                    $page++;
-                } while ($page <= $lastPage && $page <= $maxPages);
-
-                return $programs->values();
-            } catch (Throwable $exception) {
-                Log::warning('SIGA consultation programs API request failed.', [
-                    'url' => $url,
-                    'error' => $exception->getMessage(),
+        try {
+            do {
+                $response = $this->httpRequest()->get($url, [
+                    'page' => $page,
+                    'per_page' => $this->perPage(),
                 ]);
 
-                return $programs->values();
-            }
-        });
+                if (! $response->successful()) {
+                    Log::warning('SIGA consultation programs API returned an error.', [
+                        'url' => $url,
+                        'status' => $response->status(),
+                    ]);
+
+                    $this->markFailure($failureKey);
+
+                    return $this->cachedCollection($this->staleCacheKey($cacheKey)) ?? $programs->values();
+                }
+
+                $payload = $response->json();
+                $items = data_get($payload, 'data', []);
+
+                if (! is_array($items)) {
+                    $this->markFailure($failureKey);
+
+                    return $this->cachedCollection($this->staleCacheKey($cacheKey)) ?? $programs->values();
+                }
+
+                $programs = $programs->merge(
+                    collect($items)
+                        ->filter(fn ($row): bool => is_array($row))
+                        ->values()
+                );
+
+                $lastPage = max(1, (int) data_get($payload, 'meta.last_page', 1));
+                $page++;
+            } while ($page <= $lastPage && $page <= $maxPages);
+
+            $rows = $programs->values();
+            $this->storeCollection($cacheKey, $rows, $this->cacheTtl());
+            Cache::forget($failureKey);
+
+            return $rows;
+        } catch (Throwable $exception) {
+            Log::warning('SIGA consultation programs API request failed.', [
+                'url' => $url,
+                'error' => $exception->getMessage(),
+            ]);
+
+            $this->markFailure($failureKey);
+
+            return $this->cachedCollection($this->staleCacheKey($cacheKey)) ?? $programs->values();
+        }
     }
 
     private function endpointUrl(string $endpointKey): ?string
@@ -593,6 +746,26 @@ class SigaDashboardStatsService
         ];
     }
 
+    private function normalizeConsultationStudentRow(array $student): array
+    {
+        $institution = $this->normalizeConsultationStudentInstitutionRow($student);
+        $course = $this->normalizeConsultationStudentCourseRow($student);
+
+        return [
+            'institution_id' => $institution['institution_id'] ?? null,
+            'institution_name' => $institution['institution_name'] ?? null,
+            'institution_acronym' => $institution['institution_acronym'] ?? null,
+            'has_institution_identity' => (bool) ($institution['has_institution_identity'] ?? false),
+            'course_id' => $course['course_id'] ?? null,
+            'course_name' => $course['course_name'] ?? null,
+            'has_course_identity' => (bool) ($course['has_course_identity'] ?? false),
+            'total_alunos' => 1,
+            'reference_date' => $this->studentReferenceDate($student),
+            'training_type_label' => $this->studentTrainingTypeLabel($student),
+            'result_label' => $this->studentResultLabel($student),
+        ];
+    }
+
     private function normalizeConsultationProgramRow(array $program): array
     {
         $courseId = $this->intValue($program, [
@@ -720,35 +893,113 @@ class SigaDashboardStatsService
         return $courseMatches && $this->matchesInstitutionFilter($row, $filters);
     }
 
+    private function rememberResult(string $key, array $filters, callable $callback): array
+    {
+        $cacheKey = 'siga.dashboard.result.' . $key . '.' . md5(json_encode([
+            'version' => 2,
+            'filters' => $this->normalizeFilters($filters),
+            'base_url' => config('services.siga.base_url'),
+            'auth' => md5((string) config('services.siga.api_key') . '|' . (string) config('services.siga.token')),
+            'endpoints' => config('services.siga.endpoints'),
+            'per_page' => $this->perPage(),
+            'max_pages' => $this->maxPages(),
+        ]));
+        $freshTtl = $this->cacheTtl();
+        $staleTtl = $this->staleCacheTtl();
+
+        if ($freshTtl <= 0) {
+            return $this->loadResult($cacheKey, $callback);
+        }
+
+        $cached = Cache::get($cacheKey);
+
+        if (is_array($cached) && $cached !== []) {
+            return $cached;
+        }
+
+        $result = $this->loadResult($cacheKey, $callback);
+
+        if ($result !== []) {
+            Cache::put($cacheKey, $result, $freshTtl);
+            Cache::put($this->staleCacheKey($cacheKey), $result, $staleTtl);
+
+            return $result;
+        }
+
+        $stale = Cache::get($this->staleCacheKey($cacheKey));
+
+        return is_array($stale) ? $stale : [];
+    }
+
+    private function loadResult(string $cacheKey, callable $callback): array
+    {
+        try {
+            $result = $callback();
+
+            if ($result === []) {
+                $cached = Cache::get($cacheKey) ?: Cache::get($this->staleCacheKey($cacheKey));
+
+                return is_array($cached) ? $cached : [];
+            }
+
+            return $result;
+        } catch (Throwable $exception) {
+            Log::warning('SIGA dashboard result failed to load.', [
+                'cache_key' => $cacheKey,
+                'error' => $exception->getMessage(),
+            ]);
+
+            $cached = Cache::get($cacheKey) ?: Cache::get($this->staleCacheKey($cacheKey));
+
+            return is_array($cached) ? $cached : [];
+        }
+    }
+
+    private function institutionMatches(): Collection
+    {
+        return $this->institutionMatches ??= Institution::query()
+            ->get(['id', 'name', 'acronym']);
+    }
+
+    private function courseMatches(): Collection
+    {
+        return $this->courseMatches ??= Course::query()
+            ->get(['id', 'name']);
+    }
+
     private function matchingInstitution(?int $institutionId, ?string $institutionName, ?string $institutionAcronym): ?Institution
     {
+        $institutions = $this->institutionMatches();
+
         if (filled($institutionName) || filled($institutionAcronym)) {
-            $institution = Institution::query()
-                ->get(['id', 'name', 'acronym'])
-                ->first(fn (Institution $institution): bool => $this->sameText($institutionName, $institution->name)
-                    || $this->sameText($institutionAcronym, $institution->acronym));
+            $institution = $institutions->first(fn (Institution $institution): bool => $this->sameText($institutionName, $institution->name)
+                || $this->sameText($institutionAcronym, $institution->acronym));
 
             if ($institution) {
                 return $institution;
             }
         }
 
-        return filled($institutionId) ? Institution::query()->find($institutionId) : null;
+        return filled($institutionId)
+            ? $institutions->firstWhere('id', $institutionId)
+            : null;
     }
 
     private function matchingCourse(?int $courseId, ?string $courseName): ?Course
     {
+        $courses = $this->courseMatches();
+
         if (filled($courseName)) {
-            $course = Course::query()
-                ->get(['id', 'name'])
-                ->first(fn (Course $course): bool => $this->sameText($courseName, $course->name));
+            $course = $courses->first(fn (Course $course): bool => $this->sameText($courseName, $course->name));
 
             if ($course) {
                 return $course;
             }
         }
 
-        return filled($courseId) ? Course::query()->find($courseId) : null;
+        return filled($courseId)
+            ? $courses->firstWhere('id', $courseId)
+            : null;
     }
 
     private function intValue(array $row, array $keys): ?int
@@ -803,8 +1054,17 @@ class SigaDashboardStatsService
 
     private function httpRequest(): \Illuminate\Http\Client\PendingRequest
     {
+        $timeout = min(60, max(20, (float) config('services.siga.timeout', 20)));
+        $connectTimeout = min($timeout, max(5, (float) config('services.siga.connect_timeout', 5)));
+        $retries = max(2, (int) config('services.siga.retries', 2));
+
         $request = Http::acceptJson()
-            ->timeout((int) config('services.siga.timeout', 15));
+            ->connectTimeout($connectTimeout)
+            ->timeout($timeout);
+
+        if ($retries > 0) {
+            $request = $request->retry($retries, 250, null, false);
+        }
 
         if (! $this->shouldVerifySsl()) {
             $request = $request->withoutVerifying();
@@ -859,6 +1119,65 @@ class SigaDashboardStatsService
         ]);
     }
 
+    private function studentTrainingTypeLabel(array $student): string
+    {
+        return $this->isPostLaboralStudent($student)
+            ? "P\u{00F3}s-Laboral API SIGA"
+            : 'Cadetes API SIGA';
+    }
+
+    private function isPostLaboralStudent(array $student): bool
+    {
+        $shift = $this->stringValue($student, [
+            'current_enrollment.shift',
+            'current_enrollment.class_group.shift',
+            'class_group.shift',
+            'shift',
+            'turno',
+        ]);
+
+        return $this->compactSlug($shift) === 'poslaboral';
+    }
+
+    private function studentResultLabel(array $student): string
+    {
+        $status = $this->compactSlug($this->stringValue($student, [
+            'current_enrollment.status',
+            'final_validation_status',
+            'academic_status',
+            'status',
+            'result',
+            'resultado',
+        ]));
+
+        if (in_array($status, [
+            'active',
+            'activeenrollment',
+            'aprovado',
+            'approved',
+            'reconfirmed',
+            'registrationvalidated',
+        ], true)) {
+            return 'Aprovados API SIGA';
+        }
+
+        if (in_array($status, [
+            'cancelado',
+            'cancelled',
+            'failed',
+            'inactive',
+            'inactivo',
+            'reprovado',
+            'reproved',
+            'yearannulled',
+            'yearcancelled',
+        ], true)) {
+            return 'Reprovados API SIGA';
+        }
+
+        return 'Pendentes API SIGA';
+    }
+
     private function statsKey(?string $name, mixed $id): string
     {
         if (filled($name)) {
@@ -907,14 +1226,84 @@ class SigaDashboardStatsService
         return Str::of((string) $value)->ascii()->lower()->trim()->squish()->toString();
     }
 
+    private function compactSlug(?string $value): string
+    {
+        return Str::of((string) $value)
+            ->ascii()
+            ->lower()
+            ->replaceMatches('/[^a-z0-9]+/', '')
+            ->toString();
+    }
+
     private function cacheTtl(): int
     {
-        return max(0, (int) config('services.siga.cache_ttl', 300));
+        return max(0, (int) config('services.siga.cache_ttl', 900));
+    }
+
+    private function consultationStudentsCacheTtl(): int
+    {
+        return $this->cacheTtl();
+    }
+
+    private function staleCacheTtl(): int
+    {
+        return max($this->cacheTtl(), (int) config('services.siga.stale_cache_ttl', 86400));
+    }
+
+    private function failureBackoffTtl(): int
+    {
+        return max(15, (int) config('services.siga.failure_backoff', 60));
+    }
+
+    private function staleCacheKey(string $cacheKey): string
+    {
+        return $cacheKey . '.stale';
+    }
+
+    private function failureCacheKey(string $cacheKey): string
+    {
+        return $cacheKey . '.failed';
+    }
+
+    private function cachedCollection(string $cacheKey): ?Collection
+    {
+        $cached = Cache::get($cacheKey);
+
+        if ($cached instanceof Collection) {
+            return $cached;
+        }
+
+        return is_array($cached) ? collect($cached) : null;
+    }
+
+    private function storeCollection(string $cacheKey, Collection $rows, int $ttl): void
+    {
+        if ($ttl <= 0) {
+            return;
+        }
+
+        Cache::put($cacheKey, $rows, $ttl);
+        Cache::put($this->staleCacheKey($cacheKey), $rows, $this->staleCacheTtl());
+    }
+
+    private function hasRecentFailure(string $failureKey): bool
+    {
+        return Cache::has($failureKey);
+    }
+
+    private function markFailure(string $failureKey): void
+    {
+        Cache::put($failureKey, true, $this->failureBackoffTtl());
     }
 
     private function maxPages(): int
     {
-        return max(1, (int) config('services.siga.max_pages', 25));
+        return min(100, max(1, (int) config('services.siga.max_pages', 10)));
+    }
+
+    private function perPage(): int
+    {
+        return min(1000, max(50, (int) config('services.siga.per_page', 1000)));
     }
 
     private function shouldVerifySsl(): bool

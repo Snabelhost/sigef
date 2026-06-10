@@ -4,6 +4,8 @@ namespace App\Filament\Widgets;
 
 use App\Models\Student;
 use App\Models\Candidate;
+use App\Filament\Widgets\Concerns\UsesDashboardChartCache;
+use App\Services\SigaDashboardStatsService;
 use Filament\Widgets\ChartWidget;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Illuminate\Support\Carbon;
@@ -11,19 +13,32 @@ use Illuminate\Support\Carbon;
 class CandidateStatusChart extends ChartWidget
 {
     use InteractsWithPageFilters;
+    use UsesDashboardChartCache;
     
     protected ?string $heading = 'Estado de Formandos';
     protected static ?int $sort = 3;
-    protected ?string $pollingInterval = '30s';
-    protected static bool $isLazy = true;
+    protected ?string $pollingInterval = null;
+    protected static bool $isLazy = false;
     
     protected function getData(): array
     {
+        $filters = $this->dashboardChartFilters();
+
+        return $this->rememberDashboardChart(
+            'candidate_status',
+            $filters,
+            fn (): array => $this->buildData($filters),
+            $this->emptyPieChartData(),
+        );
+    }
+
+    private function buildData(array $filters): array
+    {
         // Obter filtros do dashboard
-        $institutionId = $this->filters['institution_id'] ?? null;
-        $courseId = $this->filters['course_id'] ?? null;
-        $startDate = $this->filters['start_date'] ?? null;
-        $endDate = $this->filters['end_date'] ?? null;
+        $institutionId = $filters['institution_id'] ?? null;
+        $courseId = $filters['course_id'] ?? null;
+        $startDate = $filters['start_date'] ?? null;
+        $endDate = $filters['end_date'] ?? null;
         
         // Converter datas se existirem
         $startDate = $startDate ? Carbon::parse($startDate) : null;
@@ -105,6 +120,25 @@ class CandidateStatusChart extends ChartWidget
             ->whereNot('student_type', 'like', '%Superior%')
             ->count();
         
+        $sigaColors = [
+            'Cadetes API SIGA' => 'rgba(14, 165, 233, 0.9)',
+            "P\u{00F3}s-Laboral API SIGA" => 'rgba(20, 184, 166, 0.9)',
+        ];
+
+        foreach (app(SigaDashboardStatsService::class)->studentTrainingTypes($filters) as $row) {
+            $label = (string) ($row['label'] ?? '');
+            $count = (int) ($row['total_alunos'] ?? 0);
+
+            if ($label === '' || $count <= 0) {
+                continue;
+            }
+
+            $estados[$label] = [
+                'color' => $sigaColors[$label] ?? 'rgba(99, 102, 241, 0.9)',
+                'count' => $count,
+            ];
+        }
+
         // Filtrar apenas estados com contagem > 0
         $labels = [];
         $values = [];

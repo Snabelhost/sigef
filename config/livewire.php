@@ -64,14 +64,12 @@ return [
     */
 
     'temporary_file_upload' => [
-        'disk' => 'public',
-        'rules' => ['required', 'file', 'max:102400'],
+        'disk' => env('LIVEWIRE_TEMP_UPLOAD_DISK', 'local'),
+        'rules' => ['required', 'file', 'mimes:jpg,jpeg,png,gif,webp,pdf,doc,docx,xls,xlsx,csv', 'max:10240'],
         'directory' => 'livewire-tmp',
-        'middleware' => null,
+        'middleware' => ['web', 'auth'],
         'preview_mimes' => [
-            'png', 'gif', 'bmp', 'svg', 'wav', 'mp4',
-            'mov', 'avi', 'wmv', 'mp3', 'm4a',
-            'jpg', 'jpeg', 'mpga', 'webp', 'wma', 'pdf',
+            'png', 'gif', 'jpg', 'jpeg', 'webp', 'pdf',
         ],
         'max_upload_time' => 30,
         'cleanup' => true,

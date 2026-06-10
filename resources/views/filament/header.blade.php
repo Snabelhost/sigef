@@ -129,7 +129,7 @@
     }
 </style>
 
-<div class="sigef-full-header {{ request()->is('admin') || request()->is('admin/') || request()->is('admin/shield/roles/create') || request()->is('admin/shield/roles/*/edit') ? 'sigef-dashboard-header-hidden' : '' }}">
+<div class="sigef-full-header {{ request()->is('admin') || request()->is('admin/') || request()->is('admin/shield/roles/create') || request()->is('admin/shield/roles/*') ? 'sigef-dashboard-header-hidden' : '' }}">
     {{-- Lado Esquerdo: Ícone + Texto (dinâmico por página) --}}
     <div class="sigef-header-left">
         {{-- Container para o ícone --}}
@@ -166,7 +166,7 @@
             // Verificar se é a página do dashboard pela URL
             const currentPath = window.location.pathname;
             const isAdminDashboard = currentPath === '/admin' || currentPath === '/admin/' || currentPath.endsWith('/admin');
-            const isAccessForm = currentPath === '/admin/shield/roles/create' || /^\/admin\/shield\/roles\/[^/]+\/edit$/.test(currentPath);
+            const isAccessForm = currentPath === '/admin/shield/roles/create' || /^\/admin\/shield\/roles\/[^/]+(?:\/edit)?$/.test(currentPath);
             const isDashboard = currentPath === '/admin' || currentPath === '/admin/' || currentPath.endsWith('/admin') || /^\/escola\/\d+\/?$/.test(currentPath);
 
             if (headerEl) {
@@ -197,8 +197,8 @@
                 </svg>`
                 },
                 '/mail-settings': {
-                    title: 'Servidor de Email',
-                    description: 'Configurações do servidor de email',
+                    title: 'Servidor de E-mail',
+                    description: 'Configurações do servidor de e-mail',
                     icon: `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24" fill="currentColor" style="width: 60px !important; height: 60px !important;">
                     <path fill-rule="evenodd" d="M17.834 6.166a8.25 8.25 0 100 11.668.75.75 0 011.06 1.06c-3.807 3.808-9.98 3.808-13.788 0-3.808-3.807-3.808-9.98 0-13.788 3.807-3.808 9.98-3.808 13.788 0A9.722 9.722 0 0121.75 12c0 .975-.296 1.887-.809 2.571-.514.685-1.28 1.179-2.191 1.179-.904 0-1.666-.487-2.18-1.164a5.25 5.25 0 11-.82-6.26V8.25a.75.75 0 011.5 0V12c0 .682.208 1.27.509 1.671.3.401.659.579.991.579.332 0 .69-.178.991-.579.3-.4.509-.99.509-1.671a8.222 8.222 0 00-2.416-5.834zM15.75 12a3.75 3.75 0 10-7.5 0 3.75 3.75 0 007.5 0z" clip-rule="evenodd" />
                 </svg>`
@@ -257,7 +257,7 @@
                     'Painel de Controlo': 'Visão geral do sistema',
                     'Anos Académicos': 'Gestão dos períodos letivos',
                     'Tipos de Instituição': 'Classificação das instituições',
-                    'Proveniências': 'Origem dos candidatos e formandos',
+                    'Órgãos de Proveniência': 'Órgãos, unidades e proveniências registadas no sistema',
                     'Patentes': 'Gestão de patentes militares',
                     'Candidatos': 'Gestão de candidatos ao ingresso',
                     'Alistados': 'Gestão de candidatos ao ingresso',
@@ -342,4 +342,308 @@
             updateDynamicHeader();
         }, 600);
     });
+</script>
+
+<script>
+    (function() {
+        if (window.__sigefMenuHeaderSyncReady) {
+            window.dispatchEvent(new Event('sigef:sync-menu-header'));
+            return;
+        }
+
+        window.__sigefMenuHeaderSyncReady = true;
+
+        const iconStyle = 'width: 60px !important; height: 60px !important; min-width: 60px !important; min-height: 60px !important; color: #041842 !important; fill: currentColor !important;';
+
+        function normalizePath(path) {
+            const cleanPath = (path || '/').split('?')[0].replace(/\/+$/, '');
+
+            return cleanPath || '/';
+        }
+
+        function isAdminDashboard(path) {
+            return normalizePath(path) === '/admin';
+        }
+
+        function isTenantDashboard(path) {
+            return /^\/escola\/\d+\/?$/.test(path);
+        }
+
+        function isAccessForm(path) {
+            return path === '/admin/shield/roles/create' || /^\/admin\/shield\/roles\/[^/]+(?:\/edit)?\/?$/.test(path);
+        }
+
+        function dashboardIcon() {
+            return `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 512 512" fill="currentColor" style="${iconStyle}">
+                <path d="M0 256a256 256 0 1 1 512 0 256 256 0 1 1 -512 0zM288 96a32 32 0 1 0 -64 0 32 32 0 1 0 64 0zM256 416c35.3 0 64-28.7 64-64 0-16.2-6-31.1-16-42.3l69.5-138.9c5.9-11.9 1.1-26.3-10.7-32.2s-26.3-1.1-32.2 10.7L261.1 288.2c-1.7-.1-3.4-.2-5.1-.2-35.3 0-64 28.7-64 64s28.7 64 64 64zM176 144a32 32 0 1 0 -64 0 32 32 0 1 0 64 0zM96 288a32 32 0 1 0 0-64 32 32 0 1 0 0 64zm352-32a32 32 0 1 0 -64 0 32 32 0 1 0 64 0z"/>
+            </svg>`;
+        }
+
+        function descriptions() {
+            return {
+                'Painel de Controlo': 'Visão geral do sistema',
+                'Anos Académicos': 'Gestão dos períodos letivos',
+                'Tipos de Instituição': 'Classificação das instituições',
+                'Órgãos de Proveniência': 'Órgãos, unidades e proveniências registadas no sistema',
+                'Patentes': 'Gestão de patentes militares',
+                'Candidatos': 'Gestão de candidatos ao ingresso',
+                'Alistados': 'Gestão de candidatos ao ingresso',
+                'Tipos de Recrutamento': 'Modalidades de recrutamento',
+                'Provas de Selecção': 'Gestão das provas de seleção',
+                'Mapas de Curso': 'Estrutura curricular dos cursos',
+                'Mapas e Planos de Curso': 'Estrutura curricular dos cursos',
+                'Fases de Curso': 'Etapas de formação',
+                'Planos de Curso': 'Planificação curricular',
+                'Cursos': 'Gestão de cursos de formação',
+                'Disciplinas': 'Gestão de disciplinas',
+                'Formandos': 'Gestão de formandos matriculados',
+                'Gestão de Formandos': 'Gestão de formandos matriculados',
+                'Formadores': 'Gestão de formadores',
+                'Efectivos': 'Gestão de efectivos',
+                'Turmas': 'Gestão de turmas',
+                'Avaliações': 'Gestão de avaliações',
+                'Ausências': 'Registo de ausências',
+                'Instituições': 'Gestão de instituições',
+                'Utilizadores': 'Gestão de utilizadores do sistema',
+                'Acessos': 'Gestão de acessos e permissões',
+                'Cartões': 'Gestão de modelos de cartões',
+                'Certificados': 'Gestão de certificados',
+                'Documentos': 'Gestão de documentos',
+                'Mini Pautas': 'Gestão de mini pautas',
+                'Pauta Geral': 'Gestão da pauta geral',
+                'Atribuição de Turmas': 'Gestão de turmas atribuídas',
+                'Atribuição de Meios': 'Gestão de equipamentos atribuídos',
+                'Histórico Formandos': 'Histórico de transferências de formandos',
+                'Histórico Alistados': 'Histórico de transferências de alistados',
+                'Histórico de Transferências': 'Histórico de transferências',
+            };
+        }
+
+        function pageOverride(path) {
+            if (path.includes('/documents/create')) {
+                return {
+                    title: 'Novo Documento',
+                    description: 'Criar e enviar um novo documento',
+                    icon: document.querySelector('.fi-sidebar-item a[href*="/documents"] svg, .fi-sidebar-item-btn[href*="/documents"] svg'),
+                };
+            }
+
+            if (path.includes('/mail-settings')) {
+                return {
+                    title: 'Servidor de E-mail',
+                    description: 'Configurações do servidor de e-mail',
+                    icon: null,
+                };
+            }
+
+            if (/\/documents\/\d+\/edit\/?$/.test(path)) {
+                return {
+                    title: 'Editar Documento',
+                    description: 'Modificar dados do documento',
+                    icon: document.querySelector('.fi-sidebar-item a[href*="/documents"] svg, .fi-sidebar-item-btn[href*="/documents"] svg'),
+                };
+            }
+
+            if (/\/documents\/\d+\/?$/.test(path)) {
+                return {
+                    title: 'Visualizar Documento',
+                    description: 'Detalhes do documento',
+                    icon: document.querySelector('.fi-sidebar-item a[href*="/documents"] svg, .fi-sidebar-item-btn[href*="/documents"] svg'),
+                };
+            }
+
+            return null;
+        }
+
+        function closestMenuItem(element) {
+            return element ? element.closest('.fi-sidebar-item') : null;
+        }
+
+        function menuLabel(menuItem) {
+            return menuItem?.querySelector('.fi-sidebar-item-label')?.textContent?.trim() || null;
+        }
+
+        function menuIcon(menuItem) {
+            return menuItem?.querySelector('.fi-sidebar-item-icon svg, svg.fi-icon') || null;
+        }
+
+        function linkPath(link) {
+            try {
+                return normalizePath(new URL(link.href, window.location.origin).pathname);
+            } catch (error) {
+                return null;
+            }
+        }
+
+        function findMenuItemByPath(path) {
+            const currentPath = normalizePath(path);
+            const links = Array.from(document.querySelectorAll('.fi-sidebar-item a[href], a.fi-sidebar-item-btn[href], .fi-sidebar-item-btn[href]'));
+            const candidates = links
+                .map((link) => ({
+                    path: linkPath(link),
+                    item: closestMenuItem(link),
+                }))
+                .filter((candidate) => {
+                    if (!candidate.path || !candidate.item) {
+                        return false;
+                    }
+
+                    return candidate.path !== '/admin' && !isTenantDashboard(candidate.path);
+                });
+
+            const exactMatch = candidates.find((candidate) => candidate.path === currentPath);
+
+            if (exactMatch) {
+                return exactMatch.item;
+            }
+
+            const prefixMatch = candidates
+                .filter((candidate) => currentPath.startsWith(candidate.path + '/'))
+                .sort((left, right) => right.path.length - left.path.length)[0];
+
+            if (prefixMatch) {
+                return prefixMatch.item;
+            }
+
+            return document.querySelector('.fi-sidebar-item-active');
+        }
+
+        function nativeTitle() {
+            const selectors = [
+                '.fi-header-heading',
+                '.fi-page-heading h1',
+                '[data-slot="heading"]',
+                'main h1',
+            ];
+
+            for (const selector of selectors) {
+                const value = document.querySelector(selector)?.textContent?.trim();
+
+                if (value) {
+                    return value;
+                }
+            }
+
+            return document.title?.split('-')[0]?.trim() || null;
+        }
+
+        function setIcon(iconEl, sourceIcon) {
+            if (!iconEl || !sourceIcon) {
+                return;
+            }
+
+            const clonedIcon = sourceIcon.cloneNode(true);
+            clonedIcon.setAttribute('width', '60');
+            clonedIcon.setAttribute('height', '60');
+            clonedIcon.style.cssText = iconStyle;
+            clonedIcon.classList.remove('fi-size-lg', 'fi-sidebar-item-icon', 'w-5', 'h-5', 'w-6', 'h-6');
+            iconEl.innerHTML = '';
+            iconEl.appendChild(clonedIcon);
+        }
+
+        function syncHeaderFromMenu() {
+            const titleEl = document.getElementById('sigef-dynamic-title');
+            const descEl = document.getElementById('sigef-dynamic-description');
+            const iconEl = document.getElementById('sigef-dynamic-icon');
+            const headerEl = document.querySelector('.sigef-full-header');
+
+            if (!titleEl || !descEl || !iconEl || !headerEl) {
+                return;
+            }
+
+            const currentPath = normalizePath(window.location.pathname);
+            const hideHeader = isAdminDashboard(currentPath) || isAccessForm(currentPath);
+            headerEl.classList.toggle('sigef-dashboard-header-hidden', hideHeader);
+
+            if (hideHeader) {
+                return;
+            }
+
+            if (isTenantDashboard(currentPath)) {
+                titleEl.textContent = 'Painel de Controlo';
+                descEl.textContent = descriptions()['Painel de Controlo'];
+                iconEl.innerHTML = dashboardIcon();
+                return;
+            }
+
+            const override = pageOverride(currentPath);
+
+            if (override) {
+                const menuItem = findMenuItemByPath(currentPath);
+                const sourceIcon = override.icon || menuIcon(menuItem) || document.querySelector('[aria-current="page"] svg.fi-icon');
+
+                titleEl.textContent = override.title;
+                descEl.textContent = override.description;
+                setIcon(iconEl, sourceIcon);
+                return;
+            }
+
+            const menuItem = findMenuItemByPath(currentPath);
+            const title = menuLabel(menuItem) || nativeTitle() || 'SIGEF';
+            const sourceIcon = menuIcon(menuItem) || document.querySelector('[aria-current="page"] svg.fi-icon');
+
+            titleEl.textContent = title;
+            descEl.textContent = descriptions()[title] || 'Gestão de registos do sistema';
+            setIcon(iconEl, sourceIcon);
+        }
+
+        let updateTimer = null;
+
+        function scheduleSync(delay = 80) {
+            clearTimeout(updateTimer);
+            updateTimer = setTimeout(syncHeaderFromMenu, delay);
+        }
+
+        function runSyncSequence() {
+            scheduleSync(30);
+            setTimeout(syncHeaderFromMenu, 180);
+            setTimeout(syncHeaderFromMenu, 460);
+            setTimeout(syncHeaderFromMenu, 760);
+        }
+
+        function observeSidebar() {
+            const sidebar = document.querySelector('.fi-sidebar');
+
+            if (!sidebar || window.__sigefMenuHeaderSidebar === sidebar) {
+                return;
+            }
+
+            window.__sigefMenuHeaderObserver?.disconnect();
+            window.__sigefMenuHeaderSidebar = sidebar;
+            window.__sigefMenuHeaderObserver = new MutationObserver(() => scheduleSync());
+            window.__sigefMenuHeaderObserver.observe(sidebar, {
+                attributes: true,
+                attributeFilter: ['class', 'aria-current', 'href'],
+                childList: true,
+                subtree: true,
+            });
+        }
+
+        function refreshSync() {
+            observeSidebar();
+            runSyncSequence();
+        }
+
+        if (!window.__sigefMenuHeaderHistoryPatched) {
+            window.__sigefMenuHeaderHistoryPatched = true;
+
+            ['pushState', 'replaceState'].forEach(function(method) {
+                const original = history[method];
+
+                history[method] = function() {
+                    const result = original.apply(this, arguments);
+                    window.dispatchEvent(new Event('sigef:path-changed'));
+
+                    return result;
+                };
+            });
+        }
+
+        ['DOMContentLoaded', 'livewire:navigate', 'livewire:navigated', 'popstate', 'hashchange', 'sigef:path-changed', 'sigef:sync-menu-header'].forEach(function(eventName) {
+            window.addEventListener(eventName, refreshSync);
+            document.addEventListener(eventName, refreshSync);
+        });
+
+        refreshSync();
+    })();
 </script>

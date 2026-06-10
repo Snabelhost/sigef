@@ -103,54 +103,14 @@ Route::middleware(['auth'])->prefix('formadores')->name('trainers.')->group(func
 });
 
 Route::middleware(['auth'])->prefix('cartoes')->name('cartoes.')->group(function () {
+    Route::get('/estudante/{student}/preview', \App\Http\Controllers\StudentCardPreviewController::class)->name('preview');
+    Route::get('/efectivo/{effective}/preview', \App\Http\Controllers\EffectiveCardPreviewController::class)->name('effectives.preview');
+    Route::get('/formador/{trainer}/preview', \App\Http\Controllers\TrainerCardPreviewController::class)->name('trainers.preview');
     Route::get('/estudante/{student}', [\App\Http\Controllers\StudentCardController::class, 'show'])->name('show');
     Route::post('/imprimir-lote', [\App\Http\Controllers\StudentCardController::class, 'printBatch'])->name('batch');
     Route::get('/lista', [\App\Http\Controllers\StudentCardController::class, 'index'])->name('index');
 });
 
-/*
-|--------------------------------------------------------------------------
-| TEMPORÁRIO - Deploy Setup (REMOVER APÓS USO!)
-|--------------------------------------------------------------------------
-*/
-Route::get('/deploy-setup/{key}', function ($key) {
-    if ($key !== 'sigef2026deploy') {
-        abort(404);
-    }
-
-    $output = [];
-
-    // 1. Clear caches
-    \Artisan::call('optimize:clear');
-    $output[] = '✅ optimize:clear: ' . \Artisan::output();
-
-    // 2. Rebuild caches
-    \Artisan::call('optimize');
-    $output[] = '✅ optimize: ' . \Artisan::output();
-
-    // 3. Filament optimize
-    \Artisan::call('filament:optimize');
-    $output[] = '✅ filament:optimize: ' . \Artisan::output();
-
-    // 4. Icons cache
-    \Artisan::call('icons:cache');
-    $output[] = '✅ icons:cache: ' . \Artisan::output();
-
-    // 5. Storage link
-    try {
-        \Artisan::call('storage:link');
-        $output[] = '✅ storage:link: ' . \Artisan::output();
-    } catch (\Exception $e) {
-        $output[] = '⚠️ storage:link: ' . $e->getMessage();
-    }
-
-    // 6. Migrate
-    \Artisan::call('migrate', ['--force' => true]);
-    $output[] = '✅ migrate: ' . \Artisan::output();
-
-    return '<pre style="font-family:monospace;padding:20px;background:#1a1a2e;color:#0f0;font-size:14px;">'
-        . '<h2 style="color:#fff;">🚀 SIGEF Deploy Setup</h2>'
-        . implode("\n", $output)
-        . "\n\n<span style='color:red;font-weight:bold;'>⚠️ REMOVA ESTA ROTA APÓS O DEPLOY!</span>"
-        . '</pre>';
-});
+Route::middleware(['auth'])
+    ->get('/admin/configuracoes/card-templates/{cardTemplate}/preview', \App\Http\Controllers\CardTemplatePreviewController::class)
+    ->name('admin.card-templates.preview');

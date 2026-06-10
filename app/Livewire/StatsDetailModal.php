@@ -126,14 +126,76 @@ class StatsDetailModal extends Component
     {
         $this->modalTitle = 'Detalhes - Formandos';
 
-        $institutions = Institution::all();
-        $labels = [];
-        $formandosStudentsValues = [];
-        $formandosCandidatesValues = [];
+        $approvedRecruitmentStatuses = ['Apurado', 'approved', 'aprovado', 'admitted', 'apto'];
 
-        $totalFormandosStudents = 0;
-        $totalFormandosCandidates = 0;
+        $records = Candidate::query()
+            ->with('institution:id,name')
+            ->whereIn('student_type', ['Alistado', 'Formando'])
+            ->whereIn('status', $approvedRecruitmentStatuses)
+            ->when($institutionId, fn ($query) => $query->where('institution_id', $institutionId))
+            ->get();
 
+        $groupedByInstitution = $records->groupBy(
+            fn (Candidate $candidate): string => $candidate->institution?->name ?: 'Sem Instituição Atribuída'
+        );
+
+        $labels = $groupedByInstitution->keys()->values()->all();
+        $alistadosValues = [];
+        $formandosValues = [];
+
+        foreach ($groupedByInstitution as $institutionCandidates) {
+            $alistadosValues[] = $institutionCandidates->where('student_type', 'Alistado')->count();
+            $formandosValues[] = $institutionCandidates->where('student_type', 'Formando')->count();
+        }
+
+        $totalAlistados = array_sum($alistadosValues);
+        $totalFormandos = array_sum($formandosValues);
+        $totalGeral = $totalAlistados + $totalFormandos;
+
+        $mappedStatuses = $records
+            ->groupBy(fn (Candidate $candidate): string => match (strtolower((string) $candidate->status)) {
+                'approved', 'aprovado', 'apurado', 'admitted', 'apto' => 'Apurado',
+                default => filled($candidate->status) ? (string) $candidate->status : 'Sem estado',
+            })
+            ->map(fn ($statusRecords) => $statusRecords->count())
+            ->all();
+
+        $statusColors = [
+            'rgba(59, 130, 246, 0.85)',
+            'rgba(16, 185, 129, 0.85)',
+            'rgba(245, 158, 11, 0.85)',
+            'rgba(239, 68, 68, 0.85)',
+            'rgba(139, 92, 246, 0.85)',
+            'rgba(107, 114, 128, 0.85)',
+        ];
+
+        $this->summaryStats = [
+            ['label' => 'Total Geral', 'value' => $totalGeral, 'color' => 'primary'],
+            ['label' => 'Alistados', 'value' => $totalAlistados, 'color' => 'warning'],
+            ['label' => 'Formandos', 'value' => $totalFormandos, 'color' => 'info'],
+            ['label' => 'Instituições', 'value' => count($labels), 'color' => 'success'],
+        ];
+
+        $this->chartData = [
+            'stacked_bar' => [
+                'labels' => $labels,
+                'datasets' => [
+                    ['label' => 'Alistados', 'values' => $alistadosValues, 'color' => 'rgba(245, 158, 11, 0.85)'],
+                    ['label' => 'Formandos', 'values' => $formandosValues, 'color' => 'rgba(59, 130, 246, 0.85)'],
+                ],
+                'title' => 'Formandos por Instituição',
+            ],
+            'doughnut' => [
+                'labels' => array_keys($mappedStatuses),
+                'values' => array_values($mappedStatuses),
+                'colors' => array_slice($statusColors, 0, max(1, count($mappedStatuses))),
+                'title' => 'Distribuição por Estado',
+            ],
+        ];
+
+        return;
+
+        /*
         foreach ($institutions as $inst) {
             // Formandos (Students com tipo 'Em Formação')
             $fStudents = Student::where('institution_id', $inst->id)
@@ -218,6 +280,7 @@ class StatsDetailModal extends Component
                 'title' => 'Distribuição por Estado',
             ],
         ];
+        */
     }
 
     protected function loadFormadoresData(?int $institutionId): void

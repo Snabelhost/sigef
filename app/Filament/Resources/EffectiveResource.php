@@ -906,18 +906,28 @@ HTML);
             ->stickyModalFooter()
             ->closeModalByClickingAway(false)
             ->modalContent(function (Effective $record) {
-                $template = $record->cardTemplate
-                    ?: CardTemplate::resolveForType(
-                        CardTemplate::TYPE_STAFF,
-                        $record->staff_type === 'regime_geral' ? 'civil' : 'with_department',
-                    )
-                    ?: CardTemplate::resolveForType(CardTemplate::TYPE_STAFF)
-                    ?: static::fallbackCardTemplate(CardTemplate::TYPE_STAFF);
+                $template = static::cardTemplateForRecord($record);
+                $printUrl = route('cartoes.effectives.preview', ['effective' => $record]);
+                $cacheBuster = (string) max(
+                    (int) ($record->updated_at?->timestamp ?: 0),
+                    (int) ($template->updated_at?->timestamp ?: 0),
+                    time(),
+                );
+                $embeddedUrl = fn (string $face): string => $printUrl.'?'.http_build_query([
+                    'embedded' => 1,
+                    'autoprint' => 0,
+                    'face' => $face,
+                    'v' => $cacheBuster,
+                ]);
 
-                return view('cards.preview-modal', [
+                return view('cards.print-modal', [
                     'template' => $template,
                     'payload' => static::cardPayload($record, $template),
                     'viewerId' => 'sigef-effective-card-viewer-'.$record->getKey(),
+                    'frameId' => 'sigef-effective-card-frame-'.$record->getKey(),
+                    'printUrl' => $printUrl,
+                    'embeddedFrontUrl' => $embeddedUrl('front'),
+                    'embeddedBackUrl' => $embeddedUrl('back'),
                     'entityLabel' => 'Efectivos',
                     'documentName' => 'Efectivos - '.($record->full_name ?: 'Efectivo'),
                     'statusLabel' => $record->is_active ? 'ACTIVO' : 'INACTIVO',
@@ -926,19 +936,41 @@ HTML);
             });
     }
 
-    protected static function cardPayload(Effective $record, ?CardTemplate $template = null): array
+    public static function cardTemplateForRecord(Effective $record): CardTemplate
+    {
+        return $record->cardTemplate
+            ?: CardTemplate::resolveForType(
+                CardTemplate::TYPE_STAFF,
+                $record->staff_type === 'regime_geral' ? 'civil' : 'with_department',
+            )
+            ?: CardTemplate::resolveForType(CardTemplate::TYPE_STAFF)
+            ?: static::fallbackCardTemplate(CardTemplate::TYPE_STAFF);
+    }
+
+    public static function cardPayload(Effective $record, ?CardTemplate $template = null): array
     {
         $template ??= static::fallbackCardTemplate(CardTemplate::TYPE_STAFF);
         $institution = $record->institution;
-        $documentLabel = $record->staff_type === 'regime_geral' ? 'BI' : 'NIP';
-        $documentNumber = trim((string) ($record->identifier ?: $record->document_number ?: $record->getKey()));
+        $isGeneralRegime = $record->staff_type === 'regime_geral';
+        $documentLabel = $isGeneralRegime ? 'BI' : 'NIP';
+        $documentNumber = trim((string) (
+            $isGeneralRegime
+                ? ($record->identity_document ?: $record->document_number ?: $record->identifier)
+                : ($record->employee_number ?: $record->document_number ?: $record->identifier)
+        ));
         $documentNumber = $documentNumber !== '' ? $documentNumber : str_pad((string) $record->getKey(), 6, '0', STR_PAD_LEFT);
         $codes = app(\App\Services\CardCodeService::class);
         $verificationUrl = url('/admin/effectives').'?tableSearch='.rawurlencode($documentNumber);
         $photo = trim((string) $record->photo);
         $photoUrl = $photo !== ''
             ? (Str::startsWith($photo, ['http://', 'https://', 'data:']) ? $photo : asset('storage/'.ltrim($photo, '/')))
-            : ($template->fallback_photo_url ?: null);
+            : null;
+        $templateBrandName = trim((string) $template->brand_name);
+        $templateSubtitle = trim((string) $template->subtitle);
+        $institutionName = trim((string) $institution?->name);
+        $institutionAcronym = trim((string) $institution?->acronym);
+        $headerName = $institutionName !== '' ? $institutionName : ($templateBrandName !== '' ? $templateBrandName : 'SIGEF');
+        $headerSubtitle = $institutionAcronym !== '' ? $institutionAcronym : ($institutionName === '' && $templateSubtitle !== '' ? $templateSubtitle : '');
 
         return [
             'name' => $record->full_name ?: 'Efectivo',
@@ -949,10 +981,10 @@ HTML);
             'document_number' => $documentNumber,
             'photo_url' => $photoUrl,
             'logo_url' => $template->logo_url ?: ($institution?->logo ? asset('storage/'.$institution->logo) : asset('images/logo-policia.png')),
-            'institution_name' => $institution?->name ?: ($template->brand_name ?: 'SIGEF'),
+            'institution_name' => $headerName,
             'institution_location' => collect([$institution?->province, $institution?->municipality])->filter()->implode(' / '),
-            'brand_name' => $template->brand_name ?: 'SIGEF',
-            'subtitle' => $template->subtitle,
+            'brand_name' => $headerName,
+            'subtitle' => $headerSubtitle,
             'front_title' => $template->front_title ?: 'CARTÃO DO EFECTIVO',
             'number_label' => $template->number_label ?: $documentLabel,
             'regime' => Effective::staffTypeOptions()[$record->staff_type] ?? 'Regime Especial',
@@ -992,6 +1024,7 @@ HTML);
             'secondary_color' => '#2563eb',
             'text_color' => '#ffffff',
             'front_text_color' => '#061b42',
+            'header_text_color' => '#061b42',
             'back_text_color' => '#111827',
             'front_background_color' => '#ffffff',
             'back_background_color' => '#f8fafc',

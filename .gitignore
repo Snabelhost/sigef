@@ -2,6 +2,7 @@
 .DS_Store
 .env
 .env.backup
+.env.deploy
 .env.production
 .phpactor.json
 .phpunit.result.cache
@@ -16,8 +17,10 @@
 /public/build
 /public/hot
 /public/storage
+/sigef
 /storage/*.key
 /storage/pail
+/tmp
 /vendor
 Homestead.json
 Homestead.yaml

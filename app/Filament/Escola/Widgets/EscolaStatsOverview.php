@@ -12,7 +12,7 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 
 class EscolaStatsOverview extends BaseWidget
 {
-    protected ?string $pollingInterval = '30s';
+    protected ?string $pollingInterval = null;
     protected static bool $isLazy = true;
 
     protected function getStats(): array

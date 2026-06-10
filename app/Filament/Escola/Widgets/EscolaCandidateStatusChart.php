@@ -11,7 +11,7 @@ class EscolaCandidateStatusChart extends ChartWidget
 {
     protected ?string $heading = 'Estado de Formandos';
     protected static ?int $sort = 3;
-    protected ?string $pollingInterval = '30s';
+    protected ?string $pollingInterval = null;
     protected static bool $isLazy = true;
 
     protected function getData(): array

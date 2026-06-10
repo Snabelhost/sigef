@@ -5,6 +5,7 @@ namespace App\Livewire;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
 use Livewire\Component;
 
 class ChangePasswordModal extends Component
@@ -21,11 +22,11 @@ class ChangePasswordModal extends Component
                     $fail('A palavra-passe actual está incorrecta.');
                 }
             }],
-            'new_password' => ['required', 'min:6', 'confirmed'],
+            'new_password' => ['required', Password::defaults(), 'confirmed'],
         ], [
             'current_password.required' => 'A palavra-passe actual é obrigatória.',
             'new_password.required' => 'A nova palavra-passe é obrigatória.',
-            'new_password.min' => 'A nova palavra-passe deve ter pelo menos 6 caracteres.',
+            'new_password.min' => 'A nova palavra-passe deve ter pelo menos 10 caracteres.',
             'new_password.confirmed' => 'A confirmação da palavra-passe não coincide.',
         ]);
 

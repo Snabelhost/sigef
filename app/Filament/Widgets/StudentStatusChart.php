@@ -4,7 +4,9 @@ namespace App\Filament\Widgets;
 
 use App\Models\CourseMap;
 use App\Models\Student;
+use App\Filament\Widgets\Concerns\UsesDashboardChartCache;
 use App\Services\GradeCalculator;
+use App\Services\SigaDashboardStatsService;
 use Filament\Widgets\ChartWidget;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Illuminate\Support\Facades\DB;
@@ -13,19 +15,32 @@ use Illuminate\Support\Carbon;
 class StudentStatusChart extends ChartWidget
 {
     use InteractsWithPageFilters;
+    use UsesDashboardChartCache;
 
     protected ?string $heading = 'Formandos Aprovados e Reprovados';
     protected static ?int $sort = 4;
-    protected ?string $pollingInterval = '30s';
-    protected static bool $isLazy = true;
+    protected ?string $pollingInterval = null;
+    protected static bool $isLazy = false;
 
     protected function getData(): array
     {
+        $filters = $this->dashboardChartFilters();
+
+        return $this->rememberDashboardChart(
+            'student_status',
+            $filters,
+            fn (): array => $this->buildData($filters),
+            $this->emptyPieChartData(),
+        );
+    }
+
+    private function buildData(array $filters): array
+    {
         // Obter filtros do dashboard
-        $institutionId = $this->filters['institution_id'] ?? null;
-        $courseId = $this->filters['course_id'] ?? null;
-        $startDate = $this->filters['start_date'] ?? null;
-        $endDate = $this->filters['end_date'] ?? null;
+        $institutionId = $filters['institution_id'] ?? null;
+        $courseId = $filters['course_id'] ?? null;
+        $startDate = $filters['start_date'] ?? null;
+        $endDate = $filters['end_date'] ?? null;
 
         $startDate = $startDate ? Carbon::parse($startDate) : null;
         $endDate = $endDate ? Carbon::parse($endDate) : null;
@@ -131,6 +146,27 @@ class StudentStatusChart extends ChartWidget
             ['label' => 'Reprovados/Desistências', 'value' => $reprovadosDesistencia, 'color' => 'rgba(239, 68, 68, 0.9)'],
             ['label' => 'Baixa de curso', 'value' => $baixaCurso, 'color' => 'rgba(107, 114, 128, 0.9)'],
         ];
+
+        $sigaColors = [
+            'Aprovados API SIGA' => 'rgba(34, 197, 94, 0.9)',
+            'Pendentes API SIGA' => 'rgba(96, 165, 250, 0.9)',
+            'Reprovados API SIGA' => 'rgba(248, 113, 113, 0.9)',
+        ];
+
+        foreach (app(SigaDashboardStatsService::class)->studentResults($filters) as $row) {
+            $label = (string) ($row['label'] ?? '');
+            $count = (int) ($row['total_alunos'] ?? 0);
+
+            if ($label === '' || $count <= 0) {
+                continue;
+            }
+
+            $categories[] = [
+                'label' => $label,
+                'value' => $count,
+                'color' => $sigaColors[$label] ?? 'rgba(99, 102, 241, 0.9)',
+            ];
+        }
 
         foreach ($categories as $cat) {
             if ($cat['value'] > 0) {

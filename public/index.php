@@ -1,7 +1,7 @@
 <?php
 
-// Suppress deprecation warnings (PDO::MYSQL_ATTR_SSL_CA deprecated in PHP 8.5)
-error_reporting(E_ALL & ~E_DEPRECATED);
+// Suppress early PHP 8.5 deprecations before Laravel configures error handling.
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
 
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;

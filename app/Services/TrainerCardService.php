@@ -23,7 +23,9 @@ class TrainerCardService
         $template = CardTemplate::resolveForType(CardTemplate::TYPE_PROFESSOR)
             ?? $this->fallbackTemplate();
 
-        $documentNumber = trim((string) ($trainer->bilhete ?: $trainer->nip));
+        $primaryDocument = $trainer->trainer_type === 'Civil' ? $trainer->bilhete : $trainer->nip;
+        $fallbackDocument = $trainer->trainer_type === 'Civil' ? $trainer->nip : $trainer->bilhete;
+        $documentNumber = trim((string) ($primaryDocument ?: $fallbackDocument));
         $documentNumber = $documentNumber !== ''
             ? $documentNumber
             : str_pad((string) $trainer->getKey(), 6, '0', STR_PAD_LEFT);
@@ -31,6 +33,12 @@ class TrainerCardService
         $documentLabel = $trainer->trainer_type === 'Civil' ? 'BI' : 'NIP';
         $verificationUrl = url('/admin/trainers').'?tableSearch='.rawurlencode($documentNumber);
         $institution = $trainer->institution;
+        $templateBrandName = trim((string) $template->brand_name);
+        $templateSubtitle = trim((string) $template->subtitle);
+        $institutionName = trim((string) $institution?->name);
+        $institutionAcronym = trim((string) $institution?->acronym);
+        $headerName = $institutionName !== '' ? $institutionName : ($templateBrandName !== '' ? $templateBrandName : 'SIGEF');
+        $headerSubtitle = $institutionAcronym !== '' ? $institutionAcronym : ($institutionName === '' && $templateSubtitle !== '' ? $templateSubtitle : '');
 
         $payload = [
             'name' => $trainer->full_name ?: 'Formador',
@@ -38,17 +46,18 @@ class TrainerCardService
             'photo_url' => $this->trainerPhotoUrl($trainer, $template),
             'logo_url' => $template->logo_url
                 ?: ($institution?->logo ? asset('storage/'.$institution->logo) : asset('images/logo-policia.png')),
-            'institution_name' => $institution?->name ?: ($template->brand_name ?: 'SIGEF'),
+            'institution_name' => $headerName,
             'institution_location' => collect([$institution?->province, $institution?->municipality])->filter()->implode(' / '),
-            'brand_name' => $template->brand_name ?: 'SIGEF',
-            'subtitle' => $template->subtitle ?: 'Sistema Integrado de Gestao de Formacao',
+            'brand_name' => $headerName,
+            'subtitle' => $headerSubtitle,
             'front_title' => $template->front_title ?: 'CARTAO DO FORMADOR',
-            'number_label' => $template->number_label ?: $documentLabel,
+            'number_label' => $documentLabel,
             'card_number' => $documentNumber,
             'document_label' => $documentLabel,
             'document_number' => $documentNumber,
             'regime' => $trainer->trainer_type === 'Civil' ? 'REGIME GERAL' : 'REGIME ESPECIAL',
             'rank' => $trainer->rank?->name ?: '-',
+            'academic_degree' => $trainer->education_level ?: '-',
             'department' => $trainer->department ?: '-',
             'organ' => $trainer->organ ?: '-',
             'function' => $trainer->job_function ?: 'Formador',
@@ -86,6 +95,7 @@ class TrainerCardService
             'secondary_color' => '#2563eb',
             'text_color' => '#ffffff',
             'front_text_color' => '#001b4d',
+            'header_text_color' => '#001b4d',
             'back_text_color' => '#111827',
             'front_background_color' => '#ffffff',
             'back_background_color' => '#f8fafc',
@@ -100,7 +110,7 @@ class TrainerCardService
         ]);
     }
 
-    protected function trainerPhotoUrl(Trainer $trainer, CardTemplate $template): string
+    protected function trainerPhotoUrl(Trainer $trainer, CardTemplate $template): ?string
     {
         $photo = trim((string) $trainer->photo);
 
@@ -112,11 +122,7 @@ class TrainerCardService
             return asset('storage/'.ltrim($photo, '/'));
         }
 
-        if ($template->fallback_photo_url) {
-            return $template->fallback_photo_url;
-        }
-
-        return 'https://ui-avatars.com/api/?name='.urlencode($trainer->full_name ?: 'Formador').'&background=041c4f&color=fff&size=240';
+        return null;
     }
 
     protected function mainSubject(Trainer $trainer): string

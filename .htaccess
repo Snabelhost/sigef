@@ -1,0 +1,17 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Block access to legacy PHP files in root (return 404)
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteRule ^[^/]+\.php$ - [R=404,L]
+    
+    # Redirect all requests to public folder
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# php -- BEGIN cPanel-generated handler, do not edit
+# Defina o pacote “ea-php83” como a linguagem padrão de programação “PHP”.
+<IfModule mime_module>
+  AddHandler application/x-httpd-ea-php83___lsphp .php .php8 .phtml
+</IfModule>
+# php -- END cPanel-generated handler, do not edit

@@ -2,10 +2,10 @@
     x-data="{ open: false }"
     x-on:open-change-password.window="open = true"
     x-init="$watch('open', value => {
-        if (value) {
-            document.body.style.overflow = 'hidden';
+        if (window.SigefLayoutStability) {
+            window.SigefLayoutStability.setLocked('change-password', value);
         } else {
-            document.body.style.overflow = '';
+            document.body.style.overflow = value ? 'hidden' : '';
         }
     })">
     {{-- Overlay --}}
@@ -13,7 +13,7 @@
         x-show="open"
         x-cloak
         x-transition.opacity
-        style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 999999; background: rgba(0,0,0,0.5);"
+        style="position: fixed; inset: 0; z-index: 999999; background: rgba(0,0,0,0.5);"
         x-on:click.self="open = false">
         {{-- Centering wrapper --}}
         <div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">

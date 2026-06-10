@@ -6,7 +6,9 @@ use App\Models\Student;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Throwable;
 
 class DashboardCourseStatsService
 {
@@ -14,7 +16,22 @@ class DashboardCourseStatsService
     {
         $cacheKey = 'dashboard.students_by_course.' . md5(json_encode($this->normalizeFilters($filters)));
 
-        return Cache::remember($cacheKey, 300, function () use ($filters): array {
+        $items = Cache::flexible(
+            $cacheKey,
+            [
+                max(60, (int) config('services.siga.cache_ttl', 900)),
+                max(900, (int) config('services.siga.stale_cache_ttl', 86400)),
+            ],
+            fn (): array => $this->loadStudentsByCourse($filters, $cacheKey),
+            ['seconds' => 10],
+        );
+
+        return is_array($items) ? $items : [];
+    }
+
+    private function loadStudentsByCourse(array $filters, string $cacheKey): array
+    {
+        try {
             $institutionId = $filters['institution_id'] ?? null;
             $courseId = $filters['course_id'] ?? null;
             $startDate = $this->dateOrNull($filters['start_date'] ?? null);
@@ -50,7 +67,15 @@ class DashboardCourseStatsService
             $apiItems = app(SigaDashboardStatsService::class)->studentsByCourse($filters);
 
             return $this->mergeCourseStats($localItems, $apiItems);
-        });
+        } catch (Throwable $exception) {
+            Log::warning('Dashboard students by course failed to load.', [
+                'error' => $exception->getMessage(),
+            ]);
+
+            $cached = Cache::get($cacheKey);
+
+            return is_array($cached) ? $cached : [];
+        }
     }
 
     private function mergeCourseStats(array $localItems, array $apiItems): array

@@ -217,3 +217,48 @@ header svg.fi-icon {
     align-items: center !important;
     justify-content: center !important;
 }
+
+/* Table row actions: make icons and click targets easier to use. */
+.fi-ta-actions,
+.fi-ta-record-actions,
+.fi-ta-row-actions,
+.fi-ta-cell .fi-ac {
+    gap: 0.45rem !important;
+}
+
+.fi-ta-actions .fi-icon-btn,
+.fi-ta-record-actions .fi-icon-btn,
+.fi-ta-row-actions .fi-icon-btn,
+.fi-ta-actions .fi-ac-action,
+.fi-ta-record-actions .fi-ac-action,
+.fi-ta-row-actions .fi-ac-action,
+.fi-ta-cell .fi-ac .fi-ac-action {
+    width: 2.35rem !important;
+    min-width: 2.35rem !important;
+    height: 2.35rem !important;
+    min-height: 2.35rem !important;
+}
+
+.fi-ta-actions svg,
+.fi-ta-record-actions svg,
+.fi-ta-row-actions svg,
+.fi-ta-actions .fi-icon,
+.fi-ta-record-actions .fi-icon,
+.fi-ta-row-actions .fi-icon,
+.fi-ta-cell .fi-ac svg,
+.fi-ta-cell .fi-ac .fi-icon,
+.fi-ta-cell .fi-dropdown-trigger svg,
+.fi-ta-cell .fi-dropdown-trigger .fi-icon {
+    width: 1.35rem !important;
+    min-width: 1.35rem !important;
+    height: 1.35rem !important;
+    min-height: 1.35rem !important;
+}
+
+.fi-dropdown-panel .fi-dropdown-list-item-icon,
+.fi-dropdown-panel .fi-dropdown-list-item svg {
+    width: 1.2rem !important;
+    min-width: 1.2rem !important;
+    height: 1.2rem !important;
+    min-height: 1.2rem !important;
+}

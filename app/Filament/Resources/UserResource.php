@@ -12,6 +12,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Validation\Rules\Password;
 
 class UserResource extends Resource
 {
@@ -67,6 +68,7 @@ class UserResource extends Resource
                             ->revealable()
                             ->dehydrated(fn($state) => filled($state))
                             ->required(fn(string $context): bool => $context === 'create')
+                            ->rules(fn (?string $state): array => filled($state) ? [Password::defaults()] : [])
                             ->maxLength(191),
                         Forms\Components\TextInput::make('password_confirmation')
                             ->label('Confirmar Palavra-passe')
@@ -102,6 +104,64 @@ class UserResource extends Resource
             ];
     }
 
+    protected static function viewUserFormSchema(): array
+    {
+        return [
+            Forms\Components\TextInput::make('name')
+                ->label('Nome'),
+
+            Forms\Components\TextInput::make('email')
+                ->label('E-mail')
+                ->suffixIcon('heroicon-o-at-symbol'),
+
+            Forms\Components\TextInput::make('password')
+                ->label('Palavra-passe')
+                ->placeholder('Gerada automaticamente se deixar em branco')
+                ->helperText('Pode definir uma palavra-passe inicial ou deixar o sistema gerar uma.')
+                ->dehydrated(false),
+
+            Forms\Components\TextInput::make('phone')
+                ->label('Telefone')
+                ->placeholder('+244 9XX XXX XXX'),
+
+            Forms\Components\TextInput::make('last_login_display')
+                ->label('Último acesso')
+                ->dehydrated(false),
+
+            Forms\Components\Select::make('roles')
+                ->label('Perfil')
+                ->multiple()
+                ->native(false)
+                ->options(fn (): array => \Spatie\Permission\Models\Role::query()
+                    ->whereNotIn('name', ['dpq_admin', 'dpq_user', 'comando_admin', 'comando_user'])
+                    ->orderBy('name')
+                    ->pluck('name', 'id')
+                    ->map(fn (string $name): string => static::userRoleLabel($name))
+                    ->all())
+                ->preload(),
+
+            Forms\Components\Toggle::make('is_active')
+                ->label('Ativo')
+                ->inline(false),
+        ];
+    }
+
+    protected static function userRoleLabel(string $name): string
+    {
+        return match ($name) {
+            'super_admin' => 'Super Administrador',
+            'admin' => 'Administrador',
+            'escola_admin' => 'Administrador da Escola',
+            'escola_user' => 'Utilizador da Escola',
+            'aluno_admin' => 'Administrador do Painel do Aluno',
+            'aluno_user' => 'Aluno',
+            'professores_admin' => 'Administrador do Painel dos Professores',
+            'professores_user' => 'Professor',
+            'panel_user' => 'Utilizador do Painel',
+            default => str(str_replace(['_', '-'], ' ', $name))->headline()->toString(),
+        };
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -127,12 +187,12 @@ class UserResource extends Resource
                         'super_admin' => 'danger',
                         'admin' => 'warning',
                         'escola_admin' => 'success',
-                        'dpq_admin' => 'info',
-                        'comando_admin' => 'primary',
+                        'aluno_admin' => 'info',
+                        'professores_admin' => 'primary',
                         'panel_user' => 'gray',
                         'escola_user' => 'success',
-                        'dpq_user' => 'info',
-                        'comando_user' => 'primary',
+                        'aluno_user' => 'info',
+                        'professores_user' => 'primary',
                         default => 'gray',
                     })
                     ->separator(','),
@@ -175,22 +235,24 @@ class UserResource extends Resource
                     })
                     ->label('Novo Utilizador'),
             ])
-            ->actions([
+            ->recordActions([
                 \Filament\Actions\ActionGroup::make([
                     \Filament\Actions\ViewAction::make()
                         ->label('Visualizar')
                         ->icon('heroicon-o-eye')
                         ->color('info')
-                        ->modalHeading(fn(User $record): string => 'Visualizar Utilizador - ' . $record->name)
-                        ->modalDescription('Dados do utilizador em modo de visualização.')
-                        ->modalWidth(\Filament\Support\Enums\Width::SixExtraLarge)
-                        ->schema(static::userFormSchema())
+                        ->modalHeading('Visualizar Utilizador')
+                        ->modalDescription(null)
+                        ->modalWidth(\Filament\Support\Enums\Width::FourExtraLarge)
+                        ->schema(static::viewUserFormSchema())
                         ->mutateRecordDataUsing(function (array $data, User $record): array {
                             $record->loadMissing('roles');
 
                             $data['roles'] = $record->roles->pluck('id')->all();
                             $data['password'] = null;
-                            $data['password_confirmation'] = null;
+                            $data['last_login_display'] = $record->last_login_at
+                                ? \Illuminate\Support\Carbon::parse($record->last_login_at)->format('d/m/Y H:i:s')
+                                : 'Sem registo';
 
                             return $data;
                         })
@@ -823,7 +885,6 @@ class UserResource extends Resource
     {
         return [
             'index' => Pages\ListUsers::route('/'),
-            'view' => Pages\ViewUser::route('/{record}'),
         ];
     }
 

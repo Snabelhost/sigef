@@ -15,12 +15,12 @@ class SmsService
     /**
      * Chave API de Produção (SIGEF)
      */
-    protected string $apiKey = 'prd09933ffaa3022ca9d71dc39719';
+    protected string $apiKey = '';
 
     public function __construct()
     {
         // Permitir sobrescrever via config se necessário
-        $this->apiKey = config('services.telcosms.api_key', $this->apiKey);
+        $this->apiKey = (string) config('services.telcosms.api_key', '');
         $this->apiUrl = config('services.telcosms.api_url', $this->apiUrl);
     }
 
@@ -45,6 +45,13 @@ class SmsService
             }
 
             // Remover acentos para evitar problemas de encoding
+            if (empty($this->apiKey)) {
+                return [
+                    'success' => false,
+                    'message' => 'Chave da API SMS nao configurada',
+                ];
+            }
+
             $message = $this->removeAccents($message);
 
             // Formato JSON conforme API Uamicare
@@ -67,7 +74,7 @@ class SmsService
                     'Content-Type' => 'application/json',
                 ])
                 ->withOptions([
-                    'verify' => false, // Desabilitar verificação SSL para ambiente local
+                    'verify' => (bool) config('services.telcosms.verify_ssl', true),
                 ])
                 ->post($this->apiUrl, $payload);
 

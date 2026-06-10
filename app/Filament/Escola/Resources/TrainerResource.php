@@ -23,8 +23,8 @@ class TrainerResource extends Resource
     protected static ?string $model = Trainer::class;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-presentation-chart-bar';
-    protected static string|\UnitEnum|null $navigationGroup = 'Gestão Escolar';
-    protected static ?int $navigationSort = 1;
+    protected static string|\UnitEnum|null $navigationGroup = 'Recursos Humanos';
+    protected static ?int $navigationSort = 0;
     protected static ?string $modelLabel = 'Formador';
     protected static ?string $pluralModelLabel = 'Formadores';
     protected static bool $isScopedToTenant = false;
@@ -353,7 +353,7 @@ class TrainerResource extends Resource
                     ->searchable()
                     ->preload(),
                 Tables\Filters\TernaryFilter::make('is_active')
-                    ->label('Status'),
+                    ->label('Estado'),
             ])
             ->headerActions([
                 // Botão Importar Excel

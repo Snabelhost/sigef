@@ -37,6 +37,7 @@ class DashboardApiController extends Controller
         $startDate = $filters['start_date'];
         $endDate = $filters['end_date'];
         $validInstitutionIds = Institution::pluck('id')->toArray();
+        $approvedRecruitmentStatuses = ['Apurado', 'approved', 'aprovado', 'admitted', 'apto'];
 
         $alistadosQuery = Candidate::query()
             ->whereNotNull('institution_id')
@@ -76,20 +77,25 @@ class DashboardApiController extends Controller
         $recrutasInstruendos = $recrutas + $instruendos;
         $totalAlunos = $alistados + $recrutasInstruendos;
 
-        $formandosStudents = (clone $studentsBaseQuery)
+        $emFormacao = (clone $studentsBaseQuery)
             ->where('student_type', 'like', '%Em Forma%')
             ->count();
 
-        $formandosCandidates = Candidate::query()
-            ->whereNotNull('institution_id')
+        $formandosConcluidos = (clone $studentsBaseQuery)
+            ->where(function ($q) {
+                $q->where('student_type', 'like', '%Formando Conclu%')
+                    ->orWhere('student_type', 'like', '%Conclu%');
+            })
+            ->count();
+
+        $formandos = Candidate::query()
+            ->whereIn('student_type', ['Alistado', 'Formando'])
+            ->whereIn('status', $approvedRecruitmentStatuses)
             ->when($institutionId, fn($q) => $q->where('institution_id', $institutionId))
             ->when($courseId, fn($q) => $q->whereRaw('1 = 0'))
             ->when($startDate, fn($q) => $q->whereDate('created_at', '>=', $startDate))
             ->when($endDate, fn($q) => $q->whereDate('created_at', '<=', $endDate))
-            ->where('student_type', 'like', '%Em Forma%')
             ->count();
-
-        $formandos = $formandosStudents + $formandosCandidates;
 
         $formadores = Trainer::where('is_active', true)
             ->when($institutionId, fn($q) => $q->where('institution_id', $institutionId))
@@ -130,6 +136,9 @@ class DashboardApiController extends Controller
             'recrutas_instruendos' => $recrutasInstruendos,
             'formandos' => $formandos,
             'formandos_superior' => $formandos,
+            'em_formacao' => $emFormacao,
+            'formandos_concluidos' => $formandosConcluidos,
+            'em_formacao_concluidos' => $emFormacao + $formandosConcluidos,
             'formadores' => $formadores,
             'formadores_activos' => $formadores,
             'instituicoes_ensino' => $escolas,

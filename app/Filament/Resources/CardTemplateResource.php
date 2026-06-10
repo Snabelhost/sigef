@@ -72,7 +72,7 @@ class CardTemplateResource extends Resource
                         ->label('Variação do efectivo')
                         ->options(CardTemplate::staffVariantOptions())
                         ->native(false)
-                        ->visible(fn (Get $get): bool => $get('card_type') === CardTemplate::TYPE_STAFF),
+                        ->visible(fn (Get $get): bool => in_array($get('card_type'), [CardTemplate::TYPE_PROFESSOR, CardTemplate::TYPE_STAFF], true)),
                     Forms\Components\Select::make('style')
                         ->label('Estilo')
                         ->options(CardTemplate::styleOptions())
@@ -108,6 +108,9 @@ class CardTemplateResource extends Resource
                         ->dehydrateStateUsing(fn (?string $state): ?string => filled($state) ? $state : null),
                     Forms\Components\ColorPicker::make('front_text_color')
                         ->label('Texto da frente'),
+                    Forms\Components\ColorPicker::make('header_text_color')
+                        ->label('Texto do cabecalho')
+                        ->dehydrateStateUsing(fn (?string $state): ?string => filled($state) ? $state : null),
                     Forms\Components\ColorPicker::make('back_text_color')
                         ->label('Texto do verso'),
                     Forms\Components\ColorPicker::make('front_background_color')
@@ -145,12 +148,20 @@ class CardTemplateResource extends Resource
                     Forms\Components\TextInput::make('sample_payload.class')
                         ->label('Turma de exemplo')
                         ->visible(fn (Get $get): bool => $get('card_type') === CardTemplate::TYPE_STUDENT),
+                    Forms\Components\TextInput::make('sample_payload.academic_degree')
+                        ->label('Grau academico de exemplo')
+                        ->placeholder('Ex: 1.º ANO')
+                        ->visible(fn (Get $get): bool => $get('card_type') === CardTemplate::TYPE_PROFESSOR),
+                    Forms\Components\TextInput::make('sample_payload.rank')
+                        ->label('Posto de exemplo')
+                        ->placeholder('Ex: INSPECTOR')
+                        ->visible(fn (Get $get): bool => in_array($get('card_type'), [CardTemplate::TYPE_PROFESSOR, CardTemplate::TYPE_STAFF], true)),
                     Forms\Components\TextInput::make('sample_payload.discipline')
                         ->label('Disciplina de exemplo')
                         ->visible(fn (Get $get): bool => $get('card_type') === CardTemplate::TYPE_PROFESSOR),
                     Forms\Components\TextInput::make('sample_payload.department')
                         ->label('Departamento de exemplo')
-                        ->visible(fn (Get $get): bool => in_array($get('card_type'), [CardTemplate::TYPE_PROFESSOR, CardTemplate::TYPE_STAFF], true)),
+                        ->visible(fn (Get $get): bool => $get('card_type') === CardTemplate::TYPE_PROFESSOR),
                     Forms\Components\TextInput::make('sample_payload.function')
                         ->label('Função de exemplo')
                         ->visible(fn (Get $get): bool => $get('card_type') === CardTemplate::TYPE_STAFF),
@@ -225,7 +236,7 @@ class CardTemplateResource extends Resource
     {
         return match ($cardType) {
             CardTemplate::TYPE_PROFESSOR => [
-                'style' => CardTemplate::STYLE_PROFESSOR_VERTICAL,
+                'style' => CardTemplate::STYLE_STAFF_EFFECTIVE,
                 'orientation' => CardTemplate::ORIENTATION_HORIZONTAL,
                 'card_variant' => null,
             ],
@@ -235,7 +246,7 @@ class CardTemplateResource extends Resource
                 'card_variant' => 'with_department',
             ],
             default => [
-                'style' => CardTemplate::STYLE_STUDENT,
+                'style' => CardTemplate::STYLE_PROFESSOR_VERTICAL,
                 'orientation' => CardTemplate::ORIENTATION_VERTICAL,
                 'card_variant' => null,
             ],
@@ -339,7 +350,7 @@ class CardTemplateResource extends Resource
             ->stickyModalHeader()
             ->stickyModalFooter()
             ->closeModalByClickingAway(false)
-            ->modalContent(fn (CardTemplate $record) => view('cards.preview-modal', [
+            ->modalContent(fn (CardTemplate $record) => view('cards.print-modal', [
                 'template' => $record,
                 'payload' => static::samplePayload($record),
                 'viewerId' => 'sigef-template-card-viewer-'.$record->getKey(),
@@ -358,14 +369,25 @@ class CardTemplateResource extends Resource
 
         $sample = $template->sample_payload ?? [];
         $type = $template->card_type;
+        $isGeneralStaff = $type === CardTemplate::TYPE_STAFF
+            && (
+                ($template->card_variant ?? null) === 'civil'
+                || str_contains(strtolower((string) ($sample['regime'] ?? '')), 'geral')
+                || strtoupper((string) ($sample['document_label'] ?? '')) === 'BI'
+            );
+        $isGeneralTrainer = $type === CardTemplate::TYPE_PROFESSOR
+            && (
+                str_contains(strtolower((string) ($sample['regime'] ?? '')), 'geral')
+                || strtoupper((string) ($sample['document_label'] ?? '')) === 'BI'
+            );
         $name = $sample['name'] ?? match ($type) {
             CardTemplate::TYPE_PROFESSOR => 'Formador Marcas',
             CardTemplate::TYPE_STAFF => 'Antonio Morgado Kidimakaji da Silva',
             default => 'Betilson Marcas',
         };
         $documentNumber = $sample['document_number'] ?? $sample['number'] ?? match ($type) {
-            CardTemplate::TYPE_PROFESSOR => 'PROF-001',
-            CardTemplate::TYPE_STAFF => '007397943LA048',
+            CardTemplate::TYPE_PROFESSOR => $isGeneralTrainer ? '007397943LA048' : '1057728',
+            CardTemplate::TYPE_STAFF => $isGeneralStaff ? '007397943LA048' : '1057728',
             default => 'ALN-001',
         };
         $codes = app(\App\Services\CardCodeService::class);
@@ -376,8 +398,8 @@ class CardTemplateResource extends Resource
             'number' => $documentNumber,
             'card_number' => $sample['card_number'] ?? $documentNumber,
             'document_label' => $sample['document_label'] ?? match ($type) {
-                CardTemplate::TYPE_PROFESSOR => 'NIP',
-                CardTemplate::TYPE_STAFF => 'BI',
+                CardTemplate::TYPE_PROFESSOR => $isGeneralTrainer ? 'BI' : 'NIP',
+                CardTemplate::TYPE_STAFF => $isGeneralStaff ? 'BI' : 'NIP',
                 default => 'Nº',
             },
             'document_number' => $documentNumber,
@@ -401,18 +423,20 @@ class CardTemplateResource extends Resource
             'class' => $sample['class'] ?? 'A/01',
             'discipline' => $sample['discipline'] ?? 'Direito Penal',
             'department' => $sample['department'] ?? 'Departamento Academico',
-            'function' => $sample['function'] ?? 'Chefe de Departamento',
+            'function' => $sample['function'] ?? ($type === CardTemplate::TYPE_STAFF ? 'ESPECIALISTA' : 'Chefe de Departamento'),
             'blood_type' => $sample['blood_type'] ?? 'O+',
             'regime' => $sample['regime'] ?? ($type === CardTemplate::TYPE_PROFESSOR ? 'REGIME ESPECIAL' : 'Regime Geral'),
             'rank' => $sample['rank'] ?? ($type === CardTemplate::TYPE_STAFF ? 'Civil' : '1.º Subchefe'),
             'position' => $sample['position'] ?? ($type === CardTemplate::TYPE_STAFF ? 'Civil' : '1.º Subchefe'),
             'organ' => $sample['organ'] ?? 'Direcção Académica',
             'placement_organ' => $sample['placement_organ'] ?? 'Direcção Académica',
+            'rank' => $type === CardTemplate::TYPE_STAFF ? ($sample['rank'] ?? 'INSPECTOR') : ($sample['rank'] ?? '1. Subchefe'),
+            'position' => $type === CardTemplate::TYPE_STAFF ? ($sample['position'] ?? $sample['rank'] ?? 'INSPECTOR') : ($sample['position'] ?? '1. Subchefe'),
             'subjects' => $sample['subjects'] ?? 'Direito Penal, Criminologia',
             'classes' => $sample['classes'] ?? 'A/01, B/09',
             'phone' => $sample['phone'] ?? '+244 921 721 777',
             'email' => $sample['email'] ?? 'exemplo@sigef.local',
-            'photo_url' => $template->sample_photo_url ?: $template->fallback_photo_url,
+            'photo_url' => $template->sample_photo_url,
             'footer_text' => $template->footer_text ?: 'Este cartão identifica o portador no SIGEF.',
             'signature_label' => $template->signature_label,
             'signatory_name' => $template->signatory_name,

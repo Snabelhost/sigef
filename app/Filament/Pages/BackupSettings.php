@@ -492,8 +492,8 @@ class BackupSettings extends Page
 
     public function downloadBackup(string $filename)
     {
-        $path = storage_path("app/backups/{$filename}");
-        if (!file_exists($path)) {
+        $path = $this->resolveBackupPath($filename);
+        if (! $path) {
             Notification::make()->title('Ficheiro não encontrado')->danger()->send();
             return;
         }
@@ -503,11 +503,29 @@ class BackupSettings extends Page
 
     public function deleteBackup(string $filename): void
     {
-        $path = storage_path("app/backups/{$filename}");
-        if (file_exists($path)) {
+        $path = $this->resolveBackupPath($filename);
+        if ($path) {
             unlink($path);
-            Notification::make()->title('Backup eliminado')->body($filename)->success()->send();
+            Notification::make()->title('Backup eliminado')->body(basename($path))->success()->send();
         }
+    }
+
+    protected function resolveBackupPath(string $filename): ?string
+    {
+        $backupDir = storage_path('app/backups');
+        $basePath = realpath($backupDir);
+
+        if ($basePath === false || basename($filename) !== $filename || ! str_ends_with($filename, '.sql')) {
+            return null;
+        }
+
+        $path = realpath($basePath . DIRECTORY_SEPARATOR . $filename);
+
+        if ($path === false || ! str_starts_with($path, $basePath . DIRECTORY_SEPARATOR)) {
+            return null;
+        }
+
+        return $path;
     }
 
     protected function formatBytes(int $bytes): string
@@ -519,7 +537,7 @@ class BackupSettings extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->hasAnyRole(['super_admin', 'admin']) ?? false;
+        return auth()->user()?->hasRole('super_admin') ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool

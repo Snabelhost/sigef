@@ -559,7 +559,7 @@ class DocumentResource extends Resource
                                         \Filament\Infolists\Components\TextEntry::make('formatted_size')
                                             ->label('Tamanho'),
                                         \Filament\Infolists\Components\TextEntry::make('file_path')
-                                            ->label('Download')
+                                            ->label('Baixar')
                                             ->formatStateUsing(fn($state) => 'Baixar')
                                             ->url(fn($record) => $record ? \Illuminate\Support\Facades\Storage::url($record->file_path) : null)
                                             ->openUrlInNewTab()

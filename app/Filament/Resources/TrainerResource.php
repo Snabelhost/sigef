@@ -160,7 +160,7 @@ class TrainerResource extends Resource
                                         ->columnSpanFull(),
                                     Forms\Components\TextInput::make('nip')
                                         ->label('NIP')
-                                        ->placeholder('Ex: PROF-001')
+                                        ->placeholder('Ex: 1057728')
                                         ->unique(ignoreRecord: true)
                                         ->maxLength(191)
                                         ->visible(fn (\Filament\Schemas\Components\Utilities\Get $get): bool => $get('trainer_type') !== 'Civil'),
@@ -1052,7 +1052,7 @@ HTML);
                                 ->columnSpanFull(),
                             Forms\Components\TextInput::make('nip')
                                 ->label('NIP')
-                                ->placeholder('Ex: PROF-001')
+                                ->placeholder('Ex: 1057728')
                                 ->unique(ignoreRecord: true)
                                 ->maxLength(191),
                             Forms\Components\TextInput::make('full_name')
@@ -2143,8 +2143,25 @@ HTML);
             ->closeModalByClickingAway(false)
             ->modalContent(function (Trainer $record) {
                 $data = app(TrainerCardService::class)->build($record);
+                $template = $data['template'];
+                $printUrl = route('cartoes.trainers.preview', ['trainer' => $record]);
+                $cacheBuster = (string) max(
+                    (int) ($record->updated_at?->timestamp ?: 0),
+                    (int) ($template->updated_at?->timestamp ?: 0),
+                    time(),
+                );
+                $embeddedUrl = fn (string $face): string => $printUrl.'?'.http_build_query([
+                    'embedded' => 1,
+                    'autoprint' => 0,
+                    'face' => $face,
+                    'v' => $cacheBuster,
+                ]);
 
-                return view('cards.preview-modal', $data + [
+                return view('cards.print-modal', $data + [
+                    'frameId' => 'sigef-trainer-card-frame-'.$record->getKey(),
+                    'printUrl' => $printUrl,
+                    'embeddedFrontUrl' => $embeddedUrl('front'),
+                    'embeddedBackUrl' => $embeddedUrl('back'),
                     'entityLabel' => 'Formadores',
                     'documentName' => 'Formadores - '.($record->full_name ?: 'Formador'),
                     'statusLabel' => $record->is_active ? 'ACTIVO' : 'INACTIVO',

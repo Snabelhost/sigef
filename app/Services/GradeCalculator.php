@@ -4,9 +4,29 @@ namespace App\Services;
 
 use App\Models\Student;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 
 class GradeCalculator
 {
+    private static function subjectIdsWithGrades(Student $student): Collection
+    {
+        $enrolledSubjectIds = Schema::hasTable('student_subject_enrollments')
+            ? \App\Models\StudentSubjectEnrollment::where('student_id', $student->id)
+                ->distinct()
+                ->pluck('subject_id')
+            : collect();
+
+        if ($enrolledSubjectIds->isNotEmpty()) {
+            return $enrolledSubjectIds;
+        }
+
+        return $student->evaluations
+            ->pluck('subject_id')
+            ->filter(fn ($subjectId) => $subjectId !== null && $subjectId !== '')
+            ->unique()
+            ->values();
+    }
+
     /**
      * Calcular média final de uma disciplina para um aluno
      * Fórmula: (Média NPP × 40%) + (Exame × 60%)
@@ -43,9 +63,7 @@ class GradeCalculator
      */
     public static function generalAverage(Student $student): string
     {
-        $enrolledSubjectIds = \App\Models\StudentSubjectEnrollment::where('student_id', $student->id)
-            ->distinct()
-            ->pluck('subject_id');
+        $enrolledSubjectIds = self::subjectIdsWithGrades($student);
 
         if ($enrolledSubjectIds->isEmpty()) {
             return '-';
@@ -77,9 +95,7 @@ class GradeCalculator
     public static function result(Student $student): string
     {
         // Obter disciplinas inscritas do aluno
-        $enrolledSubjectIds = \App\Models\StudentSubjectEnrollment::where('student_id', $student->id)
-            ->distinct()
-            ->pluck('subject_id');
+        $enrolledSubjectIds = self::subjectIdsWithGrades($student);
 
         if ($enrolledSubjectIds->isEmpty()) {
             return 'Pendente';

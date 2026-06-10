@@ -8,6 +8,7 @@ use App\Models\Candidate;
 use App\Models\Institution;
 use App\Models\StudentType;
 use App\Models\CandidateTransferHistory;
+use App\Services\RecruitmentPortalCandidateSyncService;
 use App\Services\SmsService;
 use App\Imports\CandidateImport;
 use Filament\Forms;
@@ -28,16 +29,16 @@ class CandidateResource extends Resource
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-user-plus';
     protected static string|\UnitEnum|null $navigationGroup = 'Gestão Escolar';
     protected static ?int $navigationSort = 3;
-    protected static ?string $navigationLabel = 'Alistados';
-    protected static ?string $modelLabel = 'Alistado';
-    protected static ?string $pluralModelLabel = 'Alistados';
+    protected static ?string $navigationLabel = 'Formandos';
+    protected static ?string $modelLabel = 'Formando';
+    protected static ?string $pluralModelLabel = 'Formandos';
 
 
-    // Filtrar apenas alistados cadastrados neste formulário
+    // Mostrar candidatos do portal e cadastros diretos que ainda estão como Alistado/Formando.
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
         return parent::getEloquentQuery()
-            ->where('student_type', 'Alistado')
+            ->whereIn('student_type', ['Alistado', 'Formando'])
             ->with(['recruitmentType', 'academicYear']);
     }
 
@@ -65,7 +66,12 @@ class CandidateResource extends Resource
     public static function form(Schema $form): Schema
     {
         return $form
-            ->schema([
+            ->schema(static::candidateFormSchema());
+    }
+
+    protected static function candidateFormSchema(): array
+    {
+        return [
                 // Identificação Pessoal
                 \Filament\Schemas\Components\Section::make('Identificação Pessoal')
                     ->icon('heroicon-o-user')
@@ -162,10 +168,31 @@ class CandidateResource extends Resource
                             ]),
                     ])->columns(3)->columnSpanFull(),
 
-                // Tipo de Aluno definido automaticamente como Alistado
-                Forms\Components\Hidden::make('student_type')
-                    ->default('Alistado'),
-            ]);
+                \Filament\Schemas\Components\Section::make('Classificação')
+                    ->icon('heroicon-o-check-badge')
+                    ->description('Tipo de registo e resultado do recrutamento')
+                    ->schema([
+                        Forms\Components\Select::make('student_type')
+                            ->label('Tipo')
+                            ->options([
+                                'Alistado' => 'Alistado',
+                                'Formando' => 'Formando',
+                            ])
+                            ->default('Alistado')
+                            ->required()
+                            ->native(false),
+                        Forms\Components\Select::make('status')
+                            ->label('Resultado')
+                            ->options([
+                                'Pendente' => 'Pendente',
+                                'Apurado' => 'Apurado',
+                                'Reprovado' => 'Reprovado',
+                            ])
+                            ->default('Pendente')
+                            ->required()
+                            ->native(false),
+                    ])->columns(2)->columnSpanFull(),
+            ];
     }
 
     public static function table(Table $table): Table
@@ -193,9 +220,15 @@ class CandidateResource extends Resource
                     ->label('Género')
                     ->formatStateUsing(fn($state) => $state === 'M' ? 'Masculino' : ($state === 'F' ? 'Feminino' : $state)),
                 Tables\Columns\TextColumn::make('student_type')
-                    ->label('Estado')
+                    ->label('Tipo')
                     ->badge()
                     ->color(fn($state) => $typeColors[$state] ?? 'primary'),
+                Tables\Columns\TextColumn::make('status')
+                    ->label('Resultado')
+                    ->badge()
+                    ->formatStateUsing(fn($state) => static::formatRecruitmentStatus($state))
+                    ->color(fn($state) => static::recruitmentStatusColor($state))
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Data Registo')
                     ->dateTime('d/m/Y')
@@ -220,6 +253,19 @@ class CandidateResource extends Resource
                     ->options(Institution::orderBy('name')->pluck('name', 'id'))
                     ->searchable()
                     ->preload(),
+                Tables\Filters\SelectFilter::make('student_type')
+                    ->label('Tipo')
+                    ->options([
+                        'Alistado' => 'Alistado',
+                        'Formando' => 'Formando',
+                    ]),
+                Tables\Filters\SelectFilter::make('status')
+                    ->label('Resultado')
+                    ->options([
+                        'Pendente' => 'Pendente',
+                        'Apurado' => 'Apurado',
+                        'Reprovado' => 'Reprovado',
+                    ]),
                 Tables\Filters\SelectFilter::make('gender')
                     ->label('Género')
                     ->options([
@@ -229,14 +275,46 @@ class CandidateResource extends Resource
             ])
             ->headerActions([
                 // Botão de Importação Excel
+                \Filament\Actions\Action::make('sincronizarPortal')
+                    ->label('Sincronizar Portal')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('info')
+                    ->modalHeading('Sincronizar candidatos do portal')
+                    ->modalDescription('Importa e atualiza os candidatos apurados e reprovados do portal de recrutamento.')
+                    ->form([
+                        Forms\Components\TextInput::make('endpoint')
+                            ->label('Endpoint')
+                            ->default(config('services.recruitment_portal.candidates_url', 'http://10.110.2.18/api/candidates'))
+                            ->required()
+                            ->url(),
+                    ])
+                    ->action(function (array $data): void {
+                        try {
+                            $stats = app(RecruitmentPortalCandidateSyncService::class)->sync($data['endpoint'] ?? null);
+
+                            \Filament\Notifications\Notification::make()
+                                ->title('Portal sincronizado')
+                                ->body("Recebidos: {$stats['received']} | Criados: {$stats['created']} | Atualizados: {$stats['updated']} | Ignorados: {$stats['skipped']}")
+                                ->success()
+                                ->duration(10000)
+                                ->send();
+                        } catch (\Throwable $e) {
+                            \Filament\Notifications\Notification::make()
+                                ->title('Falha ao sincronizar portal')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->duration(10000)
+                                ->send();
+                        }
+                    }),
                 \Filament\Actions\Action::make('importarExcel')
                     ->label('Importar Excel')
                     ->icon('heroicon-o-arrow-up-tray')
                     ->extraAttributes([
                         'style' => 'background-color: #11ba82 !important; border-color: #11ba82 !important; color: white !important;',
                     ])
-                    ->modalHeading('Importar Alistados do Excel')
-                    ->modalDescription(new \Illuminate\Support\HtmlString('<span style="color: white;">Faça upload de um arquivo Excel (.xlsx, .xls) com os dados dos alistados.</span>'))
+                    ->modalHeading('Importar Formandos do Excel')
+                    ->modalDescription(new \Illuminate\Support\HtmlString('<span style="color: white;">Faça upload de um arquivo Excel (.xlsx, .xls) com os dados dos formandos.</span>'))
                     ->modalIcon('heroicon-o-document-arrow-up')
                     ->modalIconColor('primary')
                     ->form([
@@ -271,7 +349,7 @@ class CandidateResource extends Resource
                             if ($stats['imported'] > 0) {
                                 \Filament\Notifications\Notification::make()
                                     ->title('Importação Concluída')
-                                    ->body("Importados: {$stats['imported']} alistados!")
+                                    ->body("Importados: {$stats['imported']} formandos!")
                                     ->success()
                                     ->send();
                             }
@@ -307,7 +385,7 @@ class CandidateResource extends Resource
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('danger')
                     ->action(function () {
-                        return Excel::download(new \App\Exports\CandidateTemplateExport(), 'modelo_importacao_alistados.xlsx');
+                        return Excel::download(new \App\Exports\CandidateTemplateExport(), 'modelo_importacao_formandos.xlsx');
                     }),
                 \Filament\Actions\CreateAction::make()
                     ->icon('heroicon-o-plus')
@@ -316,7 +394,7 @@ class CandidateResource extends Resource
                     ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger'))
                     ->createAnotherAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-plus-circle')->label('Salvar e criar outro'))
                     ->createAnother(true)
-                    ->successNotificationTitle('Alistado criado com sucesso!')
+                    ->successNotificationTitle('Formando criado com sucesso!')
                     ->after(function (Candidate $record) {
                         // Enviar SMS ao alistado após criar
                         $phone = $record->phone;
@@ -422,12 +500,20 @@ class CandidateResource extends Resource
             ])
             ->actions([
                 \Filament\Actions\ActionGroup::make([
+                    \Filament\Actions\ViewAction::make()
+                        ->label('Visualizar')
+                        ->icon('heroicon-o-eye')
+                        ->color('info')
+                        ->modalHeading('Visualizar Formando')
+                        ->modalWidth('6xl')
+                        ->schema(static::candidateFormSchema())
+                        ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Fechar')->color('danger')),
                     \Filament\Actions\EditAction::make()
                         ->icon('heroicon-o-pencil-square')
                         ->modalWidth('6xl')
                         ->modalSubmitAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-check')->label('Salvar'))
                         ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger'))
-                        ->successNotificationTitle('Alistado atualizado com sucesso!'),
+                        ->successNotificationTitle('Formando atualizado com sucesso!'),
                     \Filament\Actions\Action::make('moverAlistado')
                         ->label('Mover')
                         ->icon('heroicon-o-arrow-right-circle')
@@ -489,7 +575,6 @@ class CandidateResource extends Resource
                         ->visible(fn(Candidate $record): bool => empty($record->institution_id))
                         ->requiresConfirmation()
                         ->modalHeading('Vincular Alistado e Converter em Recruta')
-                        ->modalDescription(fn(Candidate $record) => 'O alistado "' . ($record->full_name ?? 'N/A') . '" será vinculado à escola selecionada e convertido em Recruta (1ª Fase).')
                         ->modalIcon('heroicon-o-academic-cap')
                         ->form([
                             Forms\Components\Select::make('institution_id')
@@ -556,7 +641,6 @@ class CandidateResource extends Resource
                     ])
                     ->requiresConfirmation()
                     ->modalHeading('Vincular Alistados e Converter em Recrutas')
-                    ->modalDescription('Os alistados selecionados serão vinculados à escola escolhida e automaticamente convertidos em Recrutas (1ª Fase). Eles aparecerão na listagem de Gestão de Formandos.')
                     ->modalIcon('heroicon-o-academic-cap')
                     ->form([
                         Forms\Components\Select::make('institution_id')
@@ -758,6 +842,26 @@ class CandidateResource extends Resource
                     ->deselectRecordsAfterCompletion(),
                 \Filament\Actions\DeleteBulkAction::make(),
             ]);
+    }
+
+    protected static function formatRecruitmentStatus(?string $state): string
+    {
+        return match (strtolower((string) $state)) {
+            'approved', 'aprovado', 'apurado', 'admitted' => 'Apurado',
+            'rejected', 'reprovado' => 'Reprovado',
+            'pending', 'pendente', '' => 'Pendente',
+            default => (string) $state,
+        };
+    }
+
+    protected static function recruitmentStatusColor(?string $state): string
+    {
+        return match (strtolower((string) $state)) {
+            'approved', 'aprovado', 'apurado', 'admitted' => 'success',
+            'rejected', 'reprovado' => 'danger',
+            'pending', 'pendente', '' => 'warning',
+            default => 'gray',
+        };
     }
 
     public static function getRelations(): array

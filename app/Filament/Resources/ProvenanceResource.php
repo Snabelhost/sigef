@@ -17,12 +17,12 @@ class ProvenanceResource extends Resource
 {
     protected static ?string $model = Provenance::class;
 
-    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-globe-alt';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-building-office-2';
     protected static string|\UnitEnum|null $navigationGroup = 'Configurações';
     protected static ?int $navigationSort = 3;
-    protected static ?string $navigationLabel = 'Proveniências';
-    protected static ?string $modelLabel = 'Proveniência';
-    protected static ?string $pluralModelLabel = 'Proveniências';
+    protected static ?string $navigationLabel = 'Órgãos de Proveniência';
+    protected static ?string $modelLabel = 'Órgão de Proveniência';
+    protected static ?string $pluralModelLabel = 'Órgãos de Proveniência';
 
     public static function form(Schema $form): Schema
     {

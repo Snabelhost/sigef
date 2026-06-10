@@ -1,6 +1,9 @@
 #!/usr/bin/env php
 <?php
 
+// Suppress early PHP 8.5 deprecations before Laravel configures error handling.
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
+
 use Illuminate\Foundation\Application;
 use Symfony\Component\Console\Input\ArgvInput;
 

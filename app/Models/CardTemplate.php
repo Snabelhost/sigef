@@ -31,6 +31,7 @@ class CardTemplate extends Model
         'secondary_color',
         'text_color',
         'front_text_color',
+        'header_text_color',
         'back_text_color',
         'front_background_color',
         'back_background_color',
@@ -109,8 +110,8 @@ class CardTemplate extends Model
     {
         return [
             self::STYLE_STUDENT => 'Formando',
-            self::STYLE_PROFESSOR_VERTICAL => 'Formador',
-            self::STYLE_STAFF_EFFECTIVE => 'Efectivo',
+            self::STYLE_PROFESSOR_VERTICAL => 'Passe vertical',
+            self::STYLE_STAFF_EFFECTIVE => 'Passe horizontal',
             self::STYLE_MODERN => 'Moderno',
             self::STYLE_CLASSIC => 'Classico',
             self::STYLE_MINIMALIST => 'Minimalista',

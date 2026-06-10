@@ -314,19 +314,29 @@ class StudentClassResource extends Resource
             ->striped()
             ->defaultSort('created_at', 'desc')
             ->columns([
-                Tables\Columns\TextColumn::make('name')
-                    ->label('Turma')
-                    ->searchable()
-                    ->sortable()
-                    ->weight('bold'),
-                Tables\Columns\TextColumn::make('institution.name')
-                    ->label('Escola')
-                    ->sortable(),
                 Tables\Columns\TextColumn::make('academicYear.year')
                     ->label('Ano Lectivo')
                     ->sortable()
                     ->badge()
                     ->color('info'),
+                Tables\Columns\TextColumn::make('institution.name')
+                    ->label('Escola')
+                    ->sortable()
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('courseMap.course.name')
+                    ->label('Curso')
+                    ->sortable()
+                    ->searchable(),
+                Tables\Columns\TextColumn::make('name')
+                    ->label('Turma')
+                    ->searchable()
+                    ->sortable()
+                    ->weight('bold'),
+                Tables\Columns\TextColumn::make('shift')
+                    ->label('Turno')
+                    ->badge()
+                    ->placeholder('-')
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Criada em')
                     ->dateTime()

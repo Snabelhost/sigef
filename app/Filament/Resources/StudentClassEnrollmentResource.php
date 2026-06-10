@@ -827,11 +827,23 @@ class StudentClassEnrollmentResource extends Resource
             ->modalWidth(\Filament\Support\Enums\Width::SevenExtraLarge)
             ->modalContent(function (Student $record) {
                 $data = app(StudentCardService::class)->build($record);
+                $printUrl = route('cartoes.preview', ['student' => $record]);
+                $cacheBuster = (string) ($record->updated_at?->timestamp ?: time());
+                $embeddedUrl = fn (string $face): string => $printUrl.'?'.http_build_query([
+                    'embedded' => 1,
+                    'autoprint' => 0,
+                    'face' => $face,
+                    'v' => $cacheBuster,
+                ]);
 
-                return view('cards.preview-modal', $data + [
+                return view('cards.print-modal', $data + [
                     'viewerId' => 'sigef-student-card-viewer-'.$record->getKey(),
+                    'frameId' => 'sigef-student-card-frame-'.$record->getKey(),
+                    'printUrl' => $printUrl,
+                    'embeddedFrontUrl' => $embeddedUrl('front'),
+                    'embeddedBackUrl' => $embeddedUrl('back'),
                     'entityLabel' => 'Formandos',
-                    'documentName' => 'Formandos - '.($record->candidate?->full_name ?? 'Formando'),
+                    'documentName' => 'Formandos - '.($data['payload']['name'] ?? 'Formando'),
                     'statusLabel' => $record->status ?: ($record->student_type ?: 'ACTIVO'),
                     'statusColor' => 'success',
                 ]);

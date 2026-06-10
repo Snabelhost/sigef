@@ -11,7 +11,6 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -20,7 +19,6 @@ use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\FontWeight;
-use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Arrayable;
@@ -448,6 +446,7 @@ class RoleResource extends BaseRoleResource
             'CandidateStatusChart',
             'StudentStatusChart',
             'StudentManagement',
+            'StudentsByCourseChart',
         ], true)
             || str_contains($haystack, 'dashboard')
             || str_contains($haystack, 'widget');
@@ -457,7 +456,8 @@ class RoleResource extends BaseRoleResource
     {
         $haystack = static::normalizePermissionSearch($permissionName . ' ' . $subject);
 
-        return str_contains($haystack, 'cadete')
+        return $subject === 'CoursePlan'
+            || str_contains($haystack, 'cadete')
             || str_contains($haystack, 'cadet')
             || str_contains($haystack, 'agent')
             || str_contains($haystack, 'activitylog')
@@ -475,8 +475,8 @@ class RoleResource extends BaseRoleResource
             'CandidateTransferHistory' => 'Histórico de Transferências',
             'Certificado' => 'Certificados',
             'Course' => 'Cursos',
-            'CourseMap' => 'Mapas de Curso',
-            'CoursePlan' => 'Planos Curriculares',
+            'CourseMap' => 'Mapas e Planos de Curso',
+            'CoursePlan' => 'Planos de Curso (integrado)',
             'Dashboard' => 'Painel de Controlo',
             'Document' => 'Documentos',
             'EquipmentAssignment' => 'Atribuição de Meios',
@@ -496,6 +496,7 @@ class RoleResource extends BaseRoleResource
             'CandidatesByProvinceChart' => 'Gráfico por Província',
             'StudentManagement' => 'Gestão de Formandos',
             'StudentStatusChart' => 'Gráfico de Estado dos Formandos',
+            'StudentsByCourseChart' => 'Gráfico de Alunos por Curso',
             'Student' => 'Gestão de Formandos',
             'StudentClass' => 'Turmas',
             'StudentClassEnrollment' => 'Gestão de Formandos',
@@ -694,19 +695,11 @@ class RoleResource extends BaseRoleResource
             ])
             ->recordActions([
                 ActionGroup::make([
-                    ViewAction::make()
+                    TableAction::make('view')
                         ->label('Visualizar')
                         ->icon('heroicon-o-eye')
                         ->color('info')
-                        ->modalHeading(fn (Role $record): string => 'Visualizar Acesso - ' . static::roleLabel((string) $record->name))
-                        ->modalDescription('Dados do acesso em modo de visualizaÃ§Ã£o.')
-                        ->modalWidth(Width::Full)
-                        ->schema(fn (Schema $schema): Schema => static::form($schema))
-                        ->mutateRecordDataUsing(fn (array $data, Role $record): array => static::formDataWithPermissionState($data, $record))
-                        ->modalCancelAction(fn (TableAction $action) => $action
-                            ->icon('heroicon-o-x-mark')
-                            ->label('Fechar')
-                            ->color('danger')),
+                        ->url(fn (Role $record): string => static::getUrl('view', ['record' => $record])),
                     EditAction::make()
                         ->label('Editar')
                         ->icon('heroicon-o-pencil-square'),
@@ -730,6 +723,7 @@ class RoleResource extends BaseRoleResource
         return [
             'index' => Pages\ListRoles::route('/'),
             'create' => Pages\CreateRole::route('/create'),
+            'view' => Pages\ViewRole::route('/{record}'),
             'edit' => Pages\EditRole::route('/{record}/edit'),
         ];
     }

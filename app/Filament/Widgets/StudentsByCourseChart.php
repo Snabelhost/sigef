@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Widgets\Concerns\UsesDashboardChartCache;
 use App\Services\DashboardCourseStatsService;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
@@ -10,6 +11,7 @@ use Filament\Widgets\Concerns\InteractsWithPageFilters;
 class StudentsByCourseChart extends ChartWidget
 {
     use InteractsWithPageFilters;
+    use UsesDashboardChartCache;
 
     protected string $view = 'filament.widgets.institution-students-chart';
 
@@ -21,20 +23,27 @@ class StudentsByCourseChart extends ChartWidget
 
     protected int | string | array $columnSpan = 'full';
 
-    protected ?string $pollingInterval = '30s';
+    protected ?string $pollingInterval = null;
 
     protected ?string $maxHeight = '380px';
 
-    protected static bool $isLazy = true;
+    protected static bool $isLazy = false;
 
     protected function getData(): array
     {
-        $items = app(DashboardCourseStatsService::class)->studentsByCourse([
-            'institution_id' => $this->filters['institution_id'] ?? null,
-            'course_id' => $this->filters['course_id'] ?? null,
-            'start_date' => $this->filters['start_date'] ?? null,
-            'end_date' => $this->filters['end_date'] ?? null,
-        ]);
+        $filters = $this->dashboardChartFilters();
+
+        return $this->rememberDashboardChart(
+            'students_by_course',
+            $filters,
+            fn (): array => $this->buildData($filters),
+            $this->emptyBarChartData(),
+        );
+    }
+
+    private function buildData(array $filters): array
+    {
+        $items = app(DashboardCourseStatsService::class)->studentsByCourse($filters);
 
         $labels = array_column($items, 'course_name');
         $systemValues = array_column($items, 'sistema_alunos');

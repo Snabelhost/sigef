@@ -54,7 +54,7 @@ class UnifiedLoginController extends Controller
         if ($user && !$user->is_active) {
             RateLimiter::hit($throttleKey);
             throw ValidationException::withMessages([
-                'email' => 'A sua conta está desactivada. Contacte o administrador.',
+                'email' => 'As credenciais fornecidas não correspondem aos nossos registos.',
             ]);
         }
 
@@ -103,8 +103,8 @@ class UnifiedLoginController extends Controller
         $panels = [
             'admin' => ['name' => 'Administração', 'icon' => 'heroicon-o-cog-6-tooth', 'url' => '/admin'],
             'escola' => ['name' => 'Escola', 'icon' => 'heroicon-o-academic-cap', 'url' => $user->institution_id ? '/escola/' . $user->institution_id : '/escola'],
-            'dpq' => ['name' => 'DPQ', 'icon' => 'heroicon-o-building-office', 'url' => '/dpq'],
-            'comando' => ['name' => 'Comando', 'icon' => 'heroicon-o-shield-check', 'url' => '/comando'],
+            'aluno' => ['name' => 'Aluno', 'icon' => 'heroicon-o-user', 'url' => '/aluno'],
+            'professores' => ['name' => 'Professores', 'icon' => 'heroicon-o-user-group', 'url' => '/professores'],
         ];
 
         foreach ($panels as $panelId => $panelInfo) {
@@ -128,16 +128,16 @@ class UnifiedLoginController extends Controller
                     }
                 }
 
-                // DPQ panel - NÃO precisa institution_id (é geral)
-                if ($panelId === 'dpq') {
-                    if ($user->hasRole('dpq_admin') || $user->hasRole('dpq_user')) {
+                // Aluno panel
+                if ($panelId === 'aluno') {
+                    if ($user->hasRole('aluno_admin') || $user->hasRole('aluno_user')) {
                         $hasExplicitAccess = true;
                     }
                 }
 
-                // Comando panel - NÃO precisa institution_id (é geral)
-                if ($panelId === 'comando') {
-                    if ($user->hasRole('comando_admin') || $user->hasRole('comando_user')) {
+                // Professores panel
+                if ($panelId === 'professores') {
+                    if ($user->hasRole('professores_admin') || $user->hasRole('professores_user')) {
                         $hasExplicitAccess = true;
                     }
                 }

@@ -14,12 +14,12 @@ class ListProvenances extends ListRecords
     {
         return [
             Actions\CreateAction::make()
-                ->label('Nova Proveniência'),
+                ->label('Novo Órgão de Proveniência'),
         ];
     }
 
     public function getTitle(): string
     {
-        return 'Proveniências';
+        return 'Órgãos de Proveniência';
     }
 }

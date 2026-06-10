@@ -16,7 +16,7 @@ class MailSettings extends Page
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-at-symbol';
     protected static string|\UnitEnum|null $navigationGroup = 'Configurações';
     protected static ?int $navigationSort = 99;
-    protected static ?string $navigationLabel = 'Servidor de Email';
+    protected static ?string $navigationLabel = 'Servidor de E-mail';
     protected static ?string $title = 'Configurações de Comunicação';
     protected static ?string $slug = 'mail-settings';
 
@@ -35,7 +35,7 @@ class MailSettings extends Page
     // SMS Form state
     public ?string $sms_provider = 'telcosms';
     public ?string $sms_api_url = 'https://telcosms.co.ao/send_message';
-    public ?string $sms_api_key = 'prd09933ffaa3022ca9d71dc39719';
+    public ?string $sms_api_key = '';
     public ?string $sms_api_secret = '';
     public ?string $sms_sender_id = 'SIGEF';
     public bool $sms_enabled = false;
@@ -74,13 +74,13 @@ class MailSettings extends Page
                             ->icon('heroicon-o-envelope')
                             ->schema([
                                 \Filament\Schemas\Components\Section::make('Configuração SMTP')
-                                    ->description('Configure o servidor de email para envio de notificações')
+                                    ->description('Configure o servidor de e-mail para envio de notificações')
                                     ->icon('heroicon-o-server-stack')
                                     ->schema([
                                         \Filament\Schemas\Components\Grid::make(2)
                                             ->schema([
                                                 Forms\Components\Select::make('mail_mailer')
-                                                    ->label('Provedor de Email')
+                                                    ->label('Provedor de E-mail')
                                                     ->options([
                                                         'smtp' => 'SMTP',
                                                         'log' => 'Log (apenas registo, sem envio)',
@@ -89,7 +89,7 @@ class MailSettings extends Page
                                                     ->required()
                                                     ->native(false)
                                                     ->live()
-                                                    ->helperText('Selecione "SMTP" para enviar emails reais.'),
+                                                    ->helperText('Selecione "SMTP" para enviar e-mails reais.'),
 
                                                 Forms\Components\TextInput::make('mail_host')
                                                     ->label('Host SMTP')
@@ -117,13 +117,13 @@ class MailSettings extends Page
                                                     ->visible(fn(\Filament\Schemas\Components\Utilities\Get $get) => $get('mail_mailer') === 'smtp'),
 
                                                 Forms\Components\TextInput::make('mail_username')
-                                                    ->label('Utilizador / Email')
+                                                    ->label('Utilizador / E-mail')
                                                     ->placeholder('Ex: noreply@sigef.ao')
                                                     ->maxLength(255)
                                                     ->visible(fn(\Filament\Schemas\Components\Utilities\Get $get) => $get('mail_mailer') === 'smtp'),
 
                                                 Forms\Components\TextInput::make('mail_password')
-                                                    ->label('Password')
+                                                    ->label('Palavra-passe')
                                                     ->password()
                                                     ->revealable()
                                                     ->maxLength(255)
@@ -138,7 +138,7 @@ class MailSettings extends Page
                                         \Filament\Schemas\Components\Grid::make(2)
                                             ->schema([
                                                 Forms\Components\TextInput::make('mail_from_address')
-                                                    ->label('Email do Remetente')
+                                                    ->label('E-mail do Remetente')
                                                     ->placeholder('noreply@sigef.ao')
                                                     ->email()
                                                     ->required()
@@ -296,7 +296,7 @@ class MailSettings extends Page
             $userEmail = auth()->user()->email;
 
             Mail::raw(
-                "Este é um email de teste do SIGEF.\n\nSe recebeu este email, a configuração do servidor de email está correcta.\n\nData/Hora: " . now()->format('d/m/Y H:i:s'),
+                "Este é um e-mail de teste do SIGEF.\n\nSe recebeu este e-mail, a configuração do servidor de e-mail está correcta.\n\nData/Hora: " . now()->format('d/m/Y H:i:s'),
                 function ($message) use ($userEmail) {
                     $message->to($userEmail)
                         ->subject('SIGEF - Teste de Conexão de Email')
@@ -313,7 +313,7 @@ class MailSettings extends Page
                 ->send();
         } catch (\Exception $e) {
             Notification::make()
-                ->title('Erro ao enviar email de teste')
+                ->title('Erro ao enviar e-mail de teste')
                 ->body($e->getMessage())
                 ->danger()
                 ->icon('heroicon-o-exclamation-triangle')

@@ -22,16 +22,17 @@ class StudentCardService
             'courseMap.academicYear',
             'classEnrollments.academicYear',
             'classEnrollments.studentClass.academicYear',
+            'classEnrollments.studentClass.institution',
             'classEnrollments.studentClass.courseMap.course',
             'classEnrollments.studentClass.courseMap.academicYear',
         ]);
 
         $template = CardTemplate::resolveForType(CardTemplate::TYPE_STUDENT) ?? $this->fallbackTemplate();
-        $institution = $student->institution;
         $enrollment = $student->classEnrollments
             ->sortByDesc(fn ($enrollment): string => ($enrollment->is_active ? '1' : '0') . '|' . ($enrollment->enrolled_at ?? $enrollment->created_at ?? ''))
             ->first();
         $studentClass = $enrollment?->studentClass;
+        $institution = $student->institution ?: $studentClass?->institution;
         $academicYear = $this->studentAcademicYear($student, $enrollment);
         $course = $studentClass?->courseMap?->course;
         $courseAbbreviation = $this->abbreviateCourse($course?->name) ?: 'EPP';
@@ -40,30 +41,38 @@ class StudentCardService
         $documentNumber = $student->nuri ?: $student->student_number ?: str_pad((string) $student->id, 6, '0', STR_PAD_LEFT);
         $cardNumber = "{$student->id}/{$courseCategory}/{$courseAbbreviation}/{$academicYear}";
         $verificationUrl = route('cartoes.show', $student);
+        $templateBrandName = trim((string) $template->brand_name);
+        $templateSubtitle = trim((string) $template->subtitle);
+        $institutionName = trim((string) $institution?->name);
+        $institutionAcronym = trim((string) $institution?->acronym);
+        $headerName = $institutionName !== '' ? $institutionName : ($templateBrandName !== '' ? $templateBrandName : 'SIGEF');
+        $headerSubtitle = $institutionAcronym !== '' ? $institutionAcronym : ($institutionName === '' && $templateSubtitle !== '' ? $templateSubtitle : '');
+        $entityTitle = $this->studentCardEntityTitle($student);
 
         $payload = [
             'name' => $student->candidate?->full_name ?? $student->full_name ?? 'Formando',
             'initials' => $this->initials($student->candidate?->full_name ?? 'Formando'),
             'photo_url' => $this->studentPhotoUrl($student, $template),
             'logo_url' => $template->logo_url ?: ($institution?->logo ? asset('storage/'.$institution->logo) : asset('images/logo-policia.png')),
-            'institution_name' => $institution?->name ?? ($template->brand_name ?: 'SIGEF'),
+            'institution_name' => $headerName,
             'institution_location' => collect([$institution?->province, $institution?->municipality])->filter()->implode(' / '),
-            'brand_name' => $template->brand_name ?: 'SIGEF',
-            'subtitle' => $template->subtitle,
-            'front_title' => $template->front_title ?: 'PASSE DE IDENTIFICACAO',
+            'brand_name' => $headerName,
+            'subtitle' => $headerSubtitle,
+            'front_title' => $template->front_title ?: 'PASSE DE ACESSO',
             'number_label' => $template->number_label ?: 'Nº',
             'card_number' => $cardNumber,
             'academic_year' => $academicYear,
-            'entity_title' => 'FORMANDO',
+            'access_until' => $this->defaultAccessUntil(),
+            'entity_title' => $entityTitle,
             'course' => $course?->name,
             'class' => $studentClass?->name,
             'document_label' => $documentLabel,
             'document_number' => $documentNumber,
             'placement' => $this->placementText($student),
-            'footer_text' => $template->footer_text ?: 'Este passe identifica o portador na qualidade de formando.',
-            'signature_label' => $template->signature_label,
-            'signatory_name' => $template->signatory_name,
-            'signatory_title' => $template->signatory_title,
+            'footer_text' => $template->footer_text ?: 'Este passe tem finalidade identificar o portador, permitir o seu acesso e permanencia a instituicao, na qualidade de '.$entityTitle.' do SIGEF ate {access_until}',
+            'signature_label' => $template->signature_label ?: 'O DIRECTOR',
+            'signatory_name' => $template->signatory_name ?: 'DESTINO PEDRO',
+            'signatory_title' => $template->signatory_title ?: 'COMISSARIO',
             'signature_url' => $template->signature_image_url,
             'qr_code_uri' => $this->qrCodeDataUri($verificationUrl),
             'verification_url' => $verificationUrl,
@@ -86,24 +95,23 @@ class StudentCardService
     {
         $sample = $template->sample_payload ?? [];
         $academicYear = $this->formatAcademicYear(AcademicYear::query()->where('is_active', true)->first()) ?? date('Y');
-        $name = $sample['name'] ?? 'Betilson Marcas';
+        $name = $sample['name'] ?? 'Yuri Mendes Capenda';
         $documentNumber = $sample['document_number'] ?? $sample['number'] ?? 'ALN-001';
 
         return [
             'name' => $name,
             'initials' => $this->initials($name),
-            'photo_url' => $template->sample_photo_url
-                ?: $template->fallback_photo_url
-                ?: 'https://ui-avatars.com/api/?name='.urlencode($name).'&background=041c4f&color=fff&size=240',
+            'photo_url' => $template->sample_photo_url,
             'logo_url' => $template->logo_url ?: asset('images/logo-policia.png'),
             'institution_name' => $template->brand_name ?: 'SIGEF',
             'institution_location' => $sample['institution_location'] ?? $template->address_line,
             'brand_name' => $template->brand_name ?: 'SIGEF',
             'subtitle' => $template->subtitle,
-            'front_title' => $template->front_title ?: 'PASSE DE IDENTIFICACAO',
+            'front_title' => $template->front_title ?: 'PASSE DE ACESSO',
             'number_label' => $template->number_label ?: 'Nº',
             'card_number' => $sample['card_number'] ?? "001/CBP/EPP/{$academicYear}",
             'academic_year' => $academicYear,
+            'access_until' => $sample['access_until'] ?? $this->defaultAccessUntil(),
             'entity_title' => $sample['entity_title'] ?? 'FORMANDO',
             'number' => $sample['number'] ?? $documentNumber,
             'course' => $sample['course'] ?? 'Curso de Ciencias Policiais',
@@ -111,10 +119,10 @@ class StudentCardService
             'document_label' => $sample['document_label'] ?? 'NURI',
             'document_number' => $documentNumber,
             'placement' => $sample['placement'] ?? null,
-            'footer_text' => $template->footer_text ?: 'Este passe identifica o portador na qualidade de formando.',
-            'signature_label' => $template->signature_label,
-            'signatory_name' => $template->signatory_name,
-            'signatory_title' => $template->signatory_title,
+            'footer_text' => $template->footer_text ?: 'Este passe tem finalidade identificar o portador, permitir o seu acesso e permanencia a instituicao, na qualidade de Formando do SIGEF ate {access_until}',
+            'signature_label' => $template->signature_label ?: 'O DIRECTOR',
+            'signatory_name' => $template->signatory_name ?: 'DESTINO PEDRO',
+            'signatory_title' => $template->signatory_title ?: 'COMISSARIO',
             'signature_url' => $template->signature_image_url,
             'qr_code_uri' => $this->qrCodeDataUri(url('/cartoes/preview/formando')),
             'verification_url' => url('/cartoes/preview/formando'),
@@ -132,21 +140,36 @@ class StudentCardService
             'secondary_color' => '#0ea5e9',
             'text_color' => '#ffffff',
             'front_text_color' => '#001b4d',
+            'header_text_color' => '#001b4d',
             'back_text_color' => '#111827',
             'front_background_color' => '#ffffff',
             'back_background_color' => '#ffffff',
-            'front_background_path' => 'images/cards/fundo_card.png',
-            'back_background_path' => 'images/cards/fundo_card.png',
+            'logo_path' => 'images/card-templates/student-cadet/iscpc-rnb-logo.png',
+            'sample_photo_path' => 'images/card-templates/student-cadet/sample-photo.png',
+            'fallback_photo_path' => 'images/card-templates/student-cadet/sample-photo.png',
             'signature_image_path' => 'images/cards/assinatura.png',
-            'front_title' => 'CARTAO DO FORMANDO',
-            'number_label' => 'Nº',
+            'brand_name' => 'INSTITUTO SUPERIOR DE CIENCIAS POLICIAIS E CRIMINAIS',
+            'subtitle' => '"GENERAL - OSVALDO DE JESUS SERRA VAN-DUNEM"',
+            'front_title' => 'PASSE DE ACESSO',
+            'number_label' => 'NIP/NURI',
+            'back_title' => 'PRORROGATIVA',
+            'signature_label' => 'O DIRECTOR',
+            'signatory_name' => 'DESTINO PEDRO',
+            'signatory_title' => 'COMISSARIO',
+            'footer_text' => 'Este passe tem finalidade identificar o portador, permitir o seu acesso e permanencia a instituicao, na qualidade de Formando do SIGEF ate {access_until}',
             'show_qr_code' => true,
             'show_barcode' => false,
+            'style' => CardTemplate::STYLE_PROFESSOR_VERTICAL,
             'orientation' => CardTemplate::ORIENTATION_VERTICAL,
         ]);
     }
 
-    protected function studentPhotoUrl(Student $student, CardTemplate $template): string
+    protected function defaultAccessUntil(): string
+    {
+        return 'Dezembro de '.((int) date('Y') + 2);
+    }
+
+    protected function studentPhotoUrl(Student $student, CardTemplate $template): ?string
     {
         if ($student->photo) {
             return asset('storage/'.$student->photo);
@@ -156,11 +179,7 @@ class StudentCardService
             return asset('storage/'.$student->candidate->photo);
         }
 
-        if ($template->fallback_photo_url) {
-            return $template->fallback_photo_url;
-        }
-
-        return 'https://ui-avatars.com/api/?name='.urlencode($student->candidate?->full_name ?? 'F').'&background=041c4f&color=fff&size=240';
+        return null;
     }
 
     protected function studentAcademicYear(Student $student, mixed $enrollment): string
@@ -189,6 +208,21 @@ class StudentCardService
         return str_contains($studentType, 'formando') || str_contains($studentType, 'formacao') || str_contains($studentType, 'formação') || $studentType === 'oficial'
             ? 'NIP'
             : 'NURI';
+    }
+
+    protected function studentCardEntityTitle(Student $student): string
+    {
+        $studentType = Str::lower(Str::ascii((string) ($student->student_type ?? '')));
+
+        if (str_contains($studentType, 'recruta')) {
+            return 'RECRUTA';
+        }
+
+        if (str_contains($studentType, 'instruendo')) {
+            return 'INSTRUENDO';
+        }
+
+        return 'FORMANDO';
     }
 
     protected function placementText(Student $student): ?string

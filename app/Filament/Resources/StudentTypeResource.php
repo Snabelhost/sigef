@@ -40,7 +40,7 @@ class StudentTypeResource extends Resource
                             ->placeholder('Breve descrição deste tipo de aluno')
                             ->maxLength(255),
                         Forms\Components\Select::make('color')
-                            ->label('Cor do Status')
+                            ->label('Cor do Estado')
                             ->options(StudentType::getColorOptions())
                             ->required()
                             ->default('gray')
