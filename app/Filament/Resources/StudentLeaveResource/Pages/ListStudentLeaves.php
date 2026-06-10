@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\StudentLeaveResource\Pages;
 
 use App\Filament\Resources\StudentLeaveResource;
-use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 
 class ListStudentLeaves extends ListRecords
@@ -12,8 +11,6 @@ class ListStudentLeaves extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [
-            Actions\CreateAction::make(),
-        ];
+        return [];
     }
 }

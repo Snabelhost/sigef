@@ -20,6 +20,7 @@ class Trainer extends Model implements Auditable
         'gender',
         'country_origin',
         'province',
+        'municipality',
         'birth_date',
         'situation',
         'rank_id',

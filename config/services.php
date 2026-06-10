@@ -55,6 +55,7 @@ return [
     'recruitment_portal' => [
         'candidates_url' => env('RECRUITMENT_PORTAL_CANDIDATES_URL', 'http://10.110.2.18/api/candidates'),
         'timeout' => env('RECRUITMENT_PORTAL_TIMEOUT', 25),
+        'max_pages' => env('RECRUITMENT_PORTAL_MAX_PAGES', 100),
     ],
 
     'siga' => [

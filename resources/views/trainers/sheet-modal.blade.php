@@ -1,3 +1,14 @@
+@php
+    $documentType = $documentType ?? 'ficha';
+    $showOrientationSelector = $showOrientationSelector ?? true;
+    $loadingText = $loadingText ?? 'A preparar '.$documentType.'...';
+    $hintText = $hintText ?? (
+        $showOrientationSelector
+            ? 'Pre-visualize a '.$documentType.' em A4 e escolha a orientacao antes de imprimir.'
+            : 'Pre-visualize o '.$documentType.' em A4 antes de imprimir.'
+    );
+@endphp
+
 <div class="document-preview-modal-wrapper"
      id="{{ $viewerId }}"
      x-bind:class="'dpv-orientation-' + orientation"
@@ -373,6 +384,7 @@
         </div>
 
         <div class="dpv-actions">
+            @if ($showOrientationSelector)
             <div class="dpv-orientation" role="group" aria-label="Orientacao da ficha">
                 <button type="button"
                         class="dpv-segment"
@@ -392,6 +404,7 @@
                     <span>Vertical</span>
                 </button>
             </div>
+            @endif
 
             <button type="button" class="dpv-btn dpv-btn-outline" x-on:click.prevent.stop="printDocument()" x-bind:disabled="isPrinting">
                 <span x-show="!isPrinting">
@@ -417,7 +430,7 @@
 
     <div class="dpv-stage">
         <div class="dpv-frame-shell">
-            <div class="dpv-loading" x-bind:class="{ 'active': isSwitching }">A preparar ficha...</div>
+            <div class="dpv-loading" x-bind:class="{ 'active': isSwitching }">{{ $loadingText }}</div>
             <iframe
                 id="{{ $frameId }}"
                 x-bind:src="activeEmbeddedUrl"
@@ -426,6 +439,6 @@
                 scrolling="auto"
             ></iframe>
         </div>
-        <div class="dpv-hint">Pre-visualize a ficha em A4 e escolha a orientacao antes de imprimir.</div>
+        <div class="dpv-hint">{{ $hintText }}</div>
     </div>
 </div>

@@ -324,19 +324,37 @@ class StudentLeaveResource extends Resource
                             return [
                                 \Filament\Schemas\Components\Section::make('Informações do Formando')
                                     ->schema([
-                                        \Filament\Schemas\Components\Grid::make(4)->schema([
-                                            \Filament\Infolists\Components\TextEntry::make('student.student_number')
-                                                ->label('Nº de Ordem')
-                                                ->icon('heroicon-o-identification'),
+                                        \Filament\Schemas\Components\Grid::make(5)->schema([
                                             \Filament\Infolists\Components\TextEntry::make('student.candidate.full_name')
-                                                ->label('Nome Completo')
+                                                ->label('Nome completo')
                                                 ->icon('heroicon-o-user'),
+                                            \Filament\Infolists\Components\TextEntry::make('student_identifier')
+                                                ->label('NIP/NURI')
+                                                ->getStateUsing(fn ($record): string => trim((string) (
+                                                    $record->student?->nuri
+                                                    ?: $record->student?->candidate?->nuri
+                                                    ?: $record->student?->student_number
+                                                    ?: '-'
+                                                )))
+                                                ->icon('heroicon-o-identification'),
                                             \Filament\Infolists\Components\TextEntry::make('student.cia')
-                                                ->label('Cia')
-                                                ->icon('heroicon-o-building-office'),
+                                                ->label('CIA')
+                                                ->icon('heroicon-o-building-office')
+                                                ->formatStateUsing(fn ($state): string => filled($state)
+                                                    ? (str_contains(strtoupper((string) $state), 'CIA') ? (string) $state : "{$state}ª CIA")
+                                                    : '-'),
                                             \Filament\Infolists\Components\TextEntry::make('student.platoon')
-                                                ->label('Pelotão')
-                                                ->icon('heroicon-o-users'),
+                                                ->label('PELOTÃO')
+                                                ->icon('heroicon-o-users')
+                                                ->formatStateUsing(fn ($state): string => filled($state)
+                                                    ? (str_contains(strtoupper((string) $state), 'PELOT') ? (string) $state : "{$state}º PELOTÃO")
+                                                    : '-'),
+                                            \Filament\Infolists\Components\TextEntry::make('student.section')
+                                                ->label('SECÇÃO')
+                                                ->icon('heroicon-o-user-group')
+                                                ->formatStateUsing(fn ($state): string => filled($state)
+                                                    ? (str_contains(strtoupper((string) $state), 'SEC') ? (string) $state : "{$state}ª SECÇÃO")
+                                                    : '-'),
                                         ]),
                                     ]),
                                 \Filament\Schemas\Components\Section::make('Resumo de Ocorrências')

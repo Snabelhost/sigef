@@ -13,6 +13,7 @@ use App\Models\AcademicYear;
 use App\Models\StudentSubjectEnrollment;
 use App\Models\StudentType;
 use App\Models\StudentTransferHistory;
+use App\Services\GradeCalculator;
 use App\Services\StudentCardService;
 use Filament\Forms;
 use Filament\Schemas\Schema;
@@ -273,6 +274,7 @@ class StudentClassEnrollmentResource extends Resource
                 static::gerarCartaoAction(),
                 static::moverInstituicaoAction(),
                 static::baixarFichaAction(),
+                static::imprimirCertificadoAction(),
             ])->icon('heroicon-s-cog-6-tooth')->color('primary')->size('lg')->tooltip('Acções')->iconButton(),
         ];
     }
@@ -452,7 +454,24 @@ class StudentClassEnrollmentResource extends Resource
     private static function visualizarAction(): \Filament\Actions\Action
     {
         return \Filament\Actions\Action::make('visualizar')
-            ->label('Ver')
+            ->label('Visualizar')
+            ->icon('heroicon-o-eye')
+            ->color('gray')
+            ->modalHeading(fn(Student $record) => 'Visualizar - ' . ($record->candidate?->full_name ?? 'N/A'))
+            ->modalWidth(\Filament\Support\Enums\Width::SevenExtraLarge)
+            ->form(static::enrollmentEditFormSchema())
+            ->disabledSchema()
+            ->modalSubmitAction(false)
+            ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action
+                ->label('Fechar')
+                ->icon('heroicon-o-x-mark')
+                ->color('danger'));
+    }
+
+    private static function visualizarResumoAction(): \Filament\Actions\Action
+    {
+        return \Filament\Actions\Action::make('visualizar')
+            ->label('Visualizar')
             ->icon('heroicon-o-eye')
             ->color('gray')
             ->modalHeading(fn(Student $record) => 'Detalhes - ' . ($record->candidate?->full_name ?? 'N/A'))
@@ -463,12 +482,7 @@ class StudentClassEnrollmentResource extends Resource
                 return [
                     \Filament\Schemas\Components\Section::make('Dados Pessoais')
                         ->headerActions([
-                            \Filament\Actions\Action::make('imprimirFicha')
-                                ->label('Baixar Ficha PDF')
-                                ->icon('heroicon-o-arrow-down-tray')
-                                ->color('primary')
-                                ->url(fn() => route('student.print-ficha', ['student' => $record->id]))
-                                ->openUrlInNewTab(),
+                            static::baixarFichaAction(),
                             \Filament\Actions\Action::make('moverAluno')
                                 ->label('Mover Aluno')
                                 ->icon('heroicon-s-arrow-right-circle')
@@ -932,17 +946,117 @@ class StudentClassEnrollmentResource extends Resource
 
     private static function baixarFichaAction(): \Filament\Actions\Action
     {
-        return \Filament\Actions\Action::make('baixarFicha')
-            ->label('Baixar Ficha')
-            ->icon('heroicon-o-arrow-down-tray')
+        return \Filament\Actions\Action::make('imprimirFicha')
+            ->label('Imprimir Ficha')
+            ->icon('heroicon-o-printer')
             ->color('success')
-            ->url(fn(Student $record): string => route('student.print-ficha', $record))
-            ->openUrlInNewTab();
+            ->modalHeading('Pre-visualizacao da Ficha de Inscricao')
+            ->modalDescription(null)
+            ->modalWidth(\Filament\Support\Enums\Width::SevenExtraLarge)
+            ->modalSubmitAction(false)
+            ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action
+                ->icon('heroicon-o-x-mark')
+                ->label('Fechar Pre-visualizacao')
+                ->color('danger'))
+            ->stickyModalHeader()
+            ->stickyModalFooter()
+            ->closeModalByClickingAway(false)
+            ->modalContent(function (Student $record) {
+                $printUrl = route('students.sheet.print', ['student' => $record]);
+                $studentName = trim((string) ($record->candidate?->full_name ?: $record->full_name ?: 'Formando'));
+                $identifierNumber = trim((string) ($record->nuri ?: $record->student_number ?: 'FORM-'.$record->getKey()));
+                $frameId = 'sigef-student-sheet-frame-'.$record->getKey();
+                $viewerId = 'sigef-student-sheet-viewer-'.$record->getKey();
+
+                return view('trainers.sheet-modal', [
+                    'viewerId' => $viewerId,
+                    'frameId' => $frameId,
+                    'documentName' => 'Ficha de Inscricao - '.$studentName,
+                    'documentBadge' => 'FORMANDO: '.$identifierNumber,
+                    'defaultOrientation' => 'vertical',
+                    'embeddedHorizontalUrl' => $printUrl.'?embedded=1&autoprint=0&orientation=horizontal',
+                    'embeddedVerticalUrl' => $printUrl.'?embedded=1&autoprint=0&orientation=vertical',
+                    'fallbackPrintHorizontalUrl' => $printUrl.'?autoprint=1&orientation=horizontal',
+                    'fallbackPrintVerticalUrl' => $printUrl.'?autoprint=1&orientation=vertical',
+                ]);
+            });
     }
 
     // ──────────────────────────────────────────────────────────────
     // BULK ACTIONS
     // ──────────────────────────────────────────────────────────────
+
+    private static function imprimirCertificadoAction(): \Filament\Actions\Action
+    {
+        return \Filament\Actions\Action::make('imprimirCertificado')
+            ->label('Imprimir Certificado')
+            ->icon('heroicon-o-trophy')
+            ->color('warning')
+            ->visible(fn (Student $record): bool => static::canPrintCertificate($record))
+            ->modalHeading('Pre-visualizacao do Certificado')
+            ->modalDescription(null)
+            ->modalWidth(\Filament\Support\Enums\Width::SixExtraLarge)
+            ->modalSubmitAction(false)
+            ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action
+                ->icon('heroicon-o-x-mark')
+                ->label('Fechar Pre-visualizacao')
+                ->color('danger'))
+            ->stickyModalHeader()
+            ->stickyModalFooter()
+            ->closeModalByClickingAway(false)
+            ->modalContent(function (Student $record) {
+                $printUrl = route('certificados.individual', ['student' => $record]);
+                $studentName = trim((string) ($record->candidate?->full_name ?: $record->full_name ?: 'Formando'));
+                $identifierNumber = trim((string) ($record->nuri ?: $record->student_number ?: 'FORM-'.$record->getKey()));
+                $frameId = 'sigef-student-certificate-frame-'.$record->getKey();
+                $viewerId = 'sigef-student-certificate-viewer-'.$record->getKey();
+
+                return view('trainers.sheet-modal', [
+                    'viewerId' => $viewerId,
+                    'frameId' => $frameId,
+                    'documentName' => 'Certificado - '.$studentName,
+                    'documentBadge' => 'APROVADO: '.$identifierNumber,
+                    'defaultOrientation' => 'horizontal',
+                    'embeddedHorizontalUrl' => $printUrl.'?embedded=1&autoprint=0&orientation=horizontal',
+                    'embeddedVerticalUrl' => $printUrl.'?embedded=1&autoprint=0&orientation=horizontal',
+                    'fallbackPrintHorizontalUrl' => $printUrl.'?autoprint=1&orientation=horizontal',
+                    'fallbackPrintVerticalUrl' => $printUrl.'?autoprint=1&orientation=horizontal',
+                    'documentType' => 'certificado',
+                    'showOrientationSelector' => false,
+                    'loadingText' => 'A preparar certificado...',
+                    'hintText' => 'Pre-visualize o certificado em A4 antes de imprimir.',
+                ]);
+            });
+    }
+
+    private static function canPrintCertificate(Student $record): bool
+    {
+        $record->loadMissing([
+            'evaluations',
+            'classEnrollments.studentClass',
+        ]);
+
+        static::filterCertificateEvaluationsByInstitution($record);
+
+        return GradeCalculator::result($record) === 'Aprovado';
+    }
+
+    private static function filterCertificateEvaluationsByInstitution(Student $record): void
+    {
+        $enrollment = $record->classEnrollments->firstWhere('is_active', true)
+            ?? $record->classEnrollments->sortByDesc('enrolled_at')->first();
+
+        $institutionId = $enrollment?->studentClass?->institution_id;
+
+        if (! $institutionId || ! $record->relationLoaded('evaluations')) {
+            return;
+        }
+
+        $record->setRelation(
+            'evaluations',
+            $record->evaluations->where('institution_id', $institutionId)->values()
+        );
+    }
 
     private static function recrutaParaInstruendoBulkAction(): \Filament\Actions\BulkAction
     {
@@ -1074,20 +1188,6 @@ class StudentClassEnrollmentResource extends Resource
                         ->required()
                         ->searchable(),
                 ]),
-                \Filament\Schemas\Components\Grid::make(2)->schema([
-                    Forms\Components\Select::make('phase_filter')
-                        ->label('Fase')
-                        ->options([
-                            '1ª Fase' => '1ª Fase',
-                            '2ª Fase' => '2ª Fase',
-                        ])
-                        ->live()
-                        ->searchable(),
-                    Forms\Components\TextInput::make('classroom')
-                        ->label('Sala')
-                        ->maxLength(50)
-                        ->placeholder('Ex: Sala 1, Sala A'),
-                ]),
                 \Filament\Schemas\Components\Grid::make(3)->schema([
                     Forms\Components\Select::make('cia')
                         ->label('CIA')
@@ -1106,7 +1206,6 @@ class StudentClassEnrollmentResource extends Resource
                     ->label('Disciplinas')
                     ->options(function ($get) {
                         $courseId = $get('course_id');
-                        $phaseName = $get('phase_filter');
                         $selectedIds = $get('subject_ids') ?? [];
 
                         if (!$courseId) return [];
@@ -1116,13 +1215,6 @@ class StudentClassEnrollmentResource extends Resource
                         $alreadySelected = collect();
                         if (!empty($selectedIds)) {
                             $alreadySelected = Subject::whereIn('id', $selectedIds)->pluck('name', 'id');
-                        }
-
-                        if ($phaseName) {
-                            $phaseSubjects = Subject::whereIn('course_phase_id', $coursePhaseIds)
-                                ->whereJsonContains('phases', $phaseName)
-                                ->pluck('name', 'id');
-                            return $alreadySelected->union($phaseSubjects)->all();
                         }
 
                         $allSubjects = Subject::whereIn('course_phase_id', $coursePhaseIds)
@@ -1140,15 +1232,6 @@ class StudentClassEnrollmentResource extends Resource
                 $enrolledInSubjects = 0;
                 $skippedClass = 0;
                 $skippedSubjects = 0;
-
-                $phaseName = $data['phase_filter'] ?? null;
-                $coursePhaseId = null;
-                if ($phaseName && !empty($data['course_id'])) {
-                    $coursePhaseId = CoursePhase::firstOrCreate(
-                        ['course_id' => $data['course_id'], 'name' => $phaseName],
-                        ['order' => CoursePhase::where('course_id', $data['course_id'])->max('order') + 1]
-                    )->id;
-                }
 
                 $academicYearId = \App\Models\AcademicYear::where('is_active', true)->first()?->id;
 
@@ -1172,6 +1255,9 @@ class StudentClassEnrollmentResource extends Resource
                     }
 
                     if (!empty($data['class_id'])) {
+                        $phaseName = static::phaseNameForStudentType($student->student_type);
+                        $coursePhaseId = static::resolveCoursePhaseIdForInscription((int) ($data['course_id'] ?? 0), $phaseName);
+
                         $enrollment = StudentClassEnrollment::updateOrCreate(
                             [
                                 'student_id' => $student->id,
@@ -1181,7 +1267,6 @@ class StudentClassEnrollmentResource extends Resource
                                 'course_phase_id' => $coursePhaseId,
                                 'academic_year_id' => $academicYearId,
                                 'student_type' => $student->student_type,
-                                'classroom' => $data['classroom'] ?? null,
                                 'is_active' => true,
                                 'enrolled_at' => now(),
                                 'enrolled_by' => auth()->id(),

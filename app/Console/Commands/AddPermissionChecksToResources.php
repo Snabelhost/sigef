@@ -15,8 +15,6 @@ class AddPermissionChecksToResources extends Command
         $panels = [
             'admin' => 'App\\Filament\\Resources',
             'escola' => 'App\\Filament\\Escola\\Resources',
-            'comando' => 'App\\Filament\\Comando\\Resources',
-            'dpq' => 'App\\Filament\\Dpq\\Resources',
         ];
 
         $addedCount = 0;

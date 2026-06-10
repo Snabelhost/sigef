@@ -121,7 +121,6 @@ class AdminPanelProvider extends PanelProvider
                 \App\Filament\Resources\CandidateResource::class,
                 \App\Filament\Resources\CandidateTransferHistories\CandidateTransferHistoryResource::class,
                 \App\Filament\Resources\CardTemplateResource::class,
-                \App\Filament\Resources\CertificadoResource::class,
                 \App\Filament\Resources\CourseMapResource::class,
                 \App\Filament\Resources\CoursePlanResource::class,
                 \App\Filament\Resources\CourseResource::class,

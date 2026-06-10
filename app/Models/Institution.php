@@ -81,11 +81,6 @@ class Institution extends Model implements Auditable
         return $this->hasMany(Course::class);
     }
 
-    public function selectionTests()
-    {
-        return $this->hasMany(SelectionTest::class);
-    }
-
     public function evaluations()
     {
         return $this->hasMany(Evaluation::class);

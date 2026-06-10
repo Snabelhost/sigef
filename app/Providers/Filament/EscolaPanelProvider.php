@@ -55,6 +55,7 @@ class EscolaPanelProvider extends PanelProvider
                 PanelsRenderHook::HEAD_END,
                 function (): string {
                     $themeVersion = @filemtime(public_path('css/sigef-theme.css')) ?: time();
+                    $layoutVersion = @filemtime(public_path('js/sigef-layout-stability.js')) ?: time();
 
                     return '
                     <link rel="stylesheet" href="/css/sigef-theme.css?v=' . $themeVersion . '">
@@ -63,6 +64,7 @@ class EscolaPanelProvider extends PanelProvider
                     <link rel="shortcut icon" href="/favicon.png">
                     <link rel="apple-touch-icon" href="/favicon.png">
                     <script src="/js/favicon-inject.js"></script>
+                    <script src="/js/sigef-layout-stability.js?v=' . $layoutVersion . '" defer></script>
                     <script>
                         // Remover botão nativo de colapso do Filament
                         document.addEventListener("DOMContentLoaded", function() {

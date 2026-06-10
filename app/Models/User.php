@@ -108,11 +108,6 @@ class User extends Authenticatable implements FilamentUser, HasTenants, Auditabl
             }
         }
 
-        // Painel Aluno
-        if ($panelId === 'aluno') {
-            return $this->hasRole('aluno_admin') || $this->hasRole('aluno_user');
-        }
-
         // Painel dos Professores
         if ($panelId === 'professores') {
             return $this->hasRole('professores_admin') || $this->hasRole('professores_user');

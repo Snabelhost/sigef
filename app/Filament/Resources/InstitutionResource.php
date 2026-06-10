@@ -251,7 +251,6 @@ class InstitutionResource extends Resource
             'attendances',
             'student_subject_enrollments',
             'student_class_enrollments',
-            'class_students',
             'trainer_class_assignments',
         ] as $table) {
             static::deleteWhereIn($table, 'class_id', $classIds);
@@ -267,7 +266,6 @@ class InstitutionResource extends Resource
             'candidates',
             'courses',
             'subjects',
-            'selection_tests',
             'evaluations',
             'student_leaves',
             'equipment_assignments',

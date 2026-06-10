@@ -48,10 +48,4 @@ class StudentClass extends Model implements Auditable
         return $this->belongsTo(AcademicYear::class);
     }
 
-    public function students()
-    {
-        return $this->belongsToMany(Student::class, 'class_students', 'class_id', 'student_id')
-                    ->withPivot('enrolled_at')
-                    ->withTimestamps();
-    }
 }

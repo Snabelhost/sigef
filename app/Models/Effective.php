@@ -24,6 +24,7 @@ class Effective extends Model
         'nas',
         'country',
         'province',
+        'municipality',
         'birth_date',
         'father_name',
         'mother_name',

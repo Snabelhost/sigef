@@ -9,6 +9,7 @@ use App\Models\Course;
 use App\Models\CourseMap;
 use App\Models\CoursePhase;
 use App\Models\Institution;
+use App\Models\Municipality;
 use App\Models\Province;
 use App\Models\StudentClass;
 use App\Models\Subject;
@@ -25,6 +26,7 @@ use Filament\Notifications\Notification;
 use Filament\Support\Enums\Width;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -216,6 +218,13 @@ class TrainerResource extends Resource
                             Forms\Components\Select::make('province')
                                 ->label('Província')
                                 ->options(fn (): array => Province::query()->orderBy('name')->pluck('name', 'name')->toArray())
+                                ->searchable()
+                                ->preload()
+                                ->live()
+                                ->afterStateUpdated(fn (\Filament\Schemas\Components\Utilities\Set $set): mixed => $set('municipality', null)),
+                            Forms\Components\Select::make('municipality')
+                                ->label('Município')
+                                ->options(fn (\Filament\Schemas\Components\Utilities\Get $get): array => static::municipalityOptions($get('province')))
                                 ->searchable()
                                 ->preload(),
                             Forms\Components\DatePicker::make('birth_date')
@@ -812,12 +821,12 @@ HTML);
 
         $set('bilhete', $identityDocument);
 
-        if (filled($data['name'] ?? null)) {
-            $set('full_name', static::formatIdentityName((string) $data['name']));
+        if (filled($name = static::firstIdentityValue($data, ['name', 'nome', 'full_name', 'nome_completo']))) {
+            $set('full_name', static::formatIdentityName($name));
         }
 
-        if (filled($data['data_de_nascimento'] ?? null)) {
-            $set('birth_date', (string) $data['data_de_nascimento']);
+        if (filled($birthDate = static::firstIdentityValue($data, ['data_de_nascimento', 'birth_date', 'data_nascimento', 'nascimento']))) {
+            $set('birth_date', static::normalizeIdentityDate($birthDate));
         }
 
         if (filled($gender = static::extractIdentityGender($data))) {
@@ -826,9 +835,33 @@ HTML);
 
         if (filled($province = static::extractIdentityProvince($data))) {
             $set('province', $province);
+
+            if (filled($municipality = static::extractIdentityMunicipality($data, $province))) {
+                $set('municipality', $municipality);
+            }
         }
 
-        $set('country_origin', 'Angola');
+        if (filled($country = static::firstIdentityValue($data, ['country', 'pais', 'país', 'nacionalidade']))) {
+            $set('country_origin', static::formatIdentityCountry($country));
+        } else {
+            $set('country_origin', 'Angola');
+        }
+
+        if (filled($fatherName = static::firstIdentityValue($data, ['father_name', 'nome_pai', 'nome_do_pai', 'pai']))) {
+            $set('father_name', static::formatIdentityName($fatherName));
+        }
+
+        if (filled($motherName = static::firstIdentityValue($data, ['mother_name', 'nome_mae', 'nome_mãe', 'nome_da_mae', 'nome_da_mãe', 'mae', 'mãe']))) {
+            $set('mother_name', static::formatIdentityName($motherName));
+        }
+
+        if (filled($phone = static::firstIdentityValue($data, ['phone', 'telefone', 'telemovel', 'telemóvel', 'contacto', 'contact']))) {
+            $set('phone', $phone);
+        }
+
+        if (filled($email = static::firstIdentityValue($data, ['email', 'e_mail', 'mail']))) {
+            $set('email', $email);
+        }
 
         Notification::make()
             ->title('Dados do BI carregados')
@@ -926,6 +959,56 @@ HTML);
         return static::matchIdentityProvince($province);
     }
 
+    protected static function extractIdentityMunicipality(array $data, ?string $province = null): ?string
+    {
+        $municipality = static::firstIdentityValue($data, [
+            'municipio',
+            'município',
+            'municipality',
+            'naturalidade_municipio',
+            'municipio_nascimento',
+            'municipio_de_nascimento',
+            'birth_municipality',
+            'localidade',
+            'comuna',
+        ]);
+
+        if ($municipality === null) {
+            return null;
+        }
+
+        return static::matchIdentityMunicipality($municipality, $province);
+    }
+
+    protected static function normalizeIdentityDate(mixed $value): ?string
+    {
+        if (! is_scalar($value) || blank((string) $value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        try {
+            if (preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $value)) {
+                return Carbon::createFromFormat('d/m/Y', $value)->format('Y-m-d');
+            }
+
+            return Carbon::parse($value)->format('Y-m-d');
+        } catch (Throwable) {
+            return $value;
+        }
+    }
+
+    protected static function formatIdentityCountry(string $country): string
+    {
+        $country = trim(preg_replace('/\s+/u', ' ', $country) ?: '');
+
+        return match (static::normalizeIdentityLookupText($country)) {
+            'angola', 'angolano', 'angolana' => 'Angola',
+            default => $country,
+        };
+    }
+
     /**
      * @param  array<string, mixed>  $data
      * @param  array<int, string>  $keys
@@ -951,6 +1034,43 @@ HTML);
 
             if (is_scalar($value) && filled((string) $value)) {
                 return (string) $value;
+            }
+        }
+
+        return null;
+    }
+
+    protected static function matchIdentityMunicipality(string $municipality, ?string $province = null): ?string
+    {
+        $normalizedMunicipality = static::normalizeIdentityLookupText($municipality);
+        $normalizedMunicipality = preg_replace('/\b(municipio|municipality|mun|de|da|do)\b/u', ' ', $normalizedMunicipality) ?: $normalizedMunicipality;
+        $normalizedMunicipality = trim(preg_replace('/\s+/u', ' ', $normalizedMunicipality) ?: '');
+
+        if ($normalizedMunicipality === '') {
+            return null;
+        }
+
+        $provinceId = filled($province)
+            ? Province::query()->where('name', $province)->value('id')
+            : null;
+
+        $municipalities = Municipality::query()
+            ->when($provinceId, fn ($query) => $query->where('province_id', $provinceId))
+            ->orderBy('name')
+            ->pluck('name')
+            ->all();
+
+        foreach ($municipalities as $municipalityName) {
+            if (static::normalizeIdentityLookupText((string) $municipalityName) === $normalizedMunicipality) {
+                return (string) $municipalityName;
+            }
+        }
+
+        foreach ($municipalities as $municipalityName) {
+            $normalizedName = static::normalizeIdentityLookupText((string) $municipalityName);
+
+            if (strlen($normalizedName) >= 4 && str_contains($normalizedMunicipality, $normalizedName)) {
+                return (string) $municipalityName;
             }
         }
 
@@ -1007,6 +1127,27 @@ HTML);
         $value = preg_replace('/[^a-z0-9]+/u', ' ', $value) ?: '';
 
         return trim(preg_replace('/\s+/u', ' ', $value) ?: '');
+    }
+
+    protected static function municipalityOptions(?string $province): array
+    {
+        if (! filled($province)) {
+            return [];
+        }
+
+        $provinceId = Province::query()
+            ->where('name', $province)
+            ->value('id');
+
+        if (! $provinceId) {
+            return [];
+        }
+
+        return Municipality::query()
+            ->where('province_id', $provinceId)
+            ->orderBy('name')
+            ->pluck('name', 'name')
+            ->toArray();
     }
 
     protected static function professionalDataTabSchema(): array
@@ -1081,6 +1222,13 @@ HTML);
                             Forms\Components\Select::make('province')
                                 ->label('Província')
                                 ->options(fn (): array => Province::query()->orderBy('name')->pluck('name', 'name')->toArray())
+                                ->searchable()
+                                ->preload()
+                                ->live()
+                                ->afterStateUpdated(fn (\Filament\Schemas\Components\Utilities\Set $set): mixed => $set('municipality', null)),
+                            Forms\Components\Select::make('municipality')
+                                ->label('Município')
+                                ->options(fn (\Filament\Schemas\Components\Utilities\Get $get): array => static::municipalityOptions($get('province')))
                                 ->searchable()
                                 ->preload(),
                             Forms\Components\DatePicker::make('birth_date')

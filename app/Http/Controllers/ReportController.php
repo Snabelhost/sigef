@@ -130,7 +130,7 @@ class ReportController extends Controller
             $institution = Institution::find($request->institution);
         }
         if ($request->class) {
-            $query->whereHas('classes', fn($q) => $q->where('student_classes.id', $request->class));
+            $query->whereHas('classEnrollments', fn($q) => $q->where('class_id', $request->class));
             $class = StudentClass::find($request->class);
         }
         if ($request->date_from) $query->whereDate('enrollment_date', '>=', $request->date_from);
@@ -185,7 +185,7 @@ class ReportController extends Controller
             $institution = Institution::find($request->institution);
         }
         if ($request->class) {
-            $query->whereHas('classes', fn($q) => $q->where('student_classes.id', $request->class));
+            $query->whereHas('classEnrollments', fn($q) => $q->where('class_id', $request->class));
             $class = StudentClass::find($request->class);
         }
         $records = $query->orderBy('student_number')->get();
@@ -277,7 +277,7 @@ class ReportController extends Controller
             $institution = Institution::find($request->institution);
         }
         if ($request->class) {
-            $query->whereHas('student.classes', fn($q) => $q->where('student_classes.id', $request->class));
+            $query->whereHas('student.classEnrollments', fn($q) => $q->where('class_id', $request->class));
             $class = StudentClass::find($request->class);
         }
         $records = $query->get();
@@ -302,7 +302,7 @@ class ReportController extends Controller
             $institution = Institution::find($request->institution);
         }
         if ($request->class) {
-            $query->whereHas('classes', fn($q) => $q->where('student_classes.id', $request->class));
+            $query->whereHas('classEnrollments', fn($q) => $q->where('class_id', $request->class));
             $class = StudentClass::find($request->class);
         }
         $records = $query->orderBy('student_number')->get();
@@ -328,11 +328,11 @@ class ReportController extends Controller
             $institution = Institution::find($request->institution);
         }
         if ($request->class) {
-            $query->whereHas('classes', fn($q) => $q->where('student_classes.id', $request->class));
+            $query->whereHas('classEnrollments', fn($q) => $q->where('class_id', $request->class));
             $class = StudentClass::find($request->class);
             // Get subjects for this class via course plan
             $subjects = Subject::whereHas('coursePhase.coursePlan.courseMaps.studentClasses', function ($q) use ($request) {
-                $q->where('student_classes.id', $request->class);
+                $q->where('classes.id', $request->class);
             })->orderBy('name')->get();
         }
 
@@ -370,7 +370,7 @@ class ReportController extends Controller
             $institution = Institution::find($request->institution);
         }
         if ($request->class) {
-            $query->whereHas('classes', fn($q) => $q->where('student_classes.id', $request->class));
+            $query->whereHas('classEnrollments', fn($q) => $q->where('class_id', $request->class));
             $class = StudentClass::find($request->class);
         }
         $records = $query->orderBy('student_number')->get();

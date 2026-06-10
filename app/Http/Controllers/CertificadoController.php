@@ -17,12 +17,15 @@ class CertificadoController extends Controller
      */
     protected function filterEvaluationsByInstitution(Student $student): Student
     {
-        $enrollment = StudentClassEnrollment::where('student_id', $student->id)
-            ->where('is_active', true)
-            ->first();
+        $enrollment = $student->classEnrollments->firstWhere('is_active', true)
+            ?? StudentClassEnrollment::where('student_id', $student->id)
+                ->where('is_active', true)
+                ->first();
 
         if ($enrollment) {
-            $institutionId = StudentClass::where('id', $enrollment->class_id)->value('institution_id');
+            $institutionId = $enrollment->studentClass?->institution_id
+                ?? StudentClass::where('id', $enrollment->class_id)->value('institution_id');
+
             if ($institutionId) {
                 $filtered = $student->evaluations->where('institution_id', $institutionId)->values();
                 $student->setRelation('evaluations', $filtered);
@@ -32,11 +35,30 @@ class CertificadoController extends Controller
         return $student;
     }
 
+    protected function currentClass(Student $student): ?StudentClass
+    {
+        $student->loadMissing([
+            'classEnrollments.studentClass.institution',
+            'classEnrollments.studentClass.courseMap.course',
+            'classEnrollments.studentClass.academicYear',
+        ]);
+
+        $enrollment = $student->classEnrollments->firstWhere('is_active', true)
+            ?? $student->classEnrollments->sortByDesc('enrolled_at')->first();
+
+        return $enrollment?->studentClass;
+    }
+
     public function gerar(Request $request)
     {
         $filters = $request->only(['cia', 'pelotao', 'seccao', 'turma', 'institution_id']);
         
-        $query = Student::with(['candidate', 'classes.institution', 'classes.courseMap.course', 'evaluations', 'classEnrollments'])
+        $query = Student::with([
+                'candidate',
+                'evaluations',
+                'classEnrollments.studentClass.institution',
+                'classEnrollments.studentClass.courseMap.course',
+            ])
             ->whereHas('evaluations');
         
         if (!empty($filters['cia'])) {
@@ -49,10 +71,10 @@ class CertificadoController extends Controller
             $query->where('seccao', $filters['seccao']);
         }
         if (!empty($filters['turma'])) {
-            $query->whereHas('classes', fn ($q) => $q->where('classes.id', $filters['turma']));
+            $query->whereHas('classEnrollments', fn ($q) => $q->where('class_id', $filters['turma']));
         }
         if (!empty($filters['institution_id'])) {
-            $query->whereHas('classes', fn ($q) => $q->where('institution_id', $filters['institution_id']));
+            $query->whereHas('classEnrollments.studentClass', fn ($q) => $q->where('institution_id', $filters['institution_id']));
         }
         
         $students = $query->get()
@@ -60,32 +82,46 @@ class CertificadoController extends Controller
             ->filter(fn ($s) => GradeCalculator::result($s) === 'Aprovado');
         
         return view('exports.certificados', [
-            'alunos' => $students->map(fn ($s) => [
-                'numero' => $s->student_number,
-                'nome' => $s->candidate?->full_name,
-                'bi' => $s->candidate?->id_number,
-                'cia' => $s->cia,
-                'pelotao' => $s->platoon,
-                'seccao' => $s->section,
-                'turma' => $s->classes->first()?->name,
-                'curso' => $s->classes->first()?->courseMap?->course?->name,
-                'instituicao' => $s->classes->first()?->institution?->name,
-                'media' => GradeCalculator::generalAverage($s),
-            ]),
+            'alunos' => $students->map(function ($s) {
+                $class = $this->currentClass($s);
+
+                return [
+                    'numero' => $s->student_number,
+                    'nome' => $s->candidate?->full_name,
+                    'bi' => $s->candidate?->id_number,
+                    'cia' => $s->cia,
+                    'pelotao' => $s->platoon,
+                    'seccao' => $s->section,
+                    'turma' => $class?->name,
+                    'curso' => $class?->courseMap?->course?->name,
+                    'instituicao' => $class?->institution?->name,
+                    'media' => GradeCalculator::generalAverage($s),
+                ];
+            }),
             'titulo' => 'Certificados de Aprovação',
             'filtros' => $filters,
         ]);
     }
 
-    public function individual(Student $student)
+    public function individual(Request $request, Student $student)
     {
-        $student->load(['candidate', 'classes.institution', 'classes.courseMap.course', 'classes.academicYear', 'evaluations.subject', 'classEnrollments']);
+        $student->load([
+            'candidate',
+            'evaluations.subject',
+            'classEnrollments.studentClass.institution',
+            'classEnrollments.studentClass.courseMap.course',
+            'classEnrollments.studentClass.academicYear',
+        ]);
         
         // Filtrar avaliações pela instituição da turma activa
         $this->filterEvaluationsByInstitution($student);
 
         $generalAvg = GradeCalculator::generalAverage($student);
         $resultado = GradeCalculator::result($student);
+
+        if ($resultado !== 'Aprovado') {
+            abort(403, 'Este certificado so pode ser impresso para formandos aprovados.');
+        }
         
         // Agrupar notas por disciplina usando GradeCalculator
         $subjectIds = $student->evaluations->pluck('subject_id')->unique();
@@ -103,9 +139,7 @@ class CertificadoController extends Controller
             }
         }
 
-        // Obter turma activa
-        $activeEnrollment = $student->classEnrollments->where('is_active', true)->first();
-        $activeClass = $activeEnrollment ? StudentClass::with(['institution', 'courseMap.course', 'academicYear'])->find($activeEnrollment->class_id) : $student->classes->first();
+        $activeClass = $this->currentClass($student);
         
         return view('exports.certificado-individual', [
             'aluno' => [
@@ -126,6 +160,8 @@ class CertificadoController extends Controller
                 'resultado' => $resultado === 'Aprovado' ? 'Apto' : 'Inapto',
                 'disciplinas' => $disciplinas,
             ],
+            'autoPrint' => $request->boolean('autoprint', false),
+            'embeddedMode' => $request->boolean('embedded', false),
         ]);
     }
 
@@ -133,25 +169,34 @@ class CertificadoController extends Controller
     {
         $ids = explode(',', $request->ids);
         
-        $students = Student::with(['candidate', 'classes.institution', 'classes.courseMap.course', 'evaluations', 'classEnrollments'])
+        $students = Student::with([
+                'candidate',
+                'evaluations',
+                'classEnrollments.studentClass.institution',
+                'classEnrollments.studentClass.courseMap.course',
+            ])
             ->whereIn('id', $ids)
             ->get()
             ->map(fn ($s) => $this->filterEvaluationsByInstitution($s))
             ->filter(fn ($s) => GradeCalculator::result($s) === 'Aprovado');
         
         return view('exports.certificados', [
-            'alunos' => $students->map(fn ($s) => [
-                'numero' => $s->student_number,
-                'nome' => $s->candidate?->full_name,
-                'bi' => $s->candidate?->id_number,
-                'cia' => $s->cia,
-                'pelotao' => $s->platoon,
-                'seccao' => $s->section,
-                'turma' => $s->classes->first()?->name,
-                'curso' => $s->classes->first()?->courseMap?->course?->name,
-                'instituicao' => $s->classes->first()?->institution?->name,
-                'media' => GradeCalculator::generalAverage($s),
-            ]),
+            'alunos' => $students->map(function ($s) {
+                $class = $this->currentClass($s);
+
+                return [
+                    'numero' => $s->student_number,
+                    'nome' => $s->candidate?->full_name,
+                    'bi' => $s->candidate?->id_number,
+                    'cia' => $s->cia,
+                    'pelotao' => $s->platoon,
+                    'seccao' => $s->section,
+                    'turma' => $class?->name,
+                    'curso' => $class?->courseMap?->course?->name,
+                    'instituicao' => $class?->institution?->name,
+                    'media' => GradeCalculator::generalAverage($s),
+                ];
+            }),
             'titulo' => 'Certificados de Aprovação',
         ]);
     }

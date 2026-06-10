@@ -160,7 +160,7 @@ class EquipmentAssignmentResource extends Resource
                     'Em Formação',
                 ];
 
-                return $query->with(['candidate', 'institution', 'courseMap'])
+                return $query->with(['candidate', 'institution', 'courseMap', 'equipmentAssignments'])
                     ->where(function ($q) use ($tiposPermitidos) {
                         foreach ($tiposPermitidos as $tipo) {
                             $q->orWhere('student_type', 'like', "%{$tipo}%");
@@ -183,6 +183,8 @@ class EquipmentAssignmentResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('cia')
                     ->label('CIA')
+                    ->formatStateUsing(fn($state): string => static::formatCia($state))
+                    ->placeholder('-')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('platoon')
                     ->label('Pelotão')
@@ -195,8 +197,8 @@ class EquipmentAssignmentResource extends Resource
                     ->view('filament.tables.columns.equipment-badges')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('total_equipamentos')
-                    ->label('Total')
-                    ->getStateUsing(fn($record) => EquipmentAssignment::where('student_id', $record->id)->count())
+                    ->label('Pendentes')
+                    ->getStateUsing(fn($record) => EquipmentAssignment::where('student_id', $record->id)->whereNull('returned_at')->count())
                     ->alignCenter()
                     ->badge()
                     ->color(fn($state) => $state > 0 ? 'primary' : 'gray')
@@ -243,8 +245,10 @@ class EquipmentAssignmentResource extends Resource
                     ->label('CIA')
                     ->options(function () {
                         return Student::whereNotNull('cia')
+                            ->where('cia', '!=', '')
                             ->distinct()
                             ->pluck('cia', 'cia')
+                            ->map(fn($cia): string => static::formatCia($cia))
                             ->toArray();
                     }),
                 Tables\Filters\SelectFilter::make('platoon')
@@ -266,11 +270,11 @@ class EquipmentAssignmentResource extends Resource
                 Tables\Filters\TernaryFilter::make('tem_equipamento')
                     ->label('Estado de Equipamento')
                     ->placeholder('Todos')
-                    ->trueLabel('Com Equipamento')
-                    ->falseLabel('Sem Equipamento')
+                    ->trueLabel('Com Meio Pendente')
+                    ->falseLabel('Sem Meio Pendente')
                     ->queries(
-                        true: fn(Builder $query) => $query->whereHas('equipmentAssignments'),
-                        false: fn(Builder $query) => $query->whereDoesntHave('equipmentAssignments'),
+                        true: fn(Builder $query) => $query->whereHas('equipmentAssignments', fn(Builder $equipmentQuery) => $equipmentQuery->whereNull('returned_at')),
+                        false: fn(Builder $query) => $query->whereDoesntHave('equipmentAssignments', fn(Builder $equipmentQuery) => $equipmentQuery->whereNull('returned_at')),
                     ),
             ])
             ->filtersFormColumns(5)
@@ -296,8 +300,9 @@ class EquipmentAssignmentResource extends Resource
                                             TextEntry::make('candidate.full_name')
                                                 ->label('Nome do Formando')
                                                 ->icon('heroicon-o-user'),
-                                            TextEntry::make('student_number')
-                                                ->label('Nº de Ordem')
+                                            TextEntry::make('student_identifier')
+                                                ->label(fn(Student $record): string => static::studentIdentifierLabel($record))
+                                                ->getStateUsing(fn(Student $record): string => static::studentIdentifierValue($record))
                                                 ->icon('heroicon-o-identification'),
                                             TextEntry::make('student_type')
                                                 ->label('Estado')
@@ -354,10 +359,6 @@ class EquipmentAssignmentResource extends Resource
                                 ->label('Data de Devolução')
                                 ->required()
                                 ->default(now()),
-                            Forms\Components\Textarea::make('notes')
-                                ->label('Observações')
-                                ->placeholder('Observações sobre a devolução (opcional)')
-                                ->rows(3),
                         ])
                         ->action(function ($record, array $data): void {
                             $count = EquipmentAssignment::where('student_id', $record->id)
@@ -436,6 +437,7 @@ class EquipmentAssignmentResource extends Resource
                             foreach ($data['equipamentos'] as $equip) {
                                 EquipmentAssignment::create([
                                     'student_id' => $record->id,
+                                    'institution_id' => $record->institution_id,
                                     'equipment_name' => $equip['equipment_name'],
                                     'quantity' => $equip['quantity'],
                                     'condition' => $equip['condition'],
@@ -519,6 +521,7 @@ class EquipmentAssignmentResource extends Resource
                             foreach ($data['equipamentos'] as $equip) {
                                 EquipmentAssignment::create([
                                     'student_id' => $student->id,
+                                    'institution_id' => $student->institution_id,
                                     'equipment_name' => $equip['equipment_name'],
                                     'quantity' => $equip['quantity'],
                                     'condition' => $equip['condition'],
@@ -556,10 +559,6 @@ class EquipmentAssignmentResource extends Resource
                             ->label('Data de Devolução')
                             ->default(now())
                             ->required(),
-                        Forms\Components\Textarea::make('notes')
-                            ->label('Observações')
-                            ->placeholder('Observações sobre a devolução (opcional)')
-                            ->rows(2),
                     ])
                     ->action(function (\Illuminate\Database\Eloquent\Collection $records, array $data): void {
                         $totalStudents = 0;
@@ -609,6 +608,37 @@ class EquipmentAssignmentResource extends Resource
         return [
             'index' => Pages\ListEquipmentAssignments::route('/'),
         ];
+    }
+
+    private static function formatCia(mixed $state): string
+    {
+        $value = trim((string) $state);
+
+        if ($value === '') {
+            return '-';
+        }
+
+        return str_contains(strtoupper($value), 'CIA')
+            ? $value
+            : $value.'ª CIA';
+    }
+
+    private static function studentIdentifierLabel(Student $student): string
+    {
+        $studentType = mb_strtolower(trim((string) $student->student_type));
+
+        return str_contains($studentType, 'em forma')
+            || str_contains($studentType, 'formando')
+            || str_contains($studentType, 'oficial')
+            ? 'NIP'
+            : 'NURI';
+    }
+
+    private static function studentIdentifierValue(Student $student): string
+    {
+        $identifier = trim((string) ($student->nuri ?: $student->candidate?->nuri ?: ''));
+
+        return $identifier !== '' ? $identifier : '-';
     }
 
     public static function canAccess(): bool

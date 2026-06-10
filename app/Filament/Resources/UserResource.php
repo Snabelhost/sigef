@@ -133,7 +133,7 @@ class UserResource extends Resource
                 ->multiple()
                 ->native(false)
                 ->options(fn (): array => \Spatie\Permission\Models\Role::query()
-                    ->whereNotIn('name', ['dpq_admin', 'dpq_user', 'comando_admin', 'comando_user'])
+                    ->whereNotIn('name', ['dpq_admin', 'dpq_user', 'comando_admin', 'comando_user', 'aluno_admin', 'aluno_user'])
                     ->orderBy('name')
                     ->pluck('name', 'id')
                     ->map(fn (string $name): string => static::userRoleLabel($name))
@@ -153,8 +153,6 @@ class UserResource extends Resource
             'admin' => 'Administrador',
             'escola_admin' => 'Administrador da Escola',
             'escola_user' => 'Utilizador da Escola',
-            'aluno_admin' => 'Administrador do Painel do Aluno',
-            'aluno_user' => 'Aluno',
             'professores_admin' => 'Administrador do Painel dos Professores',
             'professores_user' => 'Professor',
             'panel_user' => 'Utilizador do Painel',
@@ -187,11 +185,9 @@ class UserResource extends Resource
                         'super_admin' => 'danger',
                         'admin' => 'warning',
                         'escola_admin' => 'success',
-                        'aluno_admin' => 'info',
                         'professores_admin' => 'primary',
                         'panel_user' => 'gray',
                         'escola_user' => 'success',
-                        'aluno_user' => 'info',
                         'professores_user' => 'primary',
                         default => 'gray',
                     })

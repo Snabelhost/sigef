@@ -93,13 +93,25 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/student/{student}/print-ficha', [\App\Http\Controllers\StudentController::class, 'printFicha'])->name('student.print-ficha');
 });
 
+Route::middleware(['auth'])->prefix('gestao-formandos')->name('students.')->group(function () {
+    Route::get('/{student}/ficha-inscricao', \App\Http\Controllers\StudentSheetPrintController::class)->name('sheet.print');
+});
+
 /*
 |--------------------------------------------------------------------------
 | Cartões de Identificação dos Estudantes
 |--------------------------------------------------------------------------
 */
+Route::middleware(['auth'])->prefix('formandos')->name('candidates.')->group(function () {
+    Route::get('/{candidate}/ficha-inscricao', \App\Http\Controllers\CandidateSheetPrintController::class)->name('sheet.print');
+});
+
 Route::middleware(['auth'])->prefix('formadores')->name('trainers.')->group(function () {
     Route::get('/{trainer}/ficha-professor', \App\Http\Controllers\TrainerSheetPrintController::class)->name('sheet.print');
+});
+
+Route::middleware(['auth'])->prefix('efectivos')->name('effectives.')->group(function () {
+    Route::get('/{effective}/ficha-efectivo', \App\Http\Controllers\EffectiveSheetPrintController::class)->name('sheet.print');
 });
 
 Route::middleware(['auth'])->prefix('cartoes')->name('cartoes.')->group(function () {

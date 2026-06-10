@@ -4,6 +4,8 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\StudentLeaveResource\Pages;
 use App\Filament\Resources\StudentLeaveResource\RelationManagers;
+use App\Models\Candidate;
+use App\Models\Institution;
 use App\Models\StudentLeave;
 use App\Models\Student;
 use Filament\Forms;
@@ -13,6 +15,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\DB;
 
 class StudentLeaveResource extends Resource
 {
@@ -127,6 +130,18 @@ class StudentLeaveResource extends Resource
                     ->searchable()
                     ->wrap()
                     ->toggleable(),
+                Tables\Columns\TextColumn::make('student_identifier')
+                    ->label('NIP/NURI')
+                    ->getStateUsing(fn (StudentLeave $record): string => static::studentIdentifier($record->student))
+                    ->searchable(query: fn (Builder $query, string $search): Builder => $query->whereHas('student', function (Builder $studentQuery) use ($search): void {
+                        $studentQuery
+                            ->where('nuri', 'like', "%{$search}%")
+                            ->orWhere('student_number', 'like', "%{$search}%")
+                            ->orWhereHas('candidate', fn (Builder $candidateQuery): Builder => $candidateQuery
+                                ->where('nuri', 'like', "%{$search}%")
+                                ->orWhere('student_number', 'like', "%{$search}%"));
+                    }))
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('student.cia')
                     ->label('Cia')
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -225,14 +240,15 @@ class StudentLeaveResource extends Resource
                     ->query(fn($query, array $data) => $query->when($data['value'], fn($q) => $q->whereHas('student', fn($sq) => $sq->where('section', $data['value'])))),
             ])
             ->headerActions([
-                \Filament\Actions\CreateAction::make()
-                    ->label('Adicionar Formando')
+                \Filament\Actions\Action::make('createOccurrence')
+                    ->label('Nova Ocorrência')
                     ->icon('heroicon-o-plus')
+                    ->form(static::occurrenceHeaderFormSchema())
+                    ->action(fn (array $data): StudentLeave => static::registerOccurrenceFromHeader($data))
                     ->modalHeading('Registar Nova Ocorrência')
                     ->modalWidth('4xl')
-                    ->modalSubmitAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-check')->label('Criar'))
+                    ->modalSubmitAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-check')->label('Registar'))
                     ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger'))
-                    ->successNotificationTitle('Ocorrência registada com sucesso!'),
             ])
             ->actions([
                 \Filament\Actions\ActionGroup::make([
@@ -240,6 +256,7 @@ class StudentLeaveResource extends Resource
                         ->label('Nova Ocorrência')
                         ->icon('heroicon-o-plus-circle')
                         ->color('success')
+                        ->hidden()
                         ->form([
                             Forms\Components\Select::make('leave_type')
                                 ->label('Tipo de Ocorrência')
@@ -322,19 +339,37 @@ class StudentLeaveResource extends Resource
                             return [
                                 \Filament\Schemas\Components\Section::make('Informações do Formando')
                                     ->schema([
-                                        \Filament\Schemas\Components\Grid::make(4)->schema([
-                                            \Filament\Infolists\Components\TextEntry::make('student.student_number')
-                                                ->label('Nº de Ordem')
-                                                ->icon('heroicon-o-identification'),
+                                        \Filament\Schemas\Components\Grid::make(5)->schema([
                                             \Filament\Infolists\Components\TextEntry::make('student.candidate.full_name')
-                                                ->label('Nome Completo')
+                                                ->label('Nome completo')
                                                 ->icon('heroicon-o-user'),
+                                            \Filament\Infolists\Components\TextEntry::make('student_identifier')
+                                                ->label('NIP/NURI')
+                                                ->getStateUsing(fn ($record): string => trim((string) (
+                                                    $record->student?->nuri
+                                                    ?: $record->student?->candidate?->nuri
+                                                    ?: $record->student?->student_number
+                                                    ?: '-'
+                                                )))
+                                                ->icon('heroicon-o-identification'),
                                             \Filament\Infolists\Components\TextEntry::make('student.cia')
-                                                ->label('Cia')
-                                                ->icon('heroicon-o-building-office'),
+                                                ->label('CIA')
+                                                ->icon('heroicon-o-building-office')
+                                                ->formatStateUsing(fn ($state): string => filled($state)
+                                                    ? (str_contains(strtoupper((string) $state), 'CIA') ? (string) $state : "{$state}ª CIA")
+                                                    : '-'),
                                             \Filament\Infolists\Components\TextEntry::make('student.platoon')
-                                                ->label('Pelotão')
-                                                ->icon('heroicon-o-users'),
+                                                ->label('PELOTÃO')
+                                                ->icon('heroicon-o-users')
+                                                ->formatStateUsing(fn ($state): string => filled($state)
+                                                    ? (str_contains(strtoupper((string) $state), 'PELOT') ? (string) $state : "{$state}º PELOTÃO")
+                                                    : '-'),
+                                            \Filament\Infolists\Components\TextEntry::make('student.section')
+                                                ->label('SECÇÃO')
+                                                ->icon('heroicon-o-user-group')
+                                                ->formatStateUsing(fn ($state): string => filled($state)
+                                                    ? (str_contains(strtoupper((string) $state), 'SEC') ? (string) $state : "{$state}ª SECÇÃO")
+                                                    : '-'),
                                         ]),
                                     ]),
                                 \Filament\Schemas\Components\Section::make('Resumo de Ocorrências')
@@ -386,6 +421,323 @@ class StudentLeaveResource extends Resource
                     \Filament\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    protected static function occurrenceHeaderFormSchema(): array
+    {
+        return [
+            Forms\Components\Select::make('student_id')
+                ->label('Formando existente')
+                ->options(fn (): array => static::studentOptionsForLeaves())
+                ->getOptionLabelUsing(fn ($value): ?string => static::studentOptionLabel(Student::with('candidate')->find($value)))
+                ->searchable()
+                ->preload()
+                ->helperText('Selecione se o formando ja existir. Se nao existir, preencha o nome abaixo.'),
+            Forms\Components\TextInput::make('student_name')
+                ->label('Nome completo do formando')
+                ->required(fn ($get): bool => blank($get('student_id')))
+                ->maxLength(191),
+            Forms\Components\TextInput::make('student_identifier')
+                ->label('NIP/NURI')
+                ->maxLength(191),
+            Forms\Components\Select::make('institution_id')
+                ->label('Instituicao')
+                ->options(fn (): array => Institution::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                ->default(fn (): ?int => auth()->user()?->institution_id)
+                ->searchable()
+                ->preload(),
+            Forms\Components\Select::make('cia')
+                ->label('CIA')
+                ->options(collect(range(1, 15))->mapWithKeys(fn (int $number): array => [$number => "{$number}ª CIA"]))
+                ->searchable(),
+            Forms\Components\Select::make('platoon')
+                ->label('Pelotao')
+                ->options(collect(range(1, 15))->mapWithKeys(fn (int $number): array => [$number => "{$number}º Pelotao"]))
+                ->searchable(),
+            Forms\Components\Select::make('section')
+                ->label('Seccao')
+                ->options(collect(range(1, 15))->mapWithKeys(fn (int $number): array => [$number => "{$number}ª Seccao"]))
+                ->searchable(),
+            Forms\Components\Select::make('leave_type')
+                ->label('Tipo de Ocorrencia')
+                ->options(static::leaveTypeOptions())
+                ->required()
+                ->native(false),
+            Forms\Components\Select::make('status')
+                ->label('Estado')
+                ->options(static::leaveStatusOptions())
+                ->required()
+                ->default('pending')
+                ->native(false),
+            Forms\Components\DatePicker::make('start_date')
+                ->label('Data de Inicio')
+                ->required()
+                ->default(now()),
+            Forms\Components\DatePicker::make('end_date')
+                ->label('Data de Fim')
+                ->required()
+                ->default(now()),
+            Forms\Components\Textarea::make('reason')
+                ->label('Motivo/Justificacao')
+                ->rows(3)
+                ->columnSpanFull(),
+        ];
+    }
+
+    protected static function registerOccurrenceFromHeader(array $data): StudentLeave
+    {
+        $leave = DB::transaction(function () use ($data): StudentLeave {
+            $student = static::resolveStudentForOccurrence($data);
+            static::syncStudentOccurrenceData($student, $data);
+
+            return StudentLeave::create([
+                'student_id' => $student->id,
+                'institution_id' => $data['institution_id'] ?? $student->institution_id,
+                'leave_type' => $data['leave_type'],
+                'start_date' => $data['start_date'],
+                'end_date' => $data['end_date'],
+                'reason' => $data['reason'] ?? null,
+                'status' => $data['status'] ?? 'pending',
+            ]);
+        });
+
+        \Filament\Notifications\Notification::make()
+            ->title('Ocorrência registada com sucesso!')
+            ->success()
+            ->send();
+
+        return $leave;
+    }
+
+    protected static function resolveStudentForOccurrence(array $data): Student
+    {
+        if (! empty($data['student_id'])) {
+            $student = Student::with('candidate')->find($data['student_id']);
+
+            if ($student) {
+                return $student;
+            }
+        }
+
+        $name = trim((string) ($data['student_name'] ?? ''));
+        $identifier = trim((string) ($data['student_identifier'] ?? ''));
+
+        if ($student = static::findExistingStudentForOccurrence($name, $identifier)) {
+            return $student;
+        }
+
+        $candidate = static::findExistingCandidateForOccurrence($name, $identifier);
+
+        if (! $candidate) {
+            if ($name === '') {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'student_name' => 'Informe o nome do formando ou selecione um formando existente.',
+                ]);
+            }
+
+            $candidate = Candidate::create([
+                'full_name' => $name,
+                'student_type' => 'Em Formação',
+                'status' => 'approved',
+                'nuri' => $identifier !== '' ? $identifier : null,
+                'institution_id' => $data['institution_id'] ?? null,
+            ]);
+        }
+
+        return Student::create([
+            'candidate_id' => $candidate->id,
+            'institution_id' => $data['institution_id'] ?? $candidate->institution_id,
+            'student_number' => static::generateStudentNumber($identifier),
+            'student_type' => 'Em Formação',
+            'status' => 'em_formacao',
+            'nuri' => $identifier !== '' ? $identifier : ($candidate->nuri ?? null),
+            'cia' => $data['cia'] ?? null,
+            'platoon' => $data['platoon'] ?? null,
+            'section' => $data['section'] ?? null,
+            'enrollment_date' => now(),
+        ])->load('candidate');
+    }
+
+    protected static function findExistingStudentForOccurrence(string $name, string $identifier): ?Student
+    {
+        if ($identifier !== '') {
+            $student = Student::with('candidate')
+                ->where(function (Builder $query) use ($identifier): void {
+                    $query
+                        ->where('nuri', $identifier)
+                        ->orWhere('student_number', $identifier)
+                        ->orWhereHas('candidate', fn (Builder $candidateQuery): Builder => $candidateQuery
+                            ->where('nuri', $identifier)
+                            ->orWhere('student_number', $identifier)
+                            ->orWhere('id_number', $identifier));
+                })
+                ->first();
+
+            if ($student) {
+                return $student;
+            }
+        }
+
+        if ($name === '') {
+            return null;
+        }
+
+        $normalizedName = static::normalizeStudentName($name);
+
+        return Student::with('candidate')
+            ->whereHas('candidate', fn (Builder $query): Builder => $query->whereRaw('LOWER(TRIM(full_name)) = ?', [$normalizedName]))
+            ->first();
+    }
+
+    protected static function findExistingCandidateForOccurrence(string $name, string $identifier): ?Candidate
+    {
+        if ($identifier !== '') {
+            $candidate = Candidate::query()
+                ->where('nuri', $identifier)
+                ->orWhere('student_number', $identifier)
+                ->orWhere('id_number', $identifier)
+                ->first();
+
+            if ($candidate) {
+                return $candidate;
+            }
+        }
+
+        if ($name === '') {
+            return null;
+        }
+
+        return Candidate::query()
+            ->whereRaw('LOWER(TRIM(full_name)) = ?', [static::normalizeStudentName($name)])
+            ->first();
+    }
+
+    protected static function syncStudentOccurrenceData(Student $student, array $data): void
+    {
+        $identifier = trim((string) ($data['student_identifier'] ?? ''));
+        $studentUpdates = [];
+
+        foreach (['institution_id', 'cia', 'platoon', 'section'] as $field) {
+            if (filled($data[$field] ?? null)) {
+                $studentUpdates[$field] = $data[$field];
+            }
+        }
+
+        if ($identifier !== '') {
+            $studentUpdates['nuri'] = $identifier;
+        }
+
+        if ($studentUpdates !== []) {
+            $student->update($studentUpdates);
+            $student->refresh();
+        }
+
+        if ($student->candidate) {
+            $candidateUpdates = [];
+
+            if ($identifier !== '') {
+                $candidateUpdates['nuri'] = $identifier;
+            }
+
+            if (filled($data['institution_id'] ?? null)) {
+                $candidateUpdates['institution_id'] = $data['institution_id'];
+            }
+
+            if ($candidateUpdates !== []) {
+                $student->candidate->update($candidateUpdates);
+            }
+        }
+    }
+
+    protected static function studentOptionsForLeaves(): array
+    {
+        return static::allowedStudentsForLeavesQuery()
+            ->with('candidate')
+            ->get()
+            ->sortBy(fn (Student $student): string => $student->candidate?->full_name ?? '')
+            ->mapWithKeys(fn (Student $student): array => [$student->id => static::studentOptionLabel($student)])
+            ->toArray();
+    }
+
+    protected static function allowedStudentsForLeavesQuery(): Builder
+    {
+        $types = ['Oficial', 'Agente', 'Recruta', 'Instruendo', 'Em Forma', 'Formando', '1ª Fase', '2ª Fase'];
+
+        return Student::query()
+            ->where(function (Builder $query) use ($types): void {
+                foreach ($types as $type) {
+                    $query->orWhere('student_type', 'like', "%{$type}%");
+                }
+            });
+    }
+
+    protected static function studentOptionLabel(?Student $student): ?string
+    {
+        if (! $student) {
+            return null;
+        }
+
+        $name = $student->candidate?->full_name ?? 'N/A';
+        $identifier = static::studentIdentifier($student);
+
+        return $identifier !== '-' ? "{$name} ({$identifier})" : $name;
+    }
+
+    protected static function studentIdentifier(?Student $student): string
+    {
+        $identifier = trim((string) (
+            $student?->nuri
+            ?: $student?->candidate?->nuri
+            ?: $student?->student_number
+            ?: ''
+        ));
+
+        return $identifier !== '' ? $identifier : '-';
+    }
+
+    protected static function leaveTypeOptions(): array
+    {
+        return [
+            'dispensa_saude' => 'Dispensa - Saúde',
+            'dispensa_pessoal' => 'Dispensa - Pessoal',
+            'dispensa_servico' => 'Dispensa - Serviço',
+            'dispensa_falecimento' => 'Dispensa - Falecimento Familiar',
+            'dispensa_outro' => 'Dispensa - Outro',
+            'falta_justificada' => 'Falta Justificada',
+            'falta_injustificada' => 'Falta Injustificada',
+            'reprovado_faltas' => 'Reprovado por Faltas',
+            'reprovado_desistencia' => 'Reprovado por Desistência',
+            'baixa_curso' => 'Baixa de curso',
+        ];
+    }
+
+    protected static function leaveStatusOptions(): array
+    {
+        return [
+            'pending' => 'Pendente',
+            'approved' => 'Aprovada',
+            'rejected' => 'Rejeitada',
+        ];
+    }
+
+    protected static function normalizeStudentName(string $name): string
+    {
+        return mb_strtolower(trim(preg_replace('/\s+/', ' ', $name)));
+    }
+
+    protected static function generateStudentNumber(string $identifier = ''): string
+    {
+        $identifier = strtoupper(preg_replace('/\s+/', '', trim($identifier)));
+
+        if ($identifier !== '' && ! Student::withTrashed()->where('student_number', $identifier)->exists()) {
+            return $identifier;
+        }
+
+        do {
+            $studentNumber = 'ALT-' . now()->format('YmdHis') . '-' . random_int(100, 999);
+        } while (Student::withTrashed()->where('student_number', $studentNumber)->exists());
+
+        return $studentNumber;
     }
 
     public static function getRelations(): array

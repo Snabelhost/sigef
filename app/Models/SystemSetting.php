@@ -165,7 +165,11 @@ class SystemSetting extends Model
             $scopedKey = static::reportInstitutionSettingKey($key, (int) $institution->getKey());
 
             if (static::where('key', $scopedKey)->exists()) {
-                return static::get($scopedKey, null);
+                $scopedValue = static::get($scopedKey, null);
+
+                if (filled($scopedValue) || ! array_key_exists($key, self::REPORT_INSTITUTION_MODEL_FIELDS)) {
+                    return $scopedValue;
+                }
             }
 
             $modelField = self::REPORT_INSTITUTION_MODEL_FIELDS[$key] ?? null;

@@ -7,7 +7,9 @@ use App\Models\SystemSetting;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
 
 class InstitutionReportSettings extends Page
@@ -67,9 +69,9 @@ class InstitutionReportSettings extends Page
                             ->native(false)
                             ->required()
                             ->live()
-                            ->afterStateUpdated(function ($state): void {
+                            ->afterStateUpdated(function ($state, Set $set): void {
                                 $this->institution_id = filled($state) ? (int) $state : null;
-                                $this->loadInstitutionConfig();
+                                $this->loadInstitutionConfig($set);
                             })
                             ->helperText('Cada instituição pode ter logótipo, cabeçalho, responsável, contactos e rodapé próprios.'),
                     ]),
@@ -162,7 +164,16 @@ class InstitutionReportSettings extends Page
 
     public function save(): void
     {
-        if (! $this->institution_id || ! Institution::query()->whereKey($this->institution_id)->exists()) {
+        $state = $this->schema->getState();
+        $this->institution_id = filled($state['institution_id'] ?? $this->institution_id)
+            ? (int) ($state['institution_id'] ?? $this->institution_id)
+            : null;
+
+        $institution = $this->institution_id
+            ? Institution::query()->find((int) $this->institution_id)
+            : null;
+
+        if (! $institution) {
             Notification::make()
                 ->title('Selecione uma instituição.')
                 ->body('É necessário escolher a instituição antes de guardar as configurações dos relatórios.')
@@ -173,7 +184,7 @@ class InstitutionReportSettings extends Page
             return;
         }
 
-        if (blank($this->report_institution_name)) {
+        if (blank($state['report_institution_name'] ?? null)) {
             Notification::make()
                 ->title('Informe o nome da instituição.')
                 ->danger()
@@ -185,14 +196,12 @@ class InstitutionReportSettings extends Page
 
         foreach (SystemSetting::getReportInstitutionKeys() as $key) {
             $property = "report_institution_{$key}";
-            $value = $this->{$property} ?? '';
+            $value = $this->normalizeValueForStorage($state[$property] ?? $this->{$property} ?? '');
 
-            if (is_array($value)) {
-                $value = reset($value) ?: '';
-            }
-
-            SystemSetting::setReportInstitutionConfigValue($key, (string) $value, (int) $this->institution_id);
+            SystemSetting::setReportInstitutionConfigValue($key, $value, (int) $this->institution_id);
         }
+
+        $this->loadInstitutionConfig();
 
         Notification::make()
             ->title('Configuração da instituição guardada!')
@@ -200,18 +209,61 @@ class InstitutionReportSettings extends Page
             ->success()
             ->icon('heroicon-o-check-circle')
             ->send();
+
     }
 
-    private function loadInstitutionConfig(): void
+    private function loadInstitutionConfig(?Set $set = null): void
+    {
+        $state = $this->getInstitutionFormState();
+
+        foreach ($state as $property => $value) {
+            if (! property_exists($this, $property)) {
+                continue;
+            }
+
+            $this->{$property} = $value;
+
+            if ($set) {
+                $set($property, $value);
+            }
+        }
+
+    }
+
+    private function getInstitutionFormState(): array
     {
         $config = SystemSetting::getReportInstitutionConfig($this->institution_id);
+        $state = [
+            'institution_id' => filled($this->institution_id) ? (int) $this->institution_id : null,
+        ];
 
         foreach ($config as $key => $value) {
             $property = "report_institution_{$key}";
-
-            if (property_exists($this, $property)) {
-                $this->{$property} = (string) $value;
-            }
+            $state[$property] = $this->normalizeValueForForm($key, $value);
         }
+
+        return $state;
+    }
+
+    private function normalizeValueForForm(string $key, mixed $value): mixed
+    {
+        if ($key === 'logo_path') {
+            return filled($value) ? (string) $value : null;
+        }
+
+        return is_scalar($value) ? (string) $value : '';
+    }
+
+    private function normalizeValueForStorage(mixed $value): string
+    {
+        if (is_array($value)) {
+            $value = reset($value) ?: '';
+        }
+
+        if ($value instanceof TemporaryUploadedFile) {
+            return $value->store('report-institution', 'public') ?: '';
+        }
+
+        return is_scalar($value) ? trim((string) $value) : '';
     }
 }

@@ -14,11 +14,14 @@ class Candidate extends Model implements Auditable
 
     protected $fillable = [
         'institution_id',
+        'staff_type',
         'recruitment_type_id',
         'full_name',
         'student_number',
         'id_number',
         'gender',
+        'blood_type',
+        'country',
         'birth_date',
         'marital_status',
         'education_level',
@@ -82,16 +85,6 @@ class Candidate extends Model implements Auditable
     public function academicYear()
     {
         return $this->belongsTo(AcademicYear::class);
-    }
-
-    public function testResults()
-    {
-        return $this->hasMany(CandidateTestResult::class);
-    }
-
-    public function documents()
-    {
-        return $this->hasMany(CandidateDocument::class);
     }
 
     public function province()

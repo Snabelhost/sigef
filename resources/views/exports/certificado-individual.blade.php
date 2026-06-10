@@ -1,3 +1,7 @@
+@php
+    $autoPrint = $autoPrint ?? false;
+    $embeddedMode = $embeddedMode ?? false;
+@endphp
 <!DOCTYPE html>
 <html lang="pt">
 
@@ -303,6 +307,24 @@
                 -webkit-print-color-adjust: exact;
             }
         }
+
+        @if($embeddedMode)
+        @media screen {
+            body {
+                display: flex;
+                justify-content: center;
+                align-items: flex-start;
+                min-width: max-content;
+                padding: 16px;
+                background: #eef3f8;
+            }
+
+            .certificado {
+                flex: 0 0 auto;
+                box-shadow: 0 18px 48px rgba(15, 23, 42, 0.16);
+            }
+        }
+        @endif
     </style>
 </head>
 
@@ -387,6 +409,17 @@
             </div>
         </div>
     </div>
+
+    @if($autoPrint)
+    <script>
+        window.addEventListener('load', function () {
+            window.setTimeout(function () {
+                window.focus();
+                window.print();
+            }, 250);
+        });
+    </script>
+    @endif
 </body>
 
 </html>

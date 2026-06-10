@@ -83,13 +83,6 @@ class Student extends Model implements Auditable
         return $this->hasMany(StudentLeave::class);
     }
 
-    public function classes()
-    {
-        return $this->belongsToMany(StudentClass::class, 'class_students', 'student_id', 'class_id')
-            ->withPivot('enrolled_at')
-            ->withTimestamps();
-    }
-
     public function classEnrollments()
     {
         return $this->hasMany(StudentClassEnrollment::class);

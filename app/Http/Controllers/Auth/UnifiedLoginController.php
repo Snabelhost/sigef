@@ -103,7 +103,6 @@ class UnifiedLoginController extends Controller
         $panels = [
             'admin' => ['name' => 'Administração', 'icon' => 'heroicon-o-cog-6-tooth', 'url' => '/admin'],
             'escola' => ['name' => 'Escola', 'icon' => 'heroicon-o-academic-cap', 'url' => $user->institution_id ? '/escola/' . $user->institution_id : '/escola'],
-            'aluno' => ['name' => 'Aluno', 'icon' => 'heroicon-o-user', 'url' => '/aluno'],
             'professores' => ['name' => 'Professores', 'icon' => 'heroicon-o-user-group', 'url' => '/professores'],
         ];
 
@@ -124,13 +123,6 @@ class UnifiedLoginController extends Controller
                 // Escola panel - precisa role E institution_id (escola é específica)
                 if ($panelId === 'escola') {
                     if (($user->hasRole('escola_admin') || $user->hasRole('escola_user')) && $user->institution_id) {
-                        $hasExplicitAccess = true;
-                    }
-                }
-
-                // Aluno panel
-                if ($panelId === 'aluno') {
-                    if ($user->hasRole('aluno_admin') || $user->hasRole('aluno_user')) {
                         $hasExplicitAccess = true;
                     }
                 }

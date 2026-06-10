@@ -10,6 +10,6 @@ return [
 
     ],
 
-    'welcome' => 'Bem-vindo',
+    'welcome' => 'Bem-vindo(a)',
 
 ];

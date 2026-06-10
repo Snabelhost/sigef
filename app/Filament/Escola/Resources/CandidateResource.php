@@ -2,6 +2,7 @@
 
 namespace App\Filament\Escola\Resources;
 
+use App\Filament\Concerns\HasCandidateRegimeForm;
 use App\Filament\Escola\Resources\CandidateResource\Pages;
 use App\Filament\Resources\CandidateResource\RelationManagers;
 use App\Models\Candidate;
@@ -22,6 +23,8 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class CandidateResource extends Resource
 {
+    use HasCandidateRegimeForm;
+
     protected static bool $shouldSkipAuthorization = true;
 
     protected static ?string $model = Candidate::class;
@@ -71,6 +74,15 @@ class CandidateResource extends Resource
 
     protected static function candidateFormSchema(): array
     {
+        return [
+            static::candidateIdentificationSection(),
+            static::candidateClassificationSection([
+                'Pendente' => 'Pendente',
+                'Apurado' => 'Apurado',
+                'Reprovado' => 'Reprovado',
+            ], 'Pendente'),
+        ];
+
         return [
                 // Identificação Pessoal
                 \Filament\Schemas\Components\Section::make('Identificação Pessoal')
@@ -210,8 +222,11 @@ class CandidateResource extends Resource
                     ->sortable()
                     ->wrap(),
                 Tables\Columns\TextColumn::make('id_number')
-                    ->label('Nº BI')
-                    ->searchable(),
+                    ->label('BI/NIP')
+                    ->getStateUsing(fn (Candidate $record): string => ($record->staff_type === 'regime_especial' || filled($record->nuri))
+                        ? (string) ($record->nuri ?: '-')
+                        : (string) ($record->id_number ?: '-'))
+                    ->searchable(['id_number', 'nuri']),
                 Tables\Columns\TextColumn::make('phone')
                     ->label('Telefone')
                     ->searchable()
@@ -394,6 +409,7 @@ class CandidateResource extends Resource
                     ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger'))
                     ->createAnotherAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-plus-circle')->label('Salvar e criar outro'))
                     ->createAnother(true)
+                    ->mutateFormDataUsing(fn (array $data): array => static::normalizeCandidateRegimeData($data))
                     ->successNotificationTitle('Formando criado com sucesso!')
                     ->after(function (Candidate $record) {
                         // Enviar SMS ao alistado após criar
@@ -513,6 +529,7 @@ class CandidateResource extends Resource
                         ->modalWidth('6xl')
                         ->modalSubmitAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-check')->label('Salvar'))
                         ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger'))
+                        ->mutateFormDataUsing(fn (array $data): array => static::normalizeCandidateRegimeData($data))
                         ->successNotificationTitle('Formando atualizado com sucesso!'),
                     \Filament\Actions\Action::make('moverAlistado')
                         ->label('Mover')
@@ -587,35 +604,13 @@ class CandidateResource extends Resource
                         ])
                         ->action(function (Candidate $record, array $data): void {
                             $institution = Institution::find($data['institution_id']);
+                            $studentType = static::linkCandidateToInstitutionAsStudent($record, (int) $data['institution_id']);
 
                             // Vincular à instituição
-                            $record->update([
-                                'institution_id' => $data['institution_id'],
-                                'student_type' => '1ª Fase - Recruta',
-                            ]);
-
                             // Criar ou atualizar Student
-                            $existingStudent = \App\Models\Student::where('candidate_id', $record->id)->first();
-
-                            if ($existingStudent) {
-                                $existingStudent->update([
-                                    'institution_id' => $data['institution_id'],
-                                    'student_type' => '1ª Fase - Recruta',
-                                ]);
-                            } else {
-                                \App\Models\Student::create([
-                                    'candidate_id' => $record->id,
-                                    'institution_id' => $data['institution_id'],
-                                    'student_number' => 'ALT-' . $record->id,
-                                    'student_type' => '1ª Fase - Recruta',
-                                    'nuri' => $record->nuri ?? null,
-                                    'enrollment_date' => now(),
-                                ]);
-                            }
-
                             \Filament\Notifications\Notification::make()
-                                ->title('Alistado Vinculado e Convertido!')
-                                ->body("Vinculado à escola \"{$institution->name}\" e convertido em Recruta (1ª Fase).")
+                                ->title('Registo Vinculado!')
+                                ->body("Vinculado à escola \"{$institution->name}\" como \"{$studentType}\".")
                                 ->success()
                                 ->send();
                         })
@@ -653,47 +648,22 @@ class CandidateResource extends Resource
                     ])
                     ->action(function (\Illuminate\Database\Eloquent\Collection $records, array $data): void {
                         $institution = Institution::find($data['institution_id']);
-                        $countConverted = 0;
-
-                        // Obter o ID do tipo de aluno dinamicamente
-                        $studentTypeId = \App\Models\StudentType::getIdByName('1ª Fase - Recruta');
+                        $countRecrutas = 0;
+                        $countEmFormacao = 0;
 
                         foreach ($records as $candidate) {
-                            // Atualizar institution_id e student_type do Candidate
-                            // Mudar para '1ª Fase - Recruta' para remover da listagem de Alistados
-                            $candidate->update([
-                                'institution_id' => $data['institution_id'],
-                                'student_type' => '1ª Fase - Recruta',
-                            ]);
+                            $studentType = static::linkCandidateToInstitutionAsStudent($candidate, (int) $data['institution_id']);
 
-                            // Verificar se já existe Student para este Candidate
-                            $existingStudent = \App\Models\Student::where('candidate_id', $candidate->id)->first();
-
-                            if ($existingStudent) {
-                                // Já existe, apenas atualizar institution_id e student_type
-                                $existingStudent->update([
-                                    'institution_id' => $data['institution_id'],
-                                    'student_type' => '1ª Fase - Recruta',
-                                    'student_type_id' => $studentTypeId,
-                                ]);
+                            if ($studentType === 'Em Formação') {
+                                $countEmFormacao++;
                             } else {
-                                // Criar novo Student como Recruta
-                                \App\Models\Student::create([
-                                    'candidate_id' => $candidate->id,
-                                    'institution_id' => $data['institution_id'],
-                                    'student_number' => 'ALT-' . $candidate->id,
-                                    'student_type' => '1ª Fase - Recruta',
-                                    'student_type_id' => $studentTypeId,
-                                    'nuri' => $candidate->nuri ?? null,
-                                    'enrollment_date' => now(),
-                                ]);
+                                $countRecrutas++;
                             }
-                            $countConverted++;
                         }
 
                         \Filament\Notifications\Notification::make()
-                            ->title('Alistados Convertidos em Recrutas!')
-                            ->body("{$countConverted} alistados foram vinculados à escola \"{$institution->name}\" e convertidos em Recrutas. Eles foram removidos desta listagem e estão agora em Gestão de Formandos.")
+                            ->title('Registos Vinculados!')
+                            ->body("Escola: \"{$institution->name}\". Recrutas: {$countRecrutas}. Em Formação: {$countEmFormacao}.")
                             ->success()
                             ->duration(10000)
                             ->send();
@@ -842,6 +812,55 @@ class CandidateResource extends Resource
                     ->deselectRecordsAfterCompletion(),
                 \Filament\Actions\DeleteBulkAction::make(),
             ]);
+    }
+
+    protected static function studentTypeAfterInstitutionLink(?string $studentType): string
+    {
+        return str_contains(strtolower(trim((string) $studentType)), 'formando')
+            ? 'Em Formação'
+            : '1ª Fase - Recruta';
+    }
+
+    protected static function linkCandidateToInstitutionAsStudent(Candidate $candidate, int $institutionId): string
+    {
+        $studentType = static::studentTypeAfterInstitutionLink($candidate->student_type);
+        $studentTypeId = StudentType::getIdByName($studentType);
+
+        $candidate->update([
+            'institution_id' => $institutionId,
+            'student_type' => $studentType,
+        ]);
+
+        $studentData = [
+            'institution_id' => $institutionId,
+            'provenance_id' => $candidate->provenance_id,
+            'rank_id' => $candidate->current_rank_id,
+            'student_type' => $studentType,
+            'student_type_id' => $studentTypeId,
+            'nuri' => $candidate->nuri ?: null,
+            'phone' => $candidate->phone ?: null,
+            'photo' => $candidate->photo ?: null,
+            'bilhete_identidade' => $candidate->bilhete_identidade ?: $candidate->id_number,
+            'certificado_doc' => $candidate->certificado_doc ?: null,
+        ];
+
+        $existingStudent = \App\Models\Student::where('candidate_id', $candidate->id)->first();
+
+        if ($existingStudent) {
+            if (blank($existingStudent->enrollment_date)) {
+                $studentData['enrollment_date'] = now();
+            }
+
+            $existingStudent->update($studentData);
+        } else {
+            \App\Models\Student::create($studentData + [
+                'candidate_id' => $candidate->id,
+                'student_number' => 'ALT-' . $candidate->id,
+                'enrollment_date' => now(),
+            ]);
+        }
+
+        return $studentType;
     }
 
     protected static function formatRecruitmentStatus(?string $state): string

@@ -1,9 +1,12 @@
 @php
-    $equipamentos = \App\Models\EquipmentAssignment::where('student_id', $getRecord()->id)
+    $pendingQuery = \App\Models\EquipmentAssignment::where('student_id', $getRecord()->id)
+        ->whereNull('returned_at');
+    $equipamentos = (clone $pendingQuery)
         ->pluck('equipment_name')
         ->take(3)
         ->toArray();
-    $total = \App\Models\EquipmentAssignment::where('student_id', $getRecord()->id)->count();
+    $total = (clone $pendingQuery)->count();
+    $historicalTotal = \App\Models\EquipmentAssignment::where('student_id', $getRecord()->id)->count();
     
     // Ícones SVG customizados para equipamentos de vestuário
     $svgIcons = [
@@ -62,7 +65,11 @@
 
 <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">
     @if(count($equipamentos) === 0)
-        <span style="color: #9ca3af; font-style: italic; font-size: 13px;">Nenhum equipamento</span>
+        @if($historicalTotal > 0)
+            <span style="color: #059669; font-style: italic; font-size: 13px;">Todos devolvidos</span>
+        @else
+            <span style="color: #9ca3af; font-style: italic; font-size: 13px;">Nenhum equipamento</span>
+        @endif
     @else
         @foreach($equipamentos as $equip)
             @php

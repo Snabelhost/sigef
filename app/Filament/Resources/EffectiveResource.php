@@ -8,6 +8,7 @@ use App\Imports\EffectiveImport;
 use App\Models\CardTemplate;
 use App\Models\Effective;
 use App\Models\Institution;
+use App\Models\Municipality;
 use App\Models\Provenance;
 use App\Models\Province;
 use App\Models\Rank;
@@ -28,6 +29,7 @@ use Filament\Support\Enums\Width;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\HtmlString;
@@ -222,7 +224,12 @@ class EffectiveResource extends Resource
                                 ->maxSize(4096),
                             Html::make(static::effectivePhotoUploadActions())
                                 ->hiddenOn('view'),
+                            Html::make(fn (?Effective $record): HtmlString => static::effectivePhotoPreviewTrigger($record))
+                                ->visibleOn('view'),
                         ])
+                            ->extraAttributes([
+                                'class' => 'sigef-trainer-photo-view-group',
+                            ])
                             ->columnSpan([
                                 'default' => 1,
                                 'lg' => 3,
@@ -315,6 +322,13 @@ class EffectiveResource extends Resource
                         Forms\Components\Select::make('province')
                             ->label('Província')
                             ->options(fn (): array => Province::query()->orderBy('name')->pluck('name', 'name')->toArray())
+                            ->searchable()
+                            ->preload()
+                            ->live()
+                            ->afterStateUpdated(fn (Set $set): mixed => $set('municipality', null)),
+                        Forms\Components\Select::make('municipality')
+                            ->label('Município')
+                            ->options(fn (Get $get): array => static::municipalityOptions($get('province')))
                             ->searchable()
                             ->preload(),
                         Forms\Components\DatePicker::make('birth_date')
@@ -422,6 +436,42 @@ class EffectiveResource extends Resource
             . '<button type="button" class="sigef-photo-action sigef-photo-action-secondary" data-sigef-photo-action="upload"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span>Carregar</span></button>'
             . '</div>'
         );
+    }
+
+    protected static function effectivePhotoPreviewTrigger(?Effective $record): HtmlString
+    {
+        $photoUrl = static::effectivePhotoUrl($record);
+
+        if ($photoUrl === null) {
+            return new HtmlString('');
+        }
+
+        $name = trim((string) ($record?->full_name ?: 'Efectivo'));
+
+        return new HtmlString(
+            '<button type="button" class="sigef-photo-preview-trigger"'
+            . ' data-sigef-photo-preview="true"'
+            . ' data-sigef-photo-url="' . e($photoUrl) . '"'
+            . ' data-sigef-photo-name="' . e($name) . '"'
+            . ' aria-label="Visualizar foto de ' . e($name) . '">'
+            . '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>'
+            . '</button>'
+        );
+    }
+
+    protected static function effectivePhotoUrl(?Effective $record): ?string
+    {
+        $photo = trim((string) ($record?->photo ?? ''));
+
+        if ($photo === '') {
+            return null;
+        }
+
+        if (Str::startsWith($photo, ['http://', 'https://', 'data:'])) {
+            return $photo;
+        }
+
+        return asset('storage/' . ltrim($photo, '/'));
     }
 
     protected static function effectivePhotoUploadStyles(): HtmlString
@@ -875,6 +925,7 @@ HTML);
                         ->modalWidth(Width::ScreenExtraLarge)
                         ->schema(static::effectiveFormSchema())
                         ->modalCancelAction(fn (Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Fechar')->color('danger')),
+                    static::sheetAction(),
                     static::previewCardAction(),
                     Actions\EditAction::make()
                         ->icon('heroicon-o-pencil-square')
@@ -890,6 +941,52 @@ HTML);
                     Actions\DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    protected static function sheetAction(): Actions\Action
+    {
+        return Actions\Action::make('effective_sheet')
+            ->label('Ficha do Efectivo')
+            ->icon('heroicon-o-document-text')
+            ->color('success')
+            ->modalHeading('Pre-visualizacao da Ficha do Efectivo')
+            ->modalDescription(null)
+            ->modalWidth(Width::SevenExtraLarge)
+            ->modalSubmitAction(false)
+            ->modalCancelAction(fn (Actions\Action $action) => $action
+                ->icon('heroicon-o-x-mark')
+                ->label('Fechar Pre-visualizacao')
+                ->color('danger'))
+            ->stickyModalHeader()
+            ->stickyModalFooter()
+            ->closeModalByClickingAway(false)
+            ->modalContent(function (Effective $record) {
+                $printUrl = route('effectives.sheet.print', ['effective' => $record]);
+                $effectiveName = trim((string) ($record->full_name ?: 'Efectivo'));
+                $identifierLabel = $record->staff_type === 'regime_geral' ? 'N.o DO BI' : 'NIP';
+                $identifierNumber = trim((string) (
+                    $record->staff_type === 'regime_geral'
+                        ? ($record->identity_document ?: $record->document_number ?: $record->nas)
+                        : ($record->employee_number ?: $record->document_number)
+                ));
+                $identifierNumber = $identifierNumber !== '' ? $identifierNumber : '-';
+                $frameId = 'sigef-effective-sheet-frame-'.$record->getKey();
+                $viewerId = 'sigef-effective-sheet-viewer-'.$record->getKey();
+
+                return view('trainers.sheet-modal', [
+                    'viewerId' => $viewerId,
+                    'frameId' => $frameId,
+                    'documentName' => 'Ficha do Efectivo - '.$effectiveName,
+                    'documentBadge' => $identifierLabel.': '.$identifierNumber,
+                    'defaultOrientation' => 'vertical',
+                    'embeddedHorizontalUrl' => $printUrl.'?embedded=1&autoprint=0&orientation=horizontal',
+                    'embeddedVerticalUrl' => $printUrl.'?embedded=1&autoprint=0&orientation=vertical',
+                    'fallbackPrintHorizontalUrl' => $printUrl.'?autoprint=1&orientation=horizontal',
+                    'fallbackPrintVerticalUrl' => $printUrl.'?autoprint=1&orientation=vertical',
+                    'loadingText' => 'A preparar ficha do efectivo...',
+                    'hintText' => 'Pre-visualize a ficha do efectivo em A4 antes de imprimir.',
+                ]);
+            });
     }
 
     protected static function previewCardAction(): Actions\Action
@@ -1077,13 +1174,15 @@ HTML);
         }
 
         $set('identity_document', $identityDocument);
+        $set('document_type', 'Bilhete de Identidade');
+        $set('document_number', $identityDocument);
 
-        if (filled($data['name'] ?? null)) {
-            $set('full_name', static::formatIdentityName((string) $data['name']));
+        if (filled($name = static::firstIdentityValue($data, ['name', 'nome', 'full_name', 'nome_completo']))) {
+            $set('full_name', static::formatIdentityName($name));
         }
 
-        if (filled($data['data_de_nascimento'] ?? null)) {
-            $set('birth_date', (string) $data['data_de_nascimento']);
+        if (filled($birthDate = static::firstIdentityValue($data, ['data_de_nascimento', 'birth_date', 'data_nascimento', 'nascimento']))) {
+            $set('birth_date', static::normalizeIdentityDate($birthDate));
         }
 
         if (filled($gender = static::extractIdentityGender($data))) {
@@ -1092,9 +1191,37 @@ HTML);
 
         if (filled($province = static::extractIdentityProvince($data))) {
             $set('province', $province);
+
+            if (filled($municipality = static::extractIdentityMunicipality($data, $province))) {
+                $set('municipality', $municipality);
+            }
         }
 
-        $set('country', 'Angola');
+        if (filled($bloodType = static::firstIdentityValue($data, ['blood_type', 'grupo_sanguineo', 'grupo_sanguíneo', 'tipo_sangue']))) {
+            $set('blood_type', Str::upper(trim($bloodType)));
+        }
+
+        if (filled($country = static::firstIdentityValue($data, ['country', 'pais', 'país', 'nacionalidade']))) {
+            $set('country', static::formatIdentityCountry($country));
+        } else {
+            $set('country', 'Angola');
+        }
+
+        if (filled($fatherName = static::firstIdentityValue($data, ['father_name', 'nome_pai', 'nome_do_pai', 'pai']))) {
+            $set('father_name', static::formatIdentityName($fatherName));
+        }
+
+        if (filled($motherName = static::firstIdentityValue($data, ['mother_name', 'nome_mae', 'nome_mãe', 'nome_da_mae', 'nome_da_mãe', 'mae', 'mãe']))) {
+            $set('mother_name', static::formatIdentityName($motherName));
+        }
+
+        if (filled($phone = static::firstIdentityValue($data, ['phone', 'telefone', 'telemovel', 'telemóvel', 'contacto', 'contact']))) {
+            $set('phone', $phone);
+        }
+
+        if (filled($email = static::firstIdentityValue($data, ['email', 'e_mail', 'mail']))) {
+            $set('email', $email);
+        }
 
         Notification::make()
             ->title('Dados do BI carregados')
@@ -1192,6 +1319,56 @@ HTML);
         return static::matchIdentityProvince($province);
     }
 
+    protected static function extractIdentityMunicipality(array $data, ?string $province = null): ?string
+    {
+        $municipality = static::firstIdentityValue($data, [
+            'municipio',
+            'município',
+            'municipality',
+            'naturalidade_municipio',
+            'municipio_nascimento',
+            'municipio_de_nascimento',
+            'birth_municipality',
+            'localidade',
+            'comuna',
+        ]);
+
+        if ($municipality === null) {
+            return null;
+        }
+
+        return static::matchIdentityMunicipality($municipality, $province);
+    }
+
+    protected static function normalizeIdentityDate(mixed $value): ?string
+    {
+        if (! is_scalar($value) || blank((string) $value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        try {
+            if (preg_match('/^\d{2}\/\d{2}\/\d{4}$/', $value)) {
+                return Carbon::createFromFormat('d/m/Y', $value)->format('Y-m-d');
+            }
+
+            return Carbon::parse($value)->format('Y-m-d');
+        } catch (Throwable) {
+            return $value;
+        }
+    }
+
+    protected static function formatIdentityCountry(string $country): string
+    {
+        $country = trim(preg_replace('/\s+/u', ' ', $country) ?: '');
+
+        return match (static::normalizeIdentityLookupText($country)) {
+            'angola', 'angolano', 'angolana' => 'Angola',
+            default => $country,
+        };
+    }
+
     protected static function firstIdentityValue(array $data, array $keys): ?string
     {
         $keys = array_flip(array_map(static::normalizeIdentityLookupKey(...), $keys));
@@ -1213,6 +1390,43 @@ HTML);
 
             if (is_scalar($value) && filled((string) $value)) {
                 return (string) $value;
+            }
+        }
+
+        return null;
+    }
+
+    protected static function matchIdentityMunicipality(string $municipality, ?string $province = null): ?string
+    {
+        $normalizedMunicipality = static::normalizeIdentityLookupText($municipality);
+        $normalizedMunicipality = preg_replace('/\b(municipio|municipality|mun|de|da|do)\b/u', ' ', $normalizedMunicipality) ?: $normalizedMunicipality;
+        $normalizedMunicipality = trim(preg_replace('/\s+/u', ' ', $normalizedMunicipality) ?: '');
+
+        if ($normalizedMunicipality === '') {
+            return null;
+        }
+
+        $provinceId = filled($province)
+            ? Province::query()->where('name', $province)->value('id')
+            : null;
+
+        $municipalities = Municipality::query()
+            ->when($provinceId, fn ($query) => $query->where('province_id', $provinceId))
+            ->orderBy('name')
+            ->pluck('name')
+            ->all();
+
+        foreach ($municipalities as $municipalityName) {
+            if (static::normalizeIdentityLookupText((string) $municipalityName) === $normalizedMunicipality) {
+                return (string) $municipalityName;
+            }
+        }
+
+        foreach ($municipalities as $municipalityName) {
+            $normalizedName = static::normalizeIdentityLookupText((string) $municipalityName);
+
+            if (strlen($normalizedName) >= 4 && str_contains($normalizedMunicipality, $normalizedName)) {
+                return (string) $municipalityName;
             }
         }
 
@@ -1269,6 +1483,27 @@ HTML);
         $value = preg_replace('/[^a-z0-9]+/u', ' ', $value) ?: '';
 
         return trim(preg_replace('/\s+/u', ' ', $value) ?: '');
+    }
+
+    protected static function municipalityOptions(?string $province): array
+    {
+        if (! filled($province)) {
+            return [];
+        }
+
+        $provinceId = Province::query()
+            ->where('name', $province)
+            ->value('id');
+
+        if (! $provinceId) {
+            return [];
+        }
+
+        return Municipality::query()
+            ->where('province_id', $provinceId)
+            ->orderBy('name')
+            ->pluck('name', 'name')
+            ->toArray();
     }
 
     protected static function countryOptions(): array
