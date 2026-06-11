@@ -9,6 +9,25 @@
         ? ' DO ANO: '.$academicYear
         : '';
     $studentName = $candidate?->full_name ?: $student->full_name;
+    $documentPageTitle = $documentPageTitle ?? 'Ficha de Inscricao - '.$studentName;
+    $documentTitle = $documentTitle ?? 'Ficha de Inscricao'.$titleYear;
+    $documentIntro = $documentIntro ?? 'Vimos por este meio apresentar o(a) formando(a) abaixo identificado(a), titular da presente ficha de inscricao, contendo os dados pessoais, o enquadramento academico e as disciplinas registadas no SIGEF.';
+    $recordsTitle = $recordsTitle ?? 'Disciplinas inscritas';
+    $recordEmptyText = $recordEmptyText ?? 'Nenhuma disciplina registada.';
+    $recordColumns = $recordColumns ?? [
+        ['key' => 'index', 'label' => '#', 'width' => '7%', 'class' => 'center'],
+        ['key' => 'academic_year', 'label' => 'Ano lectivo', 'width' => '17%', 'class' => 'center'],
+        ['key' => 'phase', 'label' => 'Fase', 'width' => '16%', 'class' => 'center'],
+        ['key' => 'class', 'label' => 'Turma', 'width' => '16%', 'class' => 'center'],
+        ['key' => 'subject', 'label' => 'Disciplina'],
+    ];
+    $signatureBlocks = $signatureBlocks ?? [
+        ['Assinatura do Formando'],
+        array_values(array_filter([
+            $institution['director_title'] ?: 'Responsavel',
+            $institution['director_name'] ?? null,
+        ])),
+    ];
     $initials = collect(explode(' ', trim((string) $studentName)))
         ->filter()
         ->take(2)
@@ -20,7 +39,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Ficha de Inscricao - {{ $studentName }}</title>
+    <title>{{ $documentPageTitle }}</title>
     <style>
         @page {
             size: A4 {{ $isLandscape ? 'landscape' : 'portrait' }};
@@ -389,7 +408,7 @@
                     </div>
 
                     <div class="sheet-rule"></div>
-                    <h1 class="sheet-title">Ficha de Inscricao{{ $titleYear }}</h1>
+                    <h1 class="sheet-title">{{ $documentTitle }}</h1>
                 </header>
 
                 <section class="identity-block">
@@ -423,10 +442,7 @@
                     </div>
                 </section>
 
-                <p class="intro">
-                    Vimos por este meio apresentar o(a) formando(a) abaixo identificado(a), titular da presente ficha de inscricao,
-                    contendo os dados pessoais, o enquadramento academico e as disciplinas registadas no SIGEF.
-                </p>
+                <p class="intro">{{ $documentIntro }}</p>
 
                 <section class="section-grid">
                     @foreach ($sections as $title => $rows)
@@ -447,29 +463,29 @@
                 </section>
 
                 <section class="subjects">
-                    <div class="section-title">Disciplinas inscritas</div>
+                    <div class="section-title">{{ $recordsTitle }}</div>
                     <table>
                         <thead>
                             <tr>
-                                <th style="width: 7%;">#</th>
-                                <th style="width: 17%;">Ano lectivo</th>
-                                <th style="width: 16%;">Fase</th>
-                                <th style="width: 16%;">Turma</th>
-                                <th>Disciplina</th>
+                                @foreach ($recordColumns as $column)
+                                    <th @if (! empty($column['width'])) style="width: {{ $column['width'] }};" @endif>
+                                        {{ $column['label'] }}
+                                    </th>
+                                @endforeach
                             </tr>
                         </thead>
                         <tbody>
                             @forelse ($subjectRows as $row)
                                 <tr>
-                                    <td class="center">{{ $row['index'] }}</td>
-                                    <td class="center">{{ $row['academic_year'] }}</td>
-                                    <td class="center">{{ $row['phase'] }}</td>
-                                    <td class="center">{{ $row['class'] }}</td>
-                                    <td>{{ $row['subject'] }}</td>
+                                    @foreach ($recordColumns as $column)
+                                        <td class="{{ $column['class'] ?? '' }}">
+                                            {{ filled($row[$column['key']] ?? null) ? $row[$column['key']] : '-' }}
+                                        </td>
+                                    @endforeach
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="5" class="center">Nenhuma disciplina registada.</td>
+                                    <td colspan="{{ count($recordColumns) }}" class="center">{{ $recordEmptyText }}</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -477,13 +493,14 @@
                 </section>
 
                 <section class="signatures">
-                    <div class="signature-line">Assinatura do Formando</div>
-                    <div class="signature-line">
-                        {{ $institution['director_title'] ?: 'Responsavel' }}
-                        @if (filled($institution['director_name'] ?? null))
-                            <br>{{ $institution['director_name'] }}
-                        @endif
-                    </div>
+                    @foreach ($signatureBlocks as $signatureBlock)
+                        <div class="signature-line">
+                            @foreach ((array) $signatureBlock as $signatureLine)
+                                @if (! $loop->first)<br>@endif
+                                {{ $signatureLine }}
+                            @endforeach
+                        </div>
+                    @endforeach
                 </section>
 
                 <footer class="sheet-footer">

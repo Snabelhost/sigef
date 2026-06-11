@@ -42,6 +42,8 @@ class StudentTypeResource extends Resource
                         Forms\Components\Select::make('color')
                             ->label('Cor do Estado')
                             ->options(StudentType::getColorOptions())
+                            ->searchable()
+                            ->native(false)
                             ->required()
                             ->default('gray')
                             ->helperText('Cor que aparece nos badges e listagens'),

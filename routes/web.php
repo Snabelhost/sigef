@@ -97,6 +97,10 @@ Route::middleware(['auth'])->prefix('gestao-formandos')->name('students.')->grou
     Route::get('/{student}/ficha-inscricao', \App\Http\Controllers\StudentSheetPrintController::class)->name('sheet.print');
 });
 
+Route::middleware(['auth'])->prefix('dispensas-faltas')->name('student-leaves.')->group(function () {
+    Route::get('/{studentLeave}/ficha-dispensa', \App\Http\Controllers\StudentLeaveSheetPrintController::class)->name('sheet.print');
+});
+
 /*
 |--------------------------------------------------------------------------
 | Cartões de Identificação dos Estudantes

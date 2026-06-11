@@ -171,8 +171,15 @@ class EquipmentAssignmentResource extends Resource
             })
             ->defaultSort('id', 'desc')
             ->columns([
+                Tables\Columns\ImageColumn::make('photo')
+                    ->label('Foto')
+                    ->disk('public')
+                    ->circular()
+                    ->size(40)
+                    ->getStateUsing(fn ($record): ?string => $record->photo ?: $record->candidate?->photo)
+                    ->defaultImageUrl(fn ($record): string => 'https://ui-avatars.com/api/?name=' . urlencode($record->candidate?->full_name ?? 'NA') . '&background=0D4C8B&color=fff&size=100'),
                 Tables\Columns\TextColumn::make('candidate.full_name')
-                    ->label('Formando')
+                    ->label('Nome')
                     ->sortable()
                     ->searchable()
                     ->wrap()
@@ -224,6 +231,29 @@ class EquipmentAssignmentResource extends Resource
                     ->toggleable(),
             ])
             ->filters([
+                Tables\Filters\Filter::make('student_identifier')
+                    ->form([
+                        Forms\Components\TextInput::make('identifier')
+                            ->label('NIP/NURI')
+                            ->placeholder('Pesquisar NIP/NURI'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $identifier = trim((string) ($data['identifier'] ?? ''));
+
+                        return $query->when($identifier !== '', function (Builder $query) use ($identifier): Builder {
+                            return $query->where(function (Builder $query) use ($identifier): void {
+                                $query
+                                    ->where('nuri', 'like', "%{$identifier}%")
+                                    ->orWhere('student_number', 'like', "%{$identifier}%")
+                                    ->orWhereHas('candidate', function (Builder $candidateQuery) use ($identifier): void {
+                                        $candidateQuery
+                                            ->where('nuri', 'like', "%{$identifier}%")
+                                            ->orWhere('student_number', 'like', "%{$identifier}%")
+                                            ->orWhere('id_number', 'like', "%{$identifier}%");
+                                    });
+                            });
+                        });
+                    }),
                 Tables\Filters\SelectFilter::make('institution_id')
                     ->label('Instituição')
                     ->relationship('institution', 'name')
@@ -253,17 +283,23 @@ class EquipmentAssignmentResource extends Resource
                             ->pluck('section', 'section')
                             ->toArray();
                     }),
-                Tables\Filters\TernaryFilter::make('tem_equipamento')
+                Tables\Filters\SelectFilter::make('equipment_status')
                     ->label('Estado de Equipamento')
-                    ->placeholder('Todos')
-                    ->trueLabel('Com Equipamento')
-                    ->falseLabel('Sem Equipamento')
-                    ->queries(
-                        true: fn(Builder $query) => $query->whereHas('equipmentAssignments'),
-                        false: fn(Builder $query) => $query->whereDoesntHave('equipmentAssignments'),
-                    ),
+                    ->options([
+                        'pending' => 'Atribuido / Pendente',
+                        'returned' => 'Devolvido',
+                        'none' => 'Sem Meios',
+                    ])
+                    ->query(fn (Builder $query, array $data): Builder => match ($data['value'] ?? null) {
+                        'pending' => $query->whereHas('equipmentAssignments', fn (Builder $equipmentQuery): Builder => $equipmentQuery->whereNull('returned_at')),
+                        'returned' => $query
+                            ->whereHas('equipmentAssignments')
+                            ->whereDoesntHave('equipmentAssignments', fn (Builder $equipmentQuery): Builder => $equipmentQuery->whereNull('returned_at')),
+                        'none' => $query->whereDoesntHave('equipmentAssignments'),
+                        default => $query,
+                    }),
             ])
-            ->filtersFormColumns(5)
+            ->filtersFormColumns(6)
             ->filtersLayout(Tables\Enums\FiltersLayout::AboveContentCollapsible)
             ->persistFiltersInSession()
             ->actions([

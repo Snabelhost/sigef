@@ -103,11 +103,11 @@ class RecruitmentTypeResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->can('ViewAny:RecruitmentType') ?? false;
+        return false;
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        return static::canAccess();
+        return false;
     }
 }

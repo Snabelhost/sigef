@@ -5,10 +5,13 @@ namespace App\Filament\Resources\Concerns;
 use App\Models\AcademicYear;
 use App\Models\CoursePlan;
 use App\Models\CoursePhase;
+use App\Models\Effective;
+use App\Models\Provenance;
 use App\Models\Student;
 use App\Models\StudentClass;
 use App\Models\StudentClassEnrollment;
 use App\Models\StudentSubjectEnrollment;
+use App\Models\StudentType;
 use App\Models\Subject;
 use Filament\Forms;
 use Illuminate\Database\Eloquent\Builder;
@@ -26,12 +29,7 @@ trait StudentEnrollmentEditForm
             ?? $record->institution_id
             ?? $record->candidate?->institution_id;
         $defaultCourseId = static::currentCourseIdForEdit($record);
-
-        $studentType = strtolower($record->student_type ?? '');
-        $isNip = in_array($studentType, ['em formação', 'oficial', 'formando'], true)
-            || str_contains($studentType, 'em formação')
-            || str_contains($studentType, 'oficial')
-            || str_contains($studentType, 'formando');
+        $defaultNipNuri = static::defaultEnrollmentNipNuri($record);
 
         return [
             \Filament\Schemas\Components\Grid::make([
@@ -102,8 +100,8 @@ trait StudentEnrollmentEditForm
                         $set('course_id', $class->courseMap?->course_id);
                     }),
                 Forms\Components\TextInput::make('nuri')
-                    ->label($isNip ? 'NIP' : 'NURI')
-                    ->default($record->nuri)
+                    ->label('NIP/NURI')
+                    ->default($defaultNipNuri)
                     ->maxLength(9),
                 Forms\Components\Select::make('cia')
                     ->label('CIA')
@@ -113,7 +111,7 @@ trait StudentEnrollmentEditForm
             ]),
             \Filament\Schemas\Components\Grid::make([
                 'default' => 1,
-                'md' => 2,
+                'md' => 3,
             ])->schema([
                 Forms\Components\Select::make('platoon')
                     ->label('Pelotão')
@@ -144,12 +142,15 @@ trait StudentEnrollmentEditForm
         $phaseName = $currentEnrollment?->coursePhase?->name
             ?: static::phaseNameForStudentType($record->student_type);
         $coursePhaseId = static::resolveCoursePhaseIdForInscription($courseId, $phaseName);
+        $nuri = filled($data['nuri'] ?? null)
+            ? trim((string) $data['nuri'])
+            : static::defaultEnrollmentNipNuri($record);
 
         $record->update([
             'institution_id' => $data['institution_id'] ?? $studentClass?->institution_id ?? $studentClass?->courseMap?->institution_id ?? $record->institution_id,
             'course_map_id' => $studentClass?->course_map_id ?? $record->course_map_id,
             'current_phase_id' => $coursePhaseId ?? $record->current_phase_id,
-            'nuri' => $data['nuri'] ?? $record->nuri,
+            'nuri' => $nuri,
             'cia' => $data['cia'] ?? null,
             'platoon' => $data['platoon'] ?? null,
             'section' => $data['section'] ?? null,
@@ -279,9 +280,7 @@ trait StudentEnrollmentEditForm
                                 ->live()
                                 ->afterStateUpdated(function (callable $set): void {
                                     $set('course_id', null);
-                                    $set('course_phase_id', null);
                                     $set('class_id', null);
-                                    $set('class_shift', null);
                                 }),
                             Forms\Components\Select::make('institution_id')
                                 ->label('Escola')
@@ -293,9 +292,7 @@ trait StudentEnrollmentEditForm
                                 ->live()
                                 ->afterStateUpdated(function (callable $set): void {
                                     $set('course_id', null);
-                                    $set('course_phase_id', null);
                                     $set('class_id', null);
-                                    $set('class_shift', null);
                                 }),
                             Forms\Components\TextInput::make('candidate_full_name')
                                 ->label('Nome completo')
@@ -330,23 +327,8 @@ trait StudentEnrollmentEditForm
                                 ->preload()
                                 ->live()
                                 ->afterStateUpdated(function (callable $set): void {
-                                    $set('course_phase_id', null);
                                     $set('class_id', null);
-                                    $set('class_shift', null);
                                 }),
-                            Forms\Components\Select::make('course_phase_id')
-                                ->label('Ano de frequência')
-                                ->options(fn ($get): array => static::coursePhaseOptionsForEnrollmentEdit($get('course_id')))
-                                ->default(fn (Student $record) => static::currentEnrollmentForEdit($record)?->course_phase_id)
-                                ->searchable()
-                                ->preload(),
-                            Forms\Components\Select::make('class_shift')
-                                ->label('Turno')
-                                ->options(static::shiftOptions())
-                                ->default(fn (Student $record) => static::currentEnrollmentForEdit($record)?->studentClass?->shift)
-                                ->native(false)
-                                ->disabled()
-                                ->dehydrated(false),
                             Forms\Components\Select::make('class_id')
                                 ->label('Turma')
                                 ->options(fn ($get): array => static::inscriptionClassOptions($get('academic_year_id'), $get('institution_id'), $get('course_id')))
@@ -357,8 +339,6 @@ trait StudentEnrollmentEditForm
                                 ->live()
                                 ->afterStateUpdated(function ($state, callable $set): void {
                                     $class = StudentClass::query()->with('courseMap')->find($state);
-
-                                    $set('class_shift', $class?->shift);
 
                                     if (! $class) {
                                         return;
@@ -387,24 +367,12 @@ trait StudentEnrollmentEditForm
                                 ->options(collect(range(1, 15))->mapWithKeys(fn (int $number): array => [$number => "{$number}ª Secção"]))
                                 ->default(fn (Student $record) => $record->section)
                                 ->searchable(),
-                            Forms\Components\Select::make('mechanographic_mode')
-                                ->label('Modo do Nº Mecanográfico')
-                                ->options(['automatico' => 'Automático'])
-                                ->default('automatico')
-                                ->native(false)
-                                ->disabled()
-                                ->dehydrated(false),
                             Forms\Components\Select::make('student_status')
                                 ->label('Estado académico')
                                 ->options(fn (?Student $record = null): array => static::academicStatusOptions($record))
-                                ->default(fn (Student $record) => $record->status ?: 'matriculado')
+                                ->default(fn (Student $record) => static::defaultAcademicStatusForEdit($record))
                                 ->native(false)
                                 ->searchable(),
-                            Forms\Components\Toggle::make('is_scientific')
-                                ->label('Aluno científico?')
-                                ->default(false)
-                                ->inline(false)
-                                ->dehydrated(false),
                         ])->columnSpanFull(),
                     ]),
                 ])
@@ -422,10 +390,9 @@ trait StudentEnrollmentEditForm
                                     Forms\Components\Select::make('candidate_country')
                                         ->label('País')
                                         ->options(['Angola' => 'Angola'])
-                                        ->default('Angola')
+                                        ->default(fn (Student $record) => $record->candidate?->country ?: 'Angola')
                                         ->searchable()
-                                        ->native(false)
-                                        ->dehydrated(false),
+                                        ->native(false),
                                     Forms\Components\Select::make('candidate_province_id')
                                         ->label('Província')
                                         ->options(fn (): array => \App\Models\Province::query()->orderBy('name')->pluck('name', 'id')->toArray())
@@ -537,7 +504,7 @@ trait StudentEnrollmentEditForm
                                         ->preload(),
                                     Forms\Components\Select::make('candidate_provenance_id')
                                         ->label('Órgão de Proveniência')
-                                        ->options(fn (): array => \App\Models\Provenance::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                                        ->options(fn (): array => static::studentProvenanceOptions())
                                         ->default(fn (Student $record) => $record->candidate?->provenance_id ?? $record->provenance_id)
                                         ->searchable()
                                         ->preload(),
@@ -559,10 +526,12 @@ trait StudentEnrollmentEditForm
                                         ->default(fn (Student $record) => $record->candidate?->current_rank_id ?? $record->rank_id)
                                         ->searchable()
                                         ->preload(),
-                                    Forms\Components\TextInput::make('candidate_education_level')
+                                    Forms\Components\Select::make('candidate_education_level')
                                         ->label('Grau académico')
+                                        ->options(static::studentEducationLevelOptions())
                                         ->default(fn (Student $record) => $record->candidate?->education_level)
-                                        ->maxLength(191),
+                                        ->searchable()
+                                        ->preload(),
                                     Forms\Components\TextInput::make('candidate_education_area')
                                         ->label('Área de formação')
                                         ->default(fn (Student $record) => $record->candidate?->education_area)
@@ -572,12 +541,6 @@ trait StudentEnrollmentEditForm
                                         ->default(fn (Student $record) => $record->candidate?->pna_entry_date)
                                         ->native(false)
                                         ->displayFormat('d/m/Y'),
-                                    Forms\Components\TextInput::make('student_nuri')
-                                        ->label('NURI / NIP')
-                                        ->default(fn (Student $record) => $record->nuri)
-                                        ->maxLength(191)
-                                        ->disabled()
-                                        ->dehydrated(false),
                                 ]),
                         ]),
                     \Filament\Schemas\Components\Tabs\Tab::make('Estado de Saúde')
@@ -586,10 +549,12 @@ trait StudentEnrollmentEditForm
                             \Filament\Schemas\Components\Section::make('Estado de Saúde')
                                 ->columns(3)
                                 ->schema([
-                                    Forms\Components\TextInput::make('blood_type')
+                                    Forms\Components\Select::make('candidate_blood_type')
                                         ->label('Grupo sanguíneo')
-                                        ->dehydrated(false)
-                                        ->maxLength(10),
+                                        ->options(Effective::bloodTypeOptions())
+                                        ->default(fn (Student $record) => $record->candidate?->blood_type)
+                                        ->searchable()
+                                        ->preload(),
                                     Forms\Components\Textarea::make('health_notes')
                                         ->label('Observações')
                                         ->rows(3)
@@ -636,6 +601,8 @@ trait StudentEnrollmentEditForm
     public static function updateEnrollmentFromEditForm(Student $record, array $data): void
     {
         $candidate = $record->candidate;
+        $studentType = static::studentTypeForEditPayload($record, $data);
+        $studentTypeId = $studentType ? static::studentTypeIdForName($studentType) : $record->student_type_id;
 
         if ($candidate) {
             $candidate->update([
@@ -647,6 +614,9 @@ trait StudentEnrollmentEditForm
                 'full_name' => $data['candidate_full_name'] ?? $candidate->full_name,
                 'birth_date' => $data['candidate_birth_date'] ?? null,
                 'gender' => $data['candidate_gender'] ?? null,
+                'blood_type' => $data['candidate_blood_type'] ?? $candidate->blood_type,
+                'country' => $data['candidate_country'] ?? $candidate->country,
+                'student_type' => $studentType ?? $candidate->student_type,
                 'marital_status' => $data['candidate_marital_status'] ?? null,
                 'father_name' => $data['candidate_father_name'] ?? null,
                 'mother_name' => $data['candidate_mother_name'] ?? null,
@@ -675,7 +645,8 @@ trait StudentEnrollmentEditForm
             'rank_id' => $data['candidate_current_rank_id'] ?? $record->rank_id,
             'course_map_id' => $studentClass?->course_map_id ?? $record->course_map_id,
             'current_phase_id' => $data['course_phase_id'] ?? $record->current_phase_id,
-            'status' => $data['student_status'] ?? $record->status,
+            'student_type' => $studentType ?? $record->student_type,
+            'student_type_id' => $studentTypeId,
             'nuri' => $data['nuri'] ?? $data['student_nuri'] ?? $record->nuri,
             'cia' => $data['cia'] ?? $record->cia,
             'platoon' => $data['platoon'] ?? $record->platoon,
@@ -688,9 +659,13 @@ trait StudentEnrollmentEditForm
 
         if ($studentClass) {
             $enrollment = static::currentEnrollmentForEdit($record);
+            $coursePhaseId = $data['course_phase_id']
+                ?? $enrollment?->course_phase_id
+                ?? $record->current_phase_id;
+
             $payload = [
                 'class_id' => $studentClass->id,
-                'course_phase_id' => $data['course_phase_id'] ?? null,
+                'course_phase_id' => $coursePhaseId,
                 'academic_year_id' => $data['academic_year_id'] ?? $studentClass->academic_year_id,
                 'student_type' => $record->student_type,
                 'classroom' => $enrollment?->classroom,
@@ -746,15 +721,17 @@ trait StudentEnrollmentEditForm
             ->toArray();
     }
 
-    protected static function inscriptionClassOptions($academicYearId = null, $institutionId = null, $courseId = null): array
+    protected static function inscriptionClassOptions($academicYearId = null, $institutionId = null, $courseId = null, $shift = null): array
     {
         $academicYearId = $academicYearId ? (int) $academicYearId : null;
         $institutionId = $institutionId ? (int) $institutionId : null;
         $courseId = $courseId ? (int) $courseId : null;
+        $shift = filled($shift) ? (string) $shift : null;
 
         return StudentClass::query()
             ->with(['courseMap.course', 'academicYear'])
             ->when($courseId, fn (Builder $query) => $query->whereHas('courseMap', fn (Builder $courseMapQuery) => $courseMapQuery->where('course_id', $courseId)))
+            ->when($shift, fn (Builder $query) => $query->where('shift', $shift))
             ->when($academicYearId, function (Builder $query) use ($academicYearId): void {
                 $query->where(function (Builder $yearQuery) use ($academicYearId): void {
                     $yearQuery
@@ -921,6 +898,19 @@ trait StudentEnrollmentEditForm
             ->all();
     }
 
+    protected static function defaultEnrollmentNipNuri(Student $record): ?string
+    {
+        foreach ([$record->nuri, $record->candidate?->nuri] as $value) {
+            $value = trim((string) $value);
+
+            if ($value !== '' && $value !== '-') {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
     protected static function currentEnrollmentForEdit(Student $student): ?StudentClassEnrollment
     {
         static $cache = [];
@@ -1001,28 +991,100 @@ trait StudentEnrollmentEditForm
             ->toArray();
     }
 
+    protected static function studentEducationLevelOptions(): array
+    {
+        return [
+            'Ensino Primário' => 'Ensino Primário',
+            '7ª Classe' => '7ª Classe',
+            '8ª Classe' => '8ª Classe',
+            '9ª Classe' => '9ª Classe',
+            '10ª Classe' => '10ª Classe',
+            '11ª Classe' => '11ª Classe',
+            '12ª Classe' => '12ª Classe',
+            'Ensino Médio Técnico' => 'Ensino Médio Técnico',
+            'Bacharelato' => 'Bacharelato',
+            'Licenciatura' => 'Licenciatura',
+            'Pós-Graduação' => 'Pós-Graduação',
+            'Mestrado' => 'Mestrado',
+            'Doutoramento' => 'Doutoramento',
+        ];
+    }
+
+    protected static function studentProvenanceOptions(): array
+    {
+        return Provenance::query()
+            ->orderBy('name')
+            ->get(['id', 'name', 'acronym'])
+            ->mapWithKeys(fn (Provenance $provenance): array => [
+                $provenance->id => $provenance->acronym
+                    ? "{$provenance->name} ({$provenance->acronym})"
+                    : $provenance->name,
+            ])
+            ->toArray();
+    }
+
     protected static function academicStatusOptions(?Student $record = null): array
     {
-        $options = [
-            'matriculado' => 'Matriculado',
-            'reconfirmado' => 'Reconfirmado',
-            'ano_cancelado' => 'Ano cancelado',
-            'transferido' => 'Transferido',
-            'suspenso' => 'Suspenso',
-            'concluido' => 'Concluído',
-            'alistado' => 'Alistado',
-            'recruta' => 'Recruta',
-            'instruendo' => 'Instruendo',
-            'formando' => 'Formando',
-        ];
+        $options = StudentType::query()
+            ->where('is_active', true)
+            ->orderBy('order')
+            ->orderBy('name')
+            ->pluck('name', 'name')
+            ->toArray();
 
-        $current = trim((string) ($record?->status ?? ''));
+        $current = static::defaultAcademicStatusForEdit($record);
 
-        if ($current !== '' && ! array_key_exists($current, $options)) {
-            $options[$current] = ucfirst($current);
+        if ($current !== null && ! array_key_exists($current, $options)) {
+            $options[$current] = $current;
         }
 
         return $options;
+    }
+
+    protected static function defaultAcademicStatusForEdit(?Student $record): ?string
+    {
+        if (! $record) {
+            return null;
+        }
+
+        $studentType = trim((string) ($record->student_type ?? ''));
+
+        if ($studentType !== '' && $studentType !== '-') {
+            return $studentType;
+        }
+
+        $status = trim((string) ($record->status ?? ''));
+
+        return $status !== '' && ! in_array($status, static::hiddenAcademicStatuses(), true)
+            ? $status
+            : null;
+    }
+
+    protected static function studentTypeForEditPayload(Student $record, array $data): ?string
+    {
+        $studentType = trim((string) ($data['student_status'] ?? ''));
+
+        if ($studentType !== '') {
+            return $studentType;
+        }
+
+        return static::defaultAcademicStatusForEdit($record);
+    }
+
+    protected static function studentTypeIdForName(?string $name): ?int
+    {
+        $name = trim((string) $name);
+
+        if ($name === '') {
+            return null;
+        }
+
+        return StudentType::getIdByName($name);
+    }
+
+    protected static function hiddenAcademicStatuses(): array
+    {
+        return ['matriculado', 'reconfirmado'];
     }
 
     protected static function shiftOptions(): array
@@ -1032,7 +1094,7 @@ trait StudentEnrollmentEditForm
             'Tarde' => 'Tarde',
             'Noite' => 'Noite',
             'Integral' => 'Integral',
-            'Pós - Laboral' => 'Pós - Laboral',
+            'Pós-Laboral' => 'Pós-Laboral',
         ];
     }
 

@@ -18,7 +18,7 @@ class SecurityHeaders
         $headers->set('X-Content-Type-Options', 'nosniff');
         $headers->set('X-Frame-Options', 'SAMEORIGIN');
         $headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
-        $headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+        $headers->set('Permissions-Policy', 'camera=(self), microphone=(), geolocation=()');
         $headers->set('Content-Security-Policy', "base-uri 'self'; object-src 'none'; frame-ancestors 'self'");
 
         if ($request->isSecure() && (bool) config('security.hsts', app()->environment('production'))) {

@@ -89,6 +89,14 @@
     $accessSignatoryTitle = $payload['signatory_title'] ?? $template->signatory_title ?? '';
     $accessFrontHasImage = filled($template->front_background_url ?? null);
     $accessName = mb_strtoupper((string) $name);
+    $accessPlacementItems = collect([
+        ['CIA', filled($payload['cia'] ?? null) ? $payload['cia'] : '-'],
+        ['PELOTÃO', filled($payload['platoon'] ?? null) ? $payload['platoon'] : '-'],
+        ['SECÇÃO', filled($payload['section'] ?? null) ? $payload['section'] : '-'],
+    ]);
+    $studentPlacementSummary = $accessPlacementItems
+        ->map(fn (array $row): string => "{$row[0]}: {$row[1]}")
+        ->implode(' / ');
     $accessFrontRows = collect(match ($type) {
         CardTemplate::TYPE_PROFESSOR => [
             [$documentLabel, $documentNumber],
@@ -115,6 +123,7 @@
         [$documentLabel, $documentNumber],
         ['Curso', $payload['course'] ?? null],
         ['Turma', $payload['class'] ?? null],
+        ['CIA / Pelotão / Secção', $type === CardTemplate::TYPE_STUDENT ? $studentPlacementSummary : null],
         ['Ano académico', $academicYearValue],
         ['Função', $payload['function'] ?? null],
         ['Departamento', $payload['department'] ?? null],
@@ -122,7 +131,7 @@
         ['Posto', $payload['rank'] ?? $payload['position'] ?? null],
         ['Regime', $payload['regime'] ?? null],
         ['Grupo sanguíneo', $payload['blood_type'] ?? null],
-        ['Colocação', $payload['placement'] ?? null],
+        ['Colocação', $type === CardTemplate::TYPE_STUDENT ? null : ($payload['placement'] ?? null)],
     ])->filter(fn (array $row): bool => filled($row[1] ?? null) && ($row[1] ?? '-') !== '-')->values();
 
     $backRows = collect([
@@ -1562,6 +1571,25 @@
             line-height: 1.08;
         }
 
+        .sigef-access-placement-row {
+            display: block;
+            min-width: 0;
+            font-size: 9.2px;
+            line-height: 1.08;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .sigef-access-placement-row span {
+            font-weight: 950;
+        }
+
+        .sigef-access-placement-row .sigef-access-placement-separator {
+            margin: 0 4px;
+            font-weight: 950;
+        }
+
         .sigef-access-role-title,
         .sigef-access-title {
             position: absolute;
@@ -1879,11 +1907,36 @@
                                     <span>NOME:</span> <strong>{{ $accessName }}</strong>
                                 </div>
 
-                                @foreach ($accessFrontRows->take(4) as [$label, $value])
-                                    <div class="sigef-access-detail-line">
-                                        <span>{{ mb_strtoupper((string) $label) }}:</span> {{ mb_strtoupper((string) $value) }}
-                                    </div>
-                                @endforeach
+                                @if ($type === \App\Models\CardTemplate::TYPE_STUDENT)
+                                    @foreach ($accessFrontRows->take(3) as [$label, $value])
+                                        <div class="sigef-access-detail-line">
+                                            <span>{{ mb_strtoupper((string) $label) }}:</span> {{ mb_strtoupper((string) $value) }}
+                                        </div>
+                                    @endforeach
+
+                                    @if ($accessPlacementItems->isNotEmpty())
+                                        <div class="sigef-access-placement-row">
+                                            @foreach ($accessPlacementItems as [$label, $value])
+                                                @if (! $loop->first)
+                                                    <span class="sigef-access-placement-separator">/</span>
+                                                @endif
+                                                <span>{{ mb_strtoupper((string) $label) }}:</span> {{ mb_strtoupper((string) $value) }}
+                                            @endforeach
+                                        </div>
+                                    @endif
+
+                                    @if (filled($academicYearValue))
+                                        <div class="sigef-access-detail-line">
+                                            <span>ANO ACADEMICO:</span> {{ mb_strtoupper((string) $academicYearValue) }}
+                                        </div>
+                                    @endif
+                                @else
+                                    @foreach ($accessFrontRows->take(4) as [$label, $value])
+                                        <div class="sigef-access-detail-line">
+                                            <span>{{ mb_strtoupper((string) $label) }}:</span> {{ mb_strtoupper((string) $value) }}
+                                        </div>
+                                    @endforeach
+                                @endif
                             </div>
 
                             <div class="sigef-access-role-title">{{ $accessRoleTitle }}</div>

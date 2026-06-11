@@ -288,6 +288,8 @@ class CandidateResource extends Resource
                         'Feminino' => 'Feminino',
                     ]),
             ])
+            ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContentCollapsible)
+            ->filtersFormColumns(4)
             ->headerActions([
                 // Botão de Importação Excel
                 \Filament\Actions\Action::make('sincronizarPortal')
@@ -554,44 +556,39 @@ class CandidateResource extends Resource
                         ->action(function (Candidate $record, array $data): void {
                             $oldInstitutionId = $record->institution_id;
                             $oldInstitution = $record->institution?->name ?? 'N/A';
+                            $oldStudentType = $record->student_type ?: 'Sem tipo';
+                            $candidateName = static::candidateAlertName($record);
+                            $identifier = static::candidateAlertIdentifier($record);
                             $newInstitutionId = $data['new_institution_id'];
                             $newInstitution = Institution::find($newInstitutionId)?->name ?? 'N/A';
 
-                            // Registrar no histórico de transferências
-                            \App\Models\CandidateTransferHistory::create([
-                                'candidate_id' => $record->id,
-                                'from_institution_id' => $oldInstitutionId,
-                                'to_institution_id' => $newInstitutionId,
-                                'transferred_by' => auth()->id(),
-                                'candidate_name' => $record->full_name,
-                                'bi_number' => $record->id_number,
-                                'student_type' => $record->student_type ?? 'Alistado',
-                                'phone' => $record->phone,
-                                'province' => $record->province?->name,
-                                'status' => $record->status,
-                                'notes' => null,
-                                'transferred_at' => now(),
-                            ]);
+                            static::recordCandidateTransferHistory($record, $oldInstitutionId, (int) $newInstitutionId, $record->student_type);
 
                             // Atualizar a instituição do alistado
                             $record->update(['institution_id' => $newInstitutionId]);
 
                             \Filament\Notifications\Notification::make()
-                                ->title('Alistado Movido!')
-                                ->body("Transferido de \"{$oldInstitution}\" para \"{$newInstitution}\".")
+                                ->title('Registo atualizado!')
+                                ->body(static::candidateNotificationBody([
+                                    "Registo: {$candidateName}",
+                                    "BI/NIP: {$identifier}",
+                                    "Instituição: {$oldInstitution} -> {$newInstitution}",
+                                    'Tipo: '.static::candidateChangeText($oldStudentType, $oldStudentType),
+                                ]))
                                 ->success()
                                 ->send();
                         })
                         ->modalSubmitAction(fn(\Filament\Actions\Action $action) => $action->label('Transferir')->icon('heroicon-o-check')->color('primary'))
                         ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->label('Cancelar')->icon('heroicon-o-x-mark')->color('danger')),
-                    // Vincular Alistado e Converter em Recruta
+                    // Vincular alistado/formando e enviar para Gestão de Formandos.
                     \Filament\Actions\Action::make('vincularEConverterRecruta')
                         ->label('Enviar para uma Instituição')
                         ->icon('heroicon-o-user-plus')
                         ->color('success')
                         ->visible(fn(Candidate $record): bool => empty($record->institution_id))
                         ->requiresConfirmation()
-                        ->modalHeading('Vincular Alistado e Converter em Recruta')
+                        ->modalHeading('Vincular à Instituição')
+                        ->modalDescription('Alistados serão convertidos em Recruta. Formandos serão convertidos em Em Formação.')
                         ->modalIcon('heroicon-o-academic-cap')
                         ->form([
                             Forms\Components\Select::make('institution_id')
@@ -600,17 +597,28 @@ class CandidateResource extends Resource
                                 ->required()
                                 ->searchable()
                                 ->preload()
-                                ->helperText('Selecione a escola onde o alistado será formado'),
+                                ->helperText('Selecione a escola onde o registo será formado.'),
                         ])
                         ->action(function (Candidate $record, array $data): void {
                             $institution = Institution::find($data['institution_id']);
+                            $oldInstitutionId = $record->institution_id;
+                            $oldStudentType = $record->student_type ?: 'Sem tipo';
+                            $candidateName = static::candidateAlertName($record);
+                            $identifier = static::candidateAlertIdentifier($record);
                             $studentType = static::linkCandidateToInstitutionAsStudent($record, (int) $data['institution_id']);
+
+                            static::recordCandidateTransferHistory($record, $oldInstitutionId, (int) $data['institution_id'], $studentType);
 
                             // Vincular à instituição
                             // Criar ou atualizar Student
                             \Filament\Notifications\Notification::make()
-                                ->title('Registo Vinculado!')
-                                ->body("Vinculado à escola \"{$institution->name}\" como \"{$studentType}\".")
+                                ->title('Registo vinculado e convertido!')
+                                ->body(static::candidateNotificationBody([
+                                    "Registo: {$candidateName}",
+                                    "BI/NIP: {$identifier}",
+                                    'Instituição: '.($institution?->name ?? 'N/A'),
+                                    'Tipo: '.static::candidateChangeText($oldStudentType, $studentType),
+                                ]))
                                 ->success()
                                 ->send();
                         })
@@ -635,7 +643,8 @@ class CandidateResource extends Resource
                         'class' => '[&>svg]:!text-white',
                     ])
                     ->requiresConfirmation()
-                    ->modalHeading('Vincular Alistados e Converter em Recrutas')
+                    ->modalHeading('Vincular Alistados/Formandos e Converter')
+                    ->modalDescription('Alistados serão convertidos em Recruta. Formandos serão convertidos em Em Formação.')
                     ->modalIcon('heroicon-o-academic-cap')
                     ->form([
                         Forms\Components\Select::make('institution_id')
@@ -644,26 +653,43 @@ class CandidateResource extends Resource
                             ->required()
                             ->searchable()
                             ->preload()
-                            ->helperText('Selecione a escola onde os alistados serão formados'),
+                            ->helperText('Selecione a escola onde os registos serão formados.'),
                     ])
                     ->action(function (\Illuminate\Database\Eloquent\Collection $records, array $data): void {
                         $institution = Institution::find($data['institution_id']);
                         $countRecrutas = 0;
                         $countEmFormacao = 0;
+                        $changes = [];
 
                         foreach ($records as $candidate) {
+                            $oldInstitutionId = $candidate->institution_id;
+                            $oldStudentType = $candidate->student_type ?: 'Sem tipo';
                             $studentType = static::linkCandidateToInstitutionAsStudent($candidate, (int) $data['institution_id']);
+                            static::recordCandidateTransferHistory($candidate, $oldInstitutionId, (int) $data['institution_id'], $studentType);
 
                             if ($studentType === 'Em Formação') {
                                 $countEmFormacao++;
                             } else {
                                 $countRecrutas++;
                             }
+
+                            $changes[] = [
+                                'name' => static::candidateAlertName($candidate),
+                                'identifier' => static::candidateAlertIdentifier($candidate),
+                                'from' => $oldStudentType,
+                                'to' => $studentType,
+                            ];
                         }
 
                         \Filament\Notifications\Notification::make()
-                            ->title('Registos Vinculados!')
-                            ->body("Escola: \"{$institution->name}\". Recrutas: {$countRecrutas}. Em Formação: {$countEmFormacao}.")
+                            ->title('Registos vinculados e convertidos!')
+                            ->body(static::candidateBulkConversionNotificationBody(
+                                $institution?->name ?? 'N/A',
+                                $records->count(),
+                                $countRecrutas,
+                                $countEmFormacao,
+                                $changes,
+                            ))
                             ->success()
                             ->duration(10000)
                             ->send();
@@ -692,7 +718,15 @@ class CandidateResource extends Resource
                         $institution = Institution::find($data['institution_id']);
 
                         foreach ($records as $record) {
+                            $oldInstitutionId = $record->institution_id;
                             $record->update(['institution_id' => $data['institution_id']]);
+                            static::recordCandidateTransferHistory(
+                                $record,
+                                $oldInstitutionId,
+                                (int) $data['institution_id'],
+                                $record->student_type,
+                                'Escola atribuída sem conversão.'
+                            );
                             $count++;
                         }
 
@@ -814,11 +848,96 @@ class CandidateResource extends Resource
             ]);
     }
 
+    protected static function candidateAlertName(Candidate $candidate): string
+    {
+        return trim((string) ($candidate->full_name ?: 'Registo #'.$candidate->getKey()));
+    }
+
+    protected static function candidateAlertIdentifier(Candidate $candidate): string
+    {
+        $identifier = ($candidate->staff_type === 'regime_especial' || filled($candidate->nuri))
+            ? $candidate->nuri
+            : $candidate->id_number;
+
+        return trim((string) ($identifier ?: 'Sem BI/NIP'));
+    }
+
+    protected static function candidateChangeText(?string $oldValue, ?string $newValue): string
+    {
+        $oldValue = trim((string) ($oldValue ?: 'Sem tipo'));
+        $newValue = trim((string) ($newValue ?: 'Sem tipo'));
+
+        return $oldValue === $newValue
+            ? "{$oldValue} (sem alteração)"
+            : "{$oldValue} -> {$newValue}";
+    }
+
+    protected static function candidateNotificationBody(array $lines): \Illuminate\Support\HtmlString
+    {
+        return new \Illuminate\Support\HtmlString(
+            collect($lines)
+                ->filter(fn (?string $line): bool => filled($line))
+                ->map(fn (string $line): string => e($line))
+                ->implode('<br>')
+        );
+    }
+
+    protected static function candidateBulkConversionNotificationBody(
+        string $institutionName,
+        int $total,
+        int $countRecrutas,
+        int $countEmFormacao,
+        array $changes,
+    ): \Illuminate\Support\HtmlString {
+        $lines = [
+            "Instituição: {$institutionName}",
+            "Total alterado: {$total}",
+            "Convertidos para Recruta: {$countRecrutas}",
+            "Convertidos para Em Formação: {$countEmFormacao}",
+        ];
+
+        if ($changes !== []) {
+            $lines[] = 'Alterações realizadas:';
+
+            foreach ($changes as $index => $change) {
+                $number = $index + 1;
+                $lines[] = "{$number}. {$change['name']} ({$change['identifier']}): ".static::candidateChangeText($change['from'], $change['to']);
+            }
+        }
+
+        return static::candidateNotificationBody($lines);
+    }
+
     protected static function studentTypeAfterInstitutionLink(?string $studentType): string
     {
         return str_contains(strtolower(trim((string) $studentType)), 'formando')
             ? 'Em Formação'
             : '1ª Fase - Recruta';
+    }
+
+    protected static function recordCandidateTransferHistory(
+        Candidate $candidate,
+        ?int $fromInstitutionId,
+        int $toInstitutionId,
+        ?string $studentType = null,
+        ?string $notes = null,
+    ): void {
+        $candidate->loadMissing('province');
+
+        CandidateTransferHistory::create([
+            'candidate_id' => $candidate->id,
+            'from_institution_id' => $fromInstitutionId,
+            'to_institution_id' => $toInstitutionId,
+            'transferred_by' => auth()->id(),
+            'candidate_name' => $candidate->full_name,
+            'bi_number' => $candidate->id_number,
+            'student_type' => $studentType ?: $candidate->student_type ?: 'Alistado',
+            'phone' => $candidate->phone,
+            'province' => $candidate->province?->name,
+            'status' => $candidate->status,
+            'notes' => $notes,
+            'transferred_at' => now(),
+        ]);
     }
 
     protected static function linkCandidateToInstitutionAsStudent(Candidate $candidate, int $institutionId): string

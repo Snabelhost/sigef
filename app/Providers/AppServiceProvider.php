@@ -5,6 +5,11 @@ namespace App\Providers;
 use App\Http\Responses\LogoutResponse;
 use App\Listeners\PermissionEventSubscriber;
 use App\Observers\RoleObserver;
+use Filament\Actions\Action;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Http\Responses\Auth\Contracts\LogoutResponse as LogoutResponseContract;
 use Filament\Support\Facades\FilamentView;
 use Filament\Support\Facades\FilamentIcon;
@@ -91,6 +96,9 @@ class AppServiceProvider extends ServiceProvider
             $table->actionsColumnLabel('Ações');
         });
 
+        // Configurar modais de exclusão globalmente
+        $this->registerDeleteActionModalDefaults();
+
         // Registrar ícone customizado de velocímetro
         Blade::component('icon-speedometer', \App\View\Components\IconSpeedometer::class);
 
@@ -114,5 +122,43 @@ class AppServiceProvider extends ServiceProvider
                 \Illuminate\Support\Facades\Log::warning('Could not create storage link: ' . $e->getMessage());
             }
         }
+    }
+
+    private function registerDeleteActionModalDefaults(): void
+    {
+        $actionClasses = [
+            DeleteAction::class,
+            DeleteBulkAction::class,
+            ForceDeleteAction::class,
+            ForceDeleteBulkAction::class,
+            'Filament\\Tables\\Actions\\DeleteAction',
+            'Filament\\Tables\\Actions\\DeleteBulkAction',
+            'Filament\\Tables\\Actions\\ForceDeleteAction',
+            'Filament\\Tables\\Actions\\ForceDeleteBulkAction',
+        ];
+
+        foreach ($actionClasses as $actionClass) {
+            if (! is_subclass_of($actionClass, Action::class)) {
+                continue;
+            }
+
+            $actionClass::configureUsing(
+                fn (Action $action): Action => $this->configureDeleteActionModal($action),
+                isImportant: true,
+            );
+        }
+    }
+
+    private function configureDeleteActionModal(Action $action): Action
+    {
+        return $action
+            ->extraModalWindowAttributes(['class' => 'sigef-delete-modal'], merge: true)
+            ->modalIconColor('primary')
+            ->modalCancelAction(fn (Action $modalAction): Action => $modalAction
+                ->icon('heroicon-o-x-mark')
+                ->color('gray'))
+            ->modalSubmitAction(fn (Action $modalAction): Action => $modalAction
+                ->icon('heroicon-o-trash')
+                ->color('danger'));
     }
 }

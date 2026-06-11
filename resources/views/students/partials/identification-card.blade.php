@@ -12,6 +12,11 @@
     $backStyle = $template->back_background_url
         ? "background-color: {$backBackgroundColor}; background-image: url('{$template->back_background_url}');"
         : "background-color: {$backBackgroundColor};";
+    $studentPlacementItems = collect([
+        ['CIA', filled($payload['cia'] ?? null) ? $payload['cia'] : '-'],
+        ['PELOTÃO', filled($payload['platoon'] ?? null) ? $payload['platoon'] : '-'],
+        ['SECÇÃO', filled($payload['section'] ?? null) ? $payload['section'] : '-'],
+    ]);
 @endphp
 
 <div class="sigef-student-card-shell sigef-student-card-{{ $mode }}">
@@ -139,6 +144,21 @@
             font-weight: 900;
         }
 
+        .sigef-student-card-placement-row {
+            display: block;
+            min-width: 0;
+            font-size: {{ $isVertical ? '8px' : '8.8px' }};
+            line-height: 1.1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .sigef-student-card-placement-row .sigef-student-card-placement-separator {
+            margin: 0 4px;
+            font-weight: 900;
+        }
+
         .sigef-student-card-back-content {
             position: relative;
             display: flex;
@@ -263,8 +283,16 @@
                         @if ($payload['class'])
                             <div><strong>Turma:</strong> {{ $payload['class'] }}</div>
                         @endif
-                        @if ($payload['placement'])
-                            <div><strong>{{ $payload['placement'] }}</strong></div>
+                        <div class="sigef-student-card-placement-row">
+                            @foreach ($studentPlacementItems as [$label, $value])
+                                @if (! $loop->first)
+                                    <span class="sigef-student-card-placement-separator">/</span>
+                                @endif
+                                <strong>{{ $label }}:</strong> {{ $value }}
+                            @endforeach
+                        </div>
+                        @if ($payload['academic_year'] ?? null)
+                            <div><strong>Ano Académico:</strong> {{ $payload['academic_year'] }}</div>
                         @endif
                     </div>
                 </div>

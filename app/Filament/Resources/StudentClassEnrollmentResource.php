@@ -272,6 +272,9 @@ class StudentClassEnrollmentResource extends Resource
                 static::moverInstituicaoAction(),
                 static::baixarFichaAction(),
                 static::imprimirCertificadoAction(),
+                \Filament\Actions\DeleteAction::make()
+                    ->label('Excluir')
+                    ->icon('heroicon-o-trash'),
             ])->icon('heroicon-s-cog-6-tooth')->color('primary')->size('lg')->tooltip('Acções')->iconButton(),
         ];
     }

@@ -52,6 +52,7 @@ class AdminPanelProvider extends PanelProvider
                     900 => '2, 14, 40',
                     950 => '1, 10, 30',
                 ],
+                ...\App\Support\FilamentStatusColors::palettes(),
             ])
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
@@ -134,7 +135,6 @@ class AdminPanelProvider extends PanelProvider
                 \App\Filament\Resources\PautaResource::class,
                 \App\Filament\Resources\ProvenanceResource::class,
                 \App\Filament\Resources\RankResource::class,
-                \App\Filament\Resources\RecruitmentTypeResource::class,
                 \App\Filament\Resources\Shield\RoleResource::class,
                 \App\Filament\Resources\StudentClassEnrollmentResource::class,
                 \App\Filament\Resources\StudentClassResource::class,

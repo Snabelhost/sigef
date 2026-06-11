@@ -141,7 +141,7 @@ class SubjectResource extends Resource
             ->headerActions([
                 \Filament\Actions\CreateAction::make()
                     ->icon('heroicon-o-plus')
-                    ->modalWidth('4xl')
+                    ->modalWidth('5xl')
                     ->mutateFormDataUsing(function (array $data): array {
                         static::handlePhaseData($data);
                         return $data;
@@ -160,7 +160,7 @@ class SubjectResource extends Resource
                         ->icon('heroicon-o-eye')
                         ->color('info')
                         ->modalHeading('Visualizar Disciplina')
-                        ->modalWidth('4xl')
+                        ->modalWidth('5xl')
                         ->schema(static::subjectFormSchema())
                         ->mutateRecordDataUsing(fn (array $data, Subject $record): array => [
                             ...$data,
@@ -169,7 +169,7 @@ class SubjectResource extends Resource
                         ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Fechar')->color('danger')),
                     \Filament\Actions\EditAction::make()
                         ->icon('heroicon-o-pencil-square')
-                        ->modalWidth('3xl')
+                        ->modalWidth('5xl')
                         ->mutateFormDataUsing(function (array $data): array {
                             static::handlePhaseData($data);
                             return $data;

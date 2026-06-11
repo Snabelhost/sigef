@@ -66,6 +66,9 @@ class StudentCardService
             'entity_title' => $entityTitle,
             'course' => $course?->name,
             'class' => $studentClass?->name,
+            'cia' => $this->formatCia($student->cia),
+            'platoon' => $this->formatPlatoon($student->platoon),
+            'section' => $this->formatSection($student->section),
             'document_label' => $documentLabel,
             'document_number' => $documentNumber,
             'placement' => $this->placementText($student),
@@ -116,6 +119,9 @@ class StudentCardService
             'number' => $sample['number'] ?? $documentNumber,
             'course' => $sample['course'] ?? 'Curso de Ciencias Policiais',
             'class' => $sample['class'] ?? 'A/01',
+            'cia' => $sample['cia'] ?? '1ª',
+            'platoon' => $sample['platoon'] ?? '2º',
+            'section' => $sample['section'] ?? '3ª',
             'document_label' => $sample['document_label'] ?? 'NURI',
             'document_number' => $documentNumber,
             'placement' => $sample['placement'] ?? null,
@@ -230,18 +236,39 @@ class StudentCardService
         $parts = [];
 
         if ($student->cia) {
-            $parts[] = "{$student->cia}ª CIA";
+            $parts[] = $this->formatCia($student->cia).' CIA';
         }
 
         if ($student->platoon) {
-            $parts[] = "{$student->platoon}º Pel.";
+            $parts[] = $this->formatPlatoon($student->platoon).' Pel.';
         }
 
         if ($student->section) {
-            $parts[] = "{$student->section}ª Sec.";
+            $parts[] = $this->formatSection($student->section).' Sec.';
         }
 
         return $parts === [] ? null : implode(' / ', $parts);
+    }
+
+    protected function formatCia(mixed $value): ?string
+    {
+        $value = trim((string) $value);
+
+        return $value === '' ? null : (str_contains($value, 'ª') ? $value : "{$value}ª");
+    }
+
+    protected function formatPlatoon(mixed $value): ?string
+    {
+        $value = trim((string) $value);
+
+        return $value === '' ? null : (str_contains($value, 'º') ? $value : "{$value}º");
+    }
+
+    protected function formatSection(mixed $value): ?string
+    {
+        $value = trim((string) $value);
+
+        return $value === '' ? null : (str_contains($value, 'ª') ? $value : "{$value}ª");
     }
 
     protected function abbreviateCourse(?string $courseName): ?string

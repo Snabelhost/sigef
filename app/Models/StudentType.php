@@ -33,35 +33,59 @@ class StudentType extends Model
     {
         return [
             'gray' => 'Cinza (Neutro)',
-            'primary' => 'Azul (Primário)',
-            'secondary' => 'Roxo (Secundário)',
+            'primary' => 'Azul SIGEF (Primario)',
+            'secondary' => 'Roxo (Secundario)',
             'success' => 'Verde (Sucesso)',
             'warning' => 'Amarelo (Aviso)',
             'danger' => 'Vermelho (Perigo)',
-            'info' => 'Ciano (Informação)',
+            'info' => 'Azul Claro (Informacao)',
+            'slate' => 'Ardosia',
+            'zinc' => 'Zinco',
+            'neutral' => 'Neutro',
+            'stone' => 'Pedra',
+            'mauve' => 'Malva',
+            'olive' => 'Oliva',
+            'mist' => 'Nevoa',
+            'taupe' => 'Taupe',
+            'red' => 'Vermelho',
+            'orange' => 'Laranja',
+            'amber' => 'Ambar',
+            'yellow' => 'Amarelo',
+            'lime' => 'Lima',
+            'green' => 'Verde',
+            'emerald' => 'Esmeralda',
+            'teal' => 'Verde-azulado',
+            'cyan' => 'Ciano',
+            'sky' => 'Azul Ceu',
+            'blue' => 'Azul',
+            'indigo' => 'Indigo',
+            'violet' => 'Violeta',
+            'purple' => 'Roxo',
+            'fuchsia' => 'Fucsia',
+            'pink' => 'Rosa',
+            'rose' => 'Rose',
         ];
     }
 
     /**
-     * Obter ID do StudentType pelo nome
-     * Cria o tipo automaticamente se não existir
+     * Obter ID do StudentType pelo nome.
+     * Cria o tipo automaticamente se nao existir.
      */
     public static function getIdByName(string $name): ?int
     {
         $type = self::where('name', $name)->first();
-        
+
         if ($type) {
             return $type->id;
         }
-        
-        // Criar automaticamente se não existir
+
         $type = self::create([
             'name' => $name,
             'color' => 'gray',
             'order' => self::max('order') + 1,
             'is_active' => true,
         ]);
-        
+
         return $type->id;
     }
 }

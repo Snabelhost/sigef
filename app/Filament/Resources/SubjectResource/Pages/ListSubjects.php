@@ -14,7 +14,7 @@ class ListSubjects extends ListRecords
     {
         return [
             Actions\CreateAction::make()
-                ->modalWidth('4xl')
+                ->modalWidth('5xl')
                 ->label('Nova Disciplina'),
         ];
     }

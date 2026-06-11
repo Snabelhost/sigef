@@ -12,6 +12,7 @@ use App\Models\StudentType;
 use Filament\Forms;
 use Filament\Pages\Page;
 use Filament\Tables\Table;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Filter;
@@ -64,20 +65,12 @@ class TransferHistory extends Page implements HasTable
             ->query($this->getUnifiedTransferQuery())
             ->defaultSort('transferred_at', 'desc')
             ->columns([
-                TextColumn::make('transferred_at')
-                    ->label('Data')
-                    ->dateTime('d/m/Y H:i')
-                    ->sortable(),
-                TextColumn::make('transfer_type')
-                    ->label('Origem')
-                    ->badge()
-                    ->color(fn (?string $state): string => match ($state) {
-                        'Alistado' => 'warning',
-                        'Formando' => 'info',
-                        'Agente' => 'primary',
-                        default => 'gray',
-                    })
-                    ->sortable(),
+                ImageColumn::make('photo')
+                    ->label('Foto')
+                    ->disk('public')
+                    ->circular()
+                    ->size(40)
+                    ->defaultImageUrl(fn ($record): string => 'https://ui-avatars.com/api/?name='.urlencode($record->person_name ?: 'NA').'&background=0D4C8B&color=fff&size=100'),
                 TextColumn::make('person_name')
                     ->label('Nome')
                     ->searchable()
@@ -91,14 +84,9 @@ class TransferHistory extends Page implements HasTable
                 TextColumn::make('status_label')
                     ->label('Estado/Tipo')
                     ->badge()
-                    ->color('gray')
+                    ->color(fn (mixed $state): string => static::statusLabelBadgeColor($state))
                     ->placeholder('-')
                     ->toggleable(),
-                TextColumn::make('course')
-                    ->label('Curso')
-                    ->placeholder('-')
-                    ->wrap()
-                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('fromInstitution.name')
                     ->label('De')
                     ->placeholder('N/A')
@@ -111,10 +99,10 @@ class TransferHistory extends Page implements HasTable
                     ->wrap()
                     ->color('success')
                     ->icon('heroicon-o-check-circle'),
-                TextColumn::make('transferredByUser.name')
-                    ->label('Por')
-                    ->placeholder('Sistema')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('transferred_at')
+                    ->label('Data')
+                    ->dateTime('d/m/Y H:i')
+                    ->sortable(),
             ])
             ->filters([
                 Filter::make('nuri_filter')
@@ -185,7 +173,8 @@ class TransferHistory extends Page implements HasTable
             ->filtersFormColumns(4)
             ->recordAction('view')
             ->recordActions([
-                \Filament\Actions\ViewAction::make()
+                \Filament\Actions\ActionGroup::make([
+                    \Filament\Actions\ViewAction::make()
                     ->label('Visualizar')
                     ->modalHeading(fn (StudentTransferHistory $record): string => 'Detalhes da Transferência - '.($record->person_name ?: 'Registo'))
                     ->modalWidth('7xl')
@@ -195,6 +184,7 @@ class TransferHistory extends Page implements HasTable
                         ->label('Fechar')
                         ->icon('heroicon-o-x-mark')
                         ->color('danger')),
+                ])->icon('heroicon-s-cog-6-tooth')->tooltip('Ações'),
             ]);
     }
 
@@ -300,6 +290,145 @@ class TransferHistory extends Page implements HasTable
         $value = is_scalar($value) ? trim((string) $value) : '';
 
         return $value === '' ? $fallback : $value;
+    }
+
+    protected static function statusLabelBadgeColor(mixed $state): string
+    {
+        $state = trim((string) $state);
+
+        if ($state === '') {
+            return 'gray';
+        }
+
+        $colors = static::studentTypeColorMap();
+        $normalizedState = static::normalizeStatusKey($state);
+
+        if ($normalizedState === '') {
+            return 'gray';
+        }
+
+        if (isset($colors[$state])) {
+            return $colors[$state];
+        }
+
+        if (isset($colors[$normalizedState])) {
+            return $colors[$normalizedState];
+        }
+
+        foreach ($colors as $type => $color) {
+            if (! is_string($type) || $type === '') {
+                continue;
+            }
+
+            if (str_contains($normalizedState, $type) || str_contains($type, $normalizedState)) {
+                return $color;
+            }
+        }
+
+        return match ($normalizedState) {
+            'alistado' => 'gray',
+            'formando', 'oficial', 'agente', 'agente de 3a classe', 'formado agente', 'formando concluido', 'concluiu', 'active', 'activo', 'ativo', 'aprovado' => 'success',
+            'recruta', '1a fase recruta', 'pendente', 'pending' => 'warning',
+            'instruendo', '2a fase instruendo', 'frequenta' => 'info',
+            'em formacao', 'em formacao superior', 'em_formacao' => 'primary',
+            'desistiu', 'inativo', 'inactive', 'reprovado' => 'danger',
+            default => 'gray',
+        };
+    }
+
+    protected static function studentTypeColorMap(): array
+    {
+        static $colors = null;
+
+        if ($colors !== null) {
+            return $colors;
+        }
+
+        $colors = [];
+
+        foreach (StudentType::query()->where('is_active', true)->pluck('color', 'name') as $name => $color) {
+            $name = trim((string) $name);
+            $color = trim((string) $color) ?: 'gray';
+
+            if ($name === '') {
+                continue;
+            }
+
+            $colors[$name] = $color;
+            $colors[static::normalizeStatusKey($name)] = $color;
+        }
+
+        return $colors;
+    }
+
+    protected static function normalizeStatusKey(mixed $value): string
+    {
+        $value = trim((string) $value);
+
+        if ($value === '') {
+            return '';
+        }
+
+        $value = strtr($value, [
+            'Á' => 'A',
+            'À' => 'A',
+            'Â' => 'A',
+            'Ã' => 'A',
+            'Ä' => 'A',
+            'á' => 'a',
+            'à' => 'a',
+            'â' => 'a',
+            'ã' => 'a',
+            'ä' => 'a',
+            'É' => 'E',
+            'È' => 'E',
+            'Ê' => 'E',
+            'Ë' => 'E',
+            'é' => 'e',
+            'è' => 'e',
+            'ê' => 'e',
+            'ë' => 'e',
+            'Í' => 'I',
+            'Ì' => 'I',
+            'Î' => 'I',
+            'Ï' => 'I',
+            'í' => 'i',
+            'ì' => 'i',
+            'î' => 'i',
+            'ï' => 'i',
+            'Ó' => 'O',
+            'Ò' => 'O',
+            'Ô' => 'O',
+            'Õ' => 'O',
+            'Ö' => 'O',
+            'ó' => 'o',
+            'ò' => 'o',
+            'ô' => 'o',
+            'õ' => 'o',
+            'ö' => 'o',
+            'Ú' => 'U',
+            'Ù' => 'U',
+            'Û' => 'U',
+            'Ü' => 'U',
+            'ú' => 'u',
+            'ù' => 'u',
+            'û' => 'u',
+            'ü' => 'u',
+            'Ç' => 'C',
+            'ç' => 'c',
+            'ª' => 'a',
+            'º' => 'o',
+        ]);
+
+        if (function_exists('iconv')) {
+            $ascii = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
+            $value = $ascii === false ? $value : $ascii;
+        }
+        $value = strtolower($value);
+        $value = str_replace(['_', '-', 'ª', 'º'], [' ', ' ', 'a', 'o'], $value);
+        $value = preg_replace('/[^a-z0-9]+/', ' ', $value) ?? $value;
+
+        return trim(preg_replace('/\s+/', ' ', $value) ?? $value);
     }
 
     protected static function formatDateTimeValue(mixed $value): string
@@ -437,6 +566,7 @@ class TransferHistory extends Page implements HasTable
                 candidate_transfer_histories.id as source_id,
                 candidate_transfer_histories.candidate_id as entity_id,
                 candidate_transfer_histories.candidate_name as person_name,
+                transfer_candidates.photo as photo,
                 transfer_candidate_students.nuri as registration_number,
                 candidate_transfer_histories.bi_number as bi_number,
                 coalesce(candidate_transfer_histories.student_type, candidate_transfer_histories.status) as status_label,
@@ -472,6 +602,7 @@ class TransferHistory extends Page implements HasTable
                 student_transfer_histories.id as source_id,
                 student_transfer_histories.student_id as entity_id,
                 student_transfer_histories.student_name as person_name,
+                coalesce(transfer_students.photo, transfer_student_candidates.photo) as photo,
                 coalesce(transfer_students.nuri, student_transfer_histories.student_number) as registration_number,
                 student_transfer_histories.bi_number as bi_number,
                 student_transfer_histories.student_type as status_label,
@@ -507,6 +638,7 @@ class TransferHistory extends Page implements HasTable
                 agent_transfer_histories.id as source_id,
                 agent_transfer_histories.student_id as entity_id,
                 agent_transfer_histories.agent_name as person_name,
+                coalesce(transfer_agents.photo, transfer_agent_candidates.photo) as photo,
                 coalesce(transfer_agents.nuri, agent_transfer_histories.student_number) as registration_number,
                 null as bi_number,
                 agent_transfer_histories.status as status_label,

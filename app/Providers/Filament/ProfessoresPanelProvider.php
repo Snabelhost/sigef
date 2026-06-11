@@ -44,6 +44,7 @@ class ProfessoresPanelProvider extends PanelProvider
                     900 => '2, 14, 40',
                     950 => '1, 10, 30',
                 ],
+                ...\App\Support\FilamentStatusColors::palettes(),
             ])
             ->renderHook(
                 PanelsRenderHook::HEAD_END,

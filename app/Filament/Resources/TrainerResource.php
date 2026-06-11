@@ -389,23 +389,30 @@ class TrainerResource extends Resource
 
     .sigef-trainer-photo-upload .filepond--drop-label {
         display: grid !important;
+        inset: 0 !important;
         height: 10rem !important;
         min-height: 10rem;
         align-items: center !important;
+        justify-content: center !important;
         justify-items: center !important;
         place-items: center !important;
         color: inherit;
         cursor: pointer;
+        margin: 0 !important;
         overflow: visible;
+        transform: none !important;
     }
 
     .sigef-trainer-photo-upload .filepond--drop-label label {
-        display: grid !important;
+        display: flex !important;
         width: 100%;
         height: 100%;
+        align-items: center !important;
+        justify-content: center !important;
         place-items: center !important;
         overflow: visible;
         padding: 0 !important;
+        margin: 0 !important;
         transform: none !important;
     }
 
@@ -429,13 +436,17 @@ class TrainerResource extends Resource
     }
 
     .sigef-photo-idle {
-        position: relative;
+        position: absolute;
+        inset: 0;
         display: grid;
-        height: 10rem;
-        min-height: 10rem;
-        place-items: center;
         width: 100%;
+        height: 100%;
+        min-height: 100%;
+        align-items: center;
+        justify-items: center;
+        place-items: center;
         line-height: 1;
+        margin: auto;
         transform: none;
     }
 
@@ -445,6 +456,7 @@ class TrainerResource extends Resource
         height: 3.75rem;
         place-items: center;
         color: #dce3ed;
+        margin: auto;
     }
 
     .sigef-photo-camera svg {

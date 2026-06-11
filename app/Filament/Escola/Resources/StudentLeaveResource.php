@@ -123,8 +123,15 @@ class StudentLeaveResource extends Resource
                     ->sortable()
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\ImageColumn::make('student_photo')
+                    ->label('Foto')
+                    ->disk('public')
+                    ->circular()
+                    ->size(40)
+                    ->getStateUsing(fn (StudentLeave $record): ?string => $record->student?->photo ?: $record->student?->candidate?->photo)
+                    ->defaultImageUrl(fn (StudentLeave $record): string => 'https://ui-avatars.com/api/?name=' . urlencode($record->student?->candidate?->full_name ?? 'NA') . '&background=0D4C8B&color=fff&size=100'),
                 Tables\Columns\TextColumn::make('student.candidate.full_name')
-                    ->label('Formando')
+                    ->label('Nome')
                     ->sortable()
                     ->searchable()
                     ->wrap()
@@ -308,6 +315,45 @@ class StudentLeaveResource extends Resource
                             ->label('Cancelar')
                             ->icon('heroicon-o-x-mark')
                             ->color('danger')),
+                    \Filament\Actions\Action::make('fichaDispensa')
+                        ->label('Ficha de Dispensa')
+                        ->icon('heroicon-o-document-text')
+                        ->color('success')
+                        ->modalHeading('Pre-visualizacao da Ficha de Dispensa')
+                        ->modalDescription(null)
+                        ->modalWidth(\Filament\Support\Enums\Width::SevenExtraLarge)
+                        ->modalSubmitAction(false)
+                        ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action
+                            ->icon('heroicon-o-x-mark')
+                            ->label('Fechar Pre-visualizacao')
+                            ->color('danger'))
+                        ->stickyModalHeader()
+                        ->stickyModalFooter()
+                        ->closeModalByClickingAway(false)
+                        ->modalContent(function (StudentLeave $record) {
+                            $record->loadMissing('student.candidate');
+                            $student = $record->student;
+                            $studentName = trim((string) ($student?->candidate?->full_name ?: $student?->full_name ?: 'Formando'));
+                            $identifierNumber = trim((string) ($student?->nuri ?: $student?->candidate?->nuri ?: $student?->student_number ?: 'DISP-'.$record->getKey()));
+                            $printUrl = route('student-leaves.sheet.print', ['studentLeave' => $record]);
+                            $frameId = 'sigef-student-leave-sheet-frame-'.$record->getKey();
+                            $viewerId = 'sigef-student-leave-sheet-viewer-'.$record->getKey();
+
+                            return view('trainers.sheet-modal', [
+                                'viewerId' => $viewerId,
+                                'frameId' => $frameId,
+                                'documentName' => 'Ficha de Dispensa - '.$studentName,
+                                'documentBadge' => 'NIP/NURI: '.$identifierNumber,
+                                'defaultOrientation' => 'vertical',
+                                'embeddedHorizontalUrl' => $printUrl.'?embedded=1&autoprint=0&orientation=horizontal',
+                                'embeddedVerticalUrl' => $printUrl.'?embedded=1&autoprint=0&orientation=vertical',
+                                'fallbackPrintHorizontalUrl' => $printUrl.'?autoprint=1&orientation=horizontal',
+                                'fallbackPrintVerticalUrl' => $printUrl.'?autoprint=1&orientation=vertical',
+                                'documentType' => 'ficha de dispensa',
+                                'loadingText' => 'A preparar ficha de dispensa...',
+                                'hintText' => 'Pre-visualize a ficha de dispensa em A4 antes de imprimir.',
+                            ]);
+                        }),
                     \Filament\Actions\Action::make('verDetalhes')
                         ->label('Ver Histórico')
                         ->icon('heroicon-o-eye')
