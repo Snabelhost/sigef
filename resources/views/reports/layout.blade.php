@@ -1,14 +1,80 @@
+@php
+    $embeddedMode = $embeddedMode ?? false;
+    $autoPrint = $autoPrint ?? false;
+    $paperSize = strtolower($paperSize ?? 'a4');
+    $paperOrientation = strtolower($paperOrientation ?? 'portrait');
+    $sheetWidth = match ($paperSize.'-'.$paperOrientation) {
+        'a3-landscape' => '420mm',
+        'a3-portrait' => '297mm',
+        'a4-landscape' => '297mm',
+        default => '210mm',
+    };
+    $sheetMinHeight = match ($paperSize.'-'.$paperOrientation) {
+        'a3-landscape' => '297mm',
+        'a3-portrait' => '420mm',
+        'a4-landscape' => '210mm',
+        default => '297mm',
+    };
+@endphp
 <!DOCTYPE html>
-<html>
+<html class="{{ $embeddedMode ? 'report-embedded' : '' }}">
 
 <head>
     @php
         $reportInstitution = \App\Models\SystemSetting::getReportInstitutionConfig($institution ?? null);
-        $logoPath = $reportInstitution['logo_path'] ?? '';
-        $logoAbsolutePath = $logoPath
-            ? \Illuminate\Support\Facades\Storage::disk('public')->path($logoPath)
-            : public_path('images/logo-pna.png');
-        $logoExists = is_file($logoAbsolutePath);
+        $resolveReportLogo = function (mixed $path): ?string {
+            if (is_array($path)) {
+                $path = reset($path) ?: null;
+            }
+
+            if (! is_scalar($path)) {
+                $path = null;
+            }
+
+            $path = trim((string) $path);
+
+            if ($path !== '') {
+                $decoded = json_decode($path, true);
+
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    $path = trim((string) (reset($decoded) ?: ''));
+                }
+            }
+
+            $candidates = [];
+
+            if ($path !== '') {
+                $normalizedPath = str_replace('\\', '/', $path);
+
+                if (\Illuminate\Support\Str::startsWith($normalizedPath, ['http://', 'https://', 'data:'])) {
+                    return $normalizedPath;
+                }
+
+                if (\Illuminate\Support\Str::startsWith($normalizedPath, '/storage/')) {
+                    $normalizedPath = ltrim(substr($normalizedPath, strlen('/storage/')), '/');
+                } elseif (\Illuminate\Support\Str::startsWith($normalizedPath, 'storage/')) {
+                    $normalizedPath = ltrim(substr($normalizedPath, strlen('storage/')), '/');
+                }
+
+                $candidates[] = \Illuminate\Support\Facades\Storage::disk('public')->path($normalizedPath);
+                $candidates[] = public_path($normalizedPath);
+            }
+
+            $candidates[] = public_path('images/logo-pna.png');
+
+            foreach ($candidates as $candidate) {
+                if (! is_string($candidate) || ! is_file($candidate) || ! is_readable($candidate)) {
+                    continue;
+                }
+
+                $mime = mime_content_type($candidate) ?: 'image/png';
+
+                return 'data:'.$mime.';base64,'.base64_encode(file_get_contents($candidate));
+            }
+
+            return null;
+        };
+        $logoSrc = $resolveReportLogo($reportInstitution['logo_path'] ?? '');
         $headerLines = array_filter([
             $reportInstitution['republic_line'] ?? null,
             $reportInstitution['ministry_line'] ?? null,
@@ -33,6 +99,10 @@
             box-sizing: border-box;
         }
 
+        html.report-embedded {
+            background: #e8eef6;
+        }
+
         body {
             font-family: 'Helvetica', 'Arial', sans-serif;
             font-size: 11px;
@@ -41,7 +111,28 @@
         }
 
         @page {
+            size: {{ strtoupper($paperSize) }} {{ $paperOrientation }};
             margin: 20mm 18mm 18mm 18mm;
+        }
+
+        .report-sheet {
+            width: 100%;
+        }
+
+        html.report-embedded body {
+            background: #e8eef6;
+            padding: 18px;
+        }
+
+        html.report-embedded .report-sheet {
+            background: #fff;
+            border: 1px solid #d7dfeb;
+            box-shadow: 0 18px 50px rgba(15, 23, 42, .14);
+            margin: 0 auto;
+            min-height: var(--report-sheet-min-height);
+            overflow: visible;
+            padding: 16mm 14mm 14mm;
+            width: min(100%, var(--report-sheet-width));
         }
 
         .header {
@@ -112,6 +203,7 @@
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 18px;
+            page-break-inside: auto;
         }
 
         table th {
@@ -129,10 +221,20 @@
             padding: 6px 10px;
             border-bottom: 1px solid #e5e7eb;
             font-size: 10px;
+            word-break: break-word;
         }
 
         table tr:nth-child(even) td {
             background: #f9fafb;
+        }
+
+        thead {
+            display: table-header-group;
+        }
+
+        tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
         }
 
         .footer {
@@ -216,14 +318,53 @@
             color: #999;
             font-size: 13px;
         }
+
+        html.report-embedded .footer {
+            bottom: auto;
+            left: auto;
+            margin-top: 18px;
+            position: static;
+            right: auto;
+        }
+
+        @media print {
+            html.report-embedded,
+            html.report-embedded body {
+                background: #fff;
+                padding: 0;
+            }
+
+            html.report-embedded .report-sheet {
+                border: 0;
+                box-shadow: none;
+                margin: 0;
+                min-height: auto;
+                padding: 0;
+                width: auto;
+            }
+        }
     </style>
+    @if($autoPrint)
+        <script>
+            window.addEventListener('load', function () {
+                setTimeout(function () {
+                    window.focus();
+                    window.print();
+                }, 250);
+            });
+        </script>
+    @endif
 </head>
 
-<body>
+<body class="{{ $embeddedMode ? 'report-embedded-body' : '' }}">
+    <main
+        class="report-sheet"
+        style="--report-sheet-width: {{ $sheetWidth }}; --report-sheet-min-height: {{ $sheetMinHeight }};"
+    >
     <div class="header">
-        @if($logoExists)
+        @if($logoSrc)
             <div class="header-logo">
-                <img src="{{ $logoAbsolutePath }}" alt="Logotipo">
+                <img src="{{ $logoSrc }}" alt="Logotipo">
             </div>
         @endif
         @if(count($headerLines) > 0)
@@ -256,6 +397,7 @@
     <div class="footer">
         <span>{{ $footerText }} | {{ now()->format('d/m/Y H:i') }} | Página <span class="page-number"></span></span>
     </div>
+    </main>
 </body>
 
 </html>

@@ -10,7 +10,7 @@
             <table class="w-full">
                 <tr>
                     <td class="align-top" style="width: 140px; padding-right: 30px;">
-                        <img src="{{ asset('images/logo-pna.png') }}" alt="Logo PNA" style="width: 120px; height: auto;">
+                        <img src="{{ $this->getInstitutionLogoUrl() }}" alt="Logo da instituição" style="width: 120px; height: 120px; object-fit: contain;">
                     </td>
                     <td class="align-top">
                         <h2 style="font-size: 18px; font-weight: bold; color: #041B4E; margin-bottom: 20px;">

@@ -238,6 +238,13 @@
             cursor: pointer;
         }
 
+        .filter-select-clear::before {
+            content: "\00d7";
+            font-size: 1.08rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
         .filter-select-clear:hover {
             color: #041B4E;
         }
@@ -1064,6 +1071,8 @@
                 $platoon => is_numeric($platoon) ? $platoon . 'º PELOTÃO' : $platoon,
             ])
         );
+        $trainerSubjectOptions = $toSelectOptions($this->trainerSubjects);
+        $effectiveUnitOptions = $toSelectOptions($this->effectiveUnits);
 
         if ($activeTab === 'students') {
             $contextParts = [];
@@ -1104,7 +1113,7 @@
                     </button>
                 </div>
 
-                @if($needsInstitution || $activeTab === 'students')
+                @if($needsInstitution || in_array($activeTab, ['students', 'trainers', 'effectives'], true))
                     <div class="attendance-filters">
                         @if($needsInstitution)
                             <div class="filter-group">
@@ -1121,7 +1130,166 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
                                         </svg>
                                     </button>
-                                    <button type="button" class="filter-select-clear" x-show="value !== null && value !== '' && !disabled" x-on:click.stop="clear()" aria-label="Limpar Escola de Formação">×</button>
+                                    <button type="button" class="filter-select-clear" x-show="value !== null && value !== '' && !disabled" x-on:click.stop="clear()" aria-label="Limpar Escola de Formação"></button>
+                                    <div class="filter-select-panel" x-show="open" x-transition>
+                                        <input x-ref="searchInput" class="filter-select-search" type="search" x-model="search" x-bind:placeholder="searchPlaceholder" x-on:keydown.escape.prevent="close()">
+                                        <div class="filter-select-options">
+                                            <template x-for="option in filteredOptions" x-bind:key="option.value">
+                                                <button type="button" class="filter-select-option" x-bind:class="{ 'is-selected': String(option.value) === String(value) }" x-on:click="choose(option)" x-text="option.label"></button>
+                                            </template>
+                                            <div class="filter-select-empty" x-show="filteredOptions.length === 0">Nenhum resultado encontrado.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
+                        @if($activeTab === 'trainers')
+                            <div class="filter-group">
+                                <label>Nome do Professor</label>
+                                <input
+                                    type="search"
+                                    class="filter-input"
+                                    wire:model.live.debounce.400ms="trainerSearch"
+                                    placeholder="Pesquisar professor..."
+                                >
+                            </div>
+
+                            <div class="filter-group">
+                                <label>Ano Lectivo</label>
+                                <div
+                                    wire:key="attendance-trainer-filter-academic-year-{{ $selectedInstitutionId ?: 'none' }}-{{ count($academicYearOptions) }}"
+                                    class="filter-selectbox"
+                                    x-data="attendanceSearchSelect({ options: @js($academicYearOptions), value: @entangle('selectedAcademicYearId').live, placeholder: '{{ $selectedInstitutionId ? 'Selecione o ano...' : 'Selecione escola primeiro' }}', searchPlaceholder: 'Pesquisar ano lectivo...', disabled: {{ $selectedInstitutionId ? 'false' : 'true' }} })"
+                                    x-on:click.outside="close()"
+                                >
+                                    <button type="button" class="filter-select-button" x-bind:class="{ 'is-open': open }" x-on:click="toggle()" x-bind:disabled="disabled">
+                                        <span class="filter-select-value" x-bind:class="{ 'filter-select-placeholder': !selectedLabel }" x-text="selectedLabel || placeholder"></span>
+                                        <svg class="filter-select-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
+                                        </svg>
+                                    </button>
+                                    <button type="button" class="filter-select-clear" x-show="value !== null && value !== '' && !disabled" x-on:click.stop="clear()" aria-label="Limpar Ano Lectivo"></button>
+                                    <div class="filter-select-panel" x-show="open" x-transition>
+                                        <input x-ref="searchInput" class="filter-select-search" type="search" x-model="search" x-bind:placeholder="searchPlaceholder" x-on:keydown.escape.prevent="close()">
+                                        <div class="filter-select-options">
+                                            <template x-for="option in filteredOptions" x-bind:key="option.value">
+                                                <button type="button" class="filter-select-option" x-bind:class="{ 'is-selected': String(option.value) === String(value) }" x-on:click="choose(option)" x-text="option.label"></button>
+                                            </template>
+                                            <div class="filter-select-empty" x-show="filteredOptions.length === 0">Nenhum resultado encontrado.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="filter-group">
+                                <label>Curso</label>
+                                <div
+                                    wire:key="attendance-trainer-filter-course-{{ $selectedInstitutionId ?: 'none' }}-{{ $selectedAcademicYearId ?: 'none' }}-{{ count($courseOptions) }}"
+                                    class="filter-selectbox"
+                                    x-data="attendanceSearchSelect({ options: @js($courseOptions), value: @entangle('selectedCourseId').live, placeholder: '{{ $selectedAcademicYearId ? 'Selecione o curso...' : 'Selecione ano primeiro' }}', searchPlaceholder: 'Pesquisar curso...', disabled: {{ ($selectedInstitutionId && $selectedAcademicYearId) ? 'false' : 'true' }} })"
+                                    x-on:click.outside="close()"
+                                >
+                                    <button type="button" class="filter-select-button" x-bind:class="{ 'is-open': open }" x-on:click="toggle()" x-bind:disabled="disabled">
+                                        <span class="filter-select-value" x-bind:class="{ 'filter-select-placeholder': !selectedLabel }" x-text="selectedLabel || placeholder"></span>
+                                        <svg class="filter-select-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
+                                        </svg>
+                                    </button>
+                                    <button type="button" class="filter-select-clear" x-show="value !== null && value !== '' && !disabled" x-on:click.stop="clear()" aria-label="Limpar Curso"></button>
+                                    <div class="filter-select-panel" x-show="open" x-transition>
+                                        <input x-ref="searchInput" class="filter-select-search" type="search" x-model="search" x-bind:placeholder="searchPlaceholder" x-on:keydown.escape.prevent="close()">
+                                        <div class="filter-select-options">
+                                            <template x-for="option in filteredOptions" x-bind:key="option.value">
+                                                <button type="button" class="filter-select-option" x-bind:class="{ 'is-selected': String(option.value) === String(value) }" x-on:click="choose(option)" x-text="option.label"></button>
+                                            </template>
+                                            <div class="filter-select-empty" x-show="filteredOptions.length === 0">Nenhum resultado encontrado.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="filter-group">
+                                <label>CIA</label>
+                                <div
+                                    wire:key="attendance-trainer-filter-cia-{{ $selectedInstitutionId ?: 'none' }}-{{ $selectedAcademicYearId ?: 'none' }}-{{ $selectedCourseId ?: 'none' }}-{{ count($ciaOptions) }}"
+                                    class="filter-selectbox"
+                                    x-data="attendanceSearchSelect({ options: @js($ciaOptions), value: @entangle('selectedCia').live, placeholder: '{{ $selectedCourseId ? 'Selecione a CIA...' : 'Selecione curso primeiro' }}', searchPlaceholder: 'Pesquisar CIA...', disabled: {{ ($selectedInstitutionId && $selectedAcademicYearId && $selectedCourseId) ? 'false' : 'true' }} })"
+                                    x-on:click.outside="close()"
+                                >
+                                    <button type="button" class="filter-select-button" x-bind:class="{ 'is-open': open }" x-on:click="toggle()" x-bind:disabled="disabled">
+                                        <span class="filter-select-value" x-bind:class="{ 'filter-select-placeholder': !selectedLabel }" x-text="selectedLabel || placeholder"></span>
+                                        <svg class="filter-select-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
+                                        </svg>
+                                    </button>
+                                    <button type="button" class="filter-select-clear" x-show="value !== null && value !== '' && !disabled" x-on:click.stop="clear()" aria-label="Limpar CIA"></button>
+                                    <div class="filter-select-panel" x-show="open" x-transition>
+                                        <input x-ref="searchInput" class="filter-select-search" type="search" x-model="search" x-bind:placeholder="searchPlaceholder" x-on:keydown.escape.prevent="close()">
+                                        <div class="filter-select-options">
+                                            <template x-for="option in filteredOptions" x-bind:key="option.value">
+                                                <button type="button" class="filter-select-option" x-bind:class="{ 'is-selected': String(option.value) === String(value) }" x-on:click="choose(option)" x-text="option.label"></button>
+                                            </template>
+                                            <div class="filter-select-empty" x-show="filteredOptions.length === 0">Nenhum resultado encontrado.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="filter-group">
+                                <label>Disciplina</label>
+                                <div
+                                    wire:key="attendance-trainer-filter-subject-{{ $selectedInstitutionId ?: 'none' }}-{{ $selectedAcademicYearId ?: 'none' }}-{{ $selectedCourseId ?: 'none' }}-{{ md5((string) $selectedCia) }}-{{ count($trainerSubjectOptions) }}"
+                                    class="filter-selectbox"
+                                    x-data="attendanceSearchSelect({ options: @js($trainerSubjectOptions), value: @entangle('selectedSubjectId').live, placeholder: '{{ $selectedInstitutionId ? 'Selecione a disciplina...' : 'Selecione escola primeiro' }}', searchPlaceholder: 'Pesquisar disciplina...', disabled: {{ $selectedInstitutionId ? 'false' : 'true' }} })"
+                                    x-on:click.outside="close()"
+                                >
+                                    <button type="button" class="filter-select-button" x-bind:class="{ 'is-open': open }" x-on:click="toggle()" x-bind:disabled="disabled">
+                                        <span class="filter-select-value" x-bind:class="{ 'filter-select-placeholder': !selectedLabel }" x-text="selectedLabel || placeholder"></span>
+                                        <svg class="filter-select-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
+                                        </svg>
+                                    </button>
+                                    <button type="button" class="filter-select-clear" x-show="value !== null && value !== '' && !disabled" x-on:click.stop="clear()" aria-label="Limpar Disciplina"></button>
+                                    <div class="filter-select-panel" x-show="open" x-transition>
+                                        <input x-ref="searchInput" class="filter-select-search" type="search" x-model="search" x-bind:placeholder="searchPlaceholder" x-on:keydown.escape.prevent="close()">
+                                        <div class="filter-select-options">
+                                            <template x-for="option in filteredOptions" x-bind:key="option.value">
+                                                <button type="button" class="filter-select-option" x-bind:class="{ 'is-selected': String(option.value) === String(value) }" x-on:click="choose(option)" x-text="option.label"></button>
+                                            </template>
+                                            <div class="filter-select-empty" x-show="filteredOptions.length === 0">Nenhum resultado encontrado.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
+                        @if($activeTab === 'effectives')
+                            <div class="filter-group">
+                                <label>Pesquisar Efectivo</label>
+                                <input
+                                    type="search"
+                                    class="filter-input"
+                                    wire:model.live.debounce.400ms="effectiveSearch"
+                                    placeholder="Nome, NIP ou BI"
+                                >
+                            </div>
+
+                            <div class="filter-group">
+                                <label>Unidade / Departamento</label>
+                                <div
+                                    wire:key="attendance-effective-filter-unit-{{ $selectedInstitutionId ?: 'none' }}-{{ count($effectiveUnitOptions) }}"
+                                    class="filter-selectbox"
+                                    x-data="attendanceSearchSelect({ options: @js($effectiveUnitOptions), value: @entangle('selectedEffectiveUnit').live, placeholder: 'Todos os efectivos', searchPlaceholder: 'Pesquisar unidade/departamento...', disabled: {{ $selectedInstitutionId ? 'false' : 'true' }} })"
+                                    x-on:click.outside="close()"
+                                >
+                                    <button type="button" class="filter-select-button" x-bind:class="{ 'is-open': open }" x-on:click="toggle()" x-bind:disabled="disabled">
+                                        <span class="filter-select-value" x-bind:class="{ 'filter-select-placeholder': !selectedLabel }" x-text="selectedLabel || placeholder"></span>
+                                        <svg class="filter-select-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
+                                        </svg>
+                                    </button>
+                                    <button type="button" class="filter-select-clear" x-show="value !== null && value !== '' && !disabled" x-on:click.stop="clear()" aria-label="Limpar Unidade / Departamento"></button>
                                     <div class="filter-select-panel" x-show="open" x-transition>
                                         <input x-ref="searchInput" class="filter-select-search" type="search" x-model="search" x-bind:placeholder="searchPlaceholder" x-on:keydown.escape.prevent="close()">
                                         <div class="filter-select-options">
@@ -1150,7 +1318,7 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
                                         </svg>
                                     </button>
-                                    <button type="button" class="filter-select-clear" x-show="value !== null && value !== '' && !disabled" x-on:click.stop="clear()" aria-label="Limpar Ano Lectivo">×</button>
+                                    <button type="button" class="filter-select-clear" x-show="value !== null && value !== '' && !disabled" x-on:click.stop="clear()" aria-label="Limpar Ano Lectivo"></button>
                                     <div class="filter-select-panel" x-show="open" x-transition>
                                         <input x-ref="searchInput" class="filter-select-search" type="search" x-model="search" x-bind:placeholder="searchPlaceholder" x-on:keydown.escape.prevent="close()">
                                         <div class="filter-select-options">
@@ -1177,7 +1345,7 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
                                         </svg>
                                     </button>
-                                    <button type="button" class="filter-select-clear" x-show="value !== null && value !== '' && !disabled" x-on:click.stop="clear()" aria-label="Limpar Curso">×</button>
+                                    <button type="button" class="filter-select-clear" x-show="value !== null && value !== '' && !disabled" x-on:click.stop="clear()" aria-label="Limpar Curso"></button>
                                     <div class="filter-select-panel" x-show="open" x-transition>
                                         <input x-ref="searchInput" class="filter-select-search" type="search" x-model="search" x-bind:placeholder="searchPlaceholder" x-on:keydown.escape.prevent="close()">
                                         <div class="filter-select-options">
@@ -1204,7 +1372,7 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
                                         </svg>
                                     </button>
-                                    <button type="button" class="filter-select-clear" x-show="value !== null && value !== '' && !disabled" x-on:click.stop="clear()" aria-label="Limpar CIA">×</button>
+                                    <button type="button" class="filter-select-clear" x-show="value !== null && value !== '' && !disabled" x-on:click.stop="clear()" aria-label="Limpar CIA"></button>
                                     <div class="filter-select-panel" x-show="open" x-transition>
                                         <input x-ref="searchInput" class="filter-select-search" type="search" x-model="search" x-bind:placeholder="searchPlaceholder" x-on:keydown.escape.prevent="close()">
                                         <div class="filter-select-options">
@@ -1231,7 +1399,7 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
                                         </svg>
                                     </button>
-                                    <button type="button" class="filter-select-clear" x-show="value !== null && value !== '' && !disabled" x-on:click.stop="clear()" aria-label="Limpar Pelotão">×</button>
+                                    <button type="button" class="filter-select-clear" x-show="value !== null && value !== '' && !disabled" x-on:click.stop="clear()" aria-label="Limpar Pelotão"></button>
                                     <div class="filter-select-panel" x-show="open" x-transition>
                                         <input x-ref="searchInput" class="filter-select-search" type="search" x-model="search" x-bind:placeholder="searchPlaceholder" x-on:keydown.escape.prevent="close()">
                                         <div class="filter-select-options">

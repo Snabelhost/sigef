@@ -4,10 +4,68 @@
 <head>
     <meta charset="UTF-8">
     <title>Mini Pauta - {{ $disciplina->name ?? 'Disciplina' }} - {{ $turma->name ?? 'Turma' }}</title>
+    @php
+        $embeddedMode = $embeddedMode ?? false;
+        $autoPrint = $autoPrint ?? false;
+        $reportInstitution = $reportInstitution ?? [];
+        $reportConfig = $reportInstitution['config'] ?? \App\Models\SystemSetting::getReportInstitutionConfig($instituicao ?? null);
+        $reportHeaderLines = $reportInstitution['headerLines'] ?? array_values(array_filter([
+            $reportConfig['republic_line'] ?? null,
+            $reportConfig['ministry_line'] ?? null,
+            $reportConfig['organ_line'] ?? null,
+            $reportConfig['department_line'] ?? null,
+        ], fn ($line) => filled($line)));
+        $resolveReportAsset = function (mixed $path, string $fallback) use (&$resolveReportAsset): string {
+            if (is_array($path)) {
+                $path = reset($path) ?: null;
+            }
+
+            if (! is_scalar($path)) {
+                return $fallback;
+            }
+
+            $path = trim((string) $path);
+
+            if ($path === '') {
+                return $fallback;
+            }
+
+            $decoded = json_decode($path, true);
+
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                return $resolveReportAsset(reset($decoded) ?: null, $fallback);
+            }
+
+            if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://') || str_starts_with($path, 'data:') || str_starts_with($path, '/')) {
+                return $path;
+            }
+
+            if (str_starts_with($path, 'storage/')) {
+                return asset($path);
+            }
+
+            if (file_exists(public_path($path))) {
+                return asset($path);
+            }
+
+            return \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+        };
+        $reportLogoUrl = filled($reportInstitution['logoUrl'] ?? null)
+            ? $reportInstitution['logoUrl']
+            : $resolveReportAsset($reportConfig['logo_path'] ?? null, asset('images/logo-pna.png'));
+        $reportFooterText = $reportInstitution['footerText'] ?? ($reportConfig['footer_text'] ?? '');
+        $reportLocation = $reportInstitution['location'] ?? ($reportConfig['municipality'] ?? ($reportConfig['province'] ?? 'Luanda'));
+        $reportInstitutionName = $reportConfig['name'] ?? ($instituicao->name ?? 'SIGEF');
+        $reportInstitutionAcronym = $reportConfig['acronym'] ?? ($instituicao->acronym ?? 'SIGEF');
+        $reportDirectorTitle = $reportConfig['director_title'] ?? 'Responsável';
+        $reportUpper = fn (mixed $value): string => function_exists('mb_strtoupper')
+            ? mb_strtoupper((string) $value, 'UTF-8')
+            : strtoupper((string) $value);
+    @endphp
     <style>
         @page {
             size: A4 portrait;
-            margin: 6mm;
+            margin: 4mm;
         }
 
         * {
@@ -18,41 +76,45 @@
 
         body {
             font-family: Arial, Helvetica, sans-serif;
-            font-size: 13px;
-            background: #fff;
+            font-size: 10px;
+            background: {{ $embeddedMode ? '#f8fafc' : '#fff' }};
             color: #000;
+            padding: {{ $embeddedMode ? '4mm 0' : '0' }};
         }
 
         .container {
-            width: 100%;
-            max-width: 195mm;
+            width: 202mm;
+            min-height: 289mm;
             margin: 0 auto;
+            padding: 5mm 6mm 4mm;
+            background: #fff;
+            overflow: visible;
         }
 
         /* ── Logo e cabeçalho ── */
         .container-logo {
             text-align: center;
-            margin-bottom: 2mm;
+            margin-bottom: 1mm;
         }
 
         .container-logo img {
-            width: 60px;
+            width: 46px;
             height: auto;
         }
 
         .conteiner {
             text-align: center;
-            font-size: 14px;
-            line-height: 1.6;
-            margin-bottom: 3mm;
+            font-size: 11px;
+            line-height: 1.28;
+            margin-bottom: 2mm;
         }
 
         .conteiner strong {
-            font-size: 15px;
+            font-size: 12px;
         }
 
         .conteiner p strong {
-            font-size: 17px;
+            font-size: 14px;
             letter-spacing: 1px;
         }
 
@@ -88,41 +150,43 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 9px;
+            table-layout: fixed;
+            font-size: 7.6px;
         }
 
         th,
         td {
             border: 1px solid #000;
-            padding: 2mm 2mm;
+            padding: 0.95mm 1mm;
             text-align: center;
             vertical-align: middle;
+            line-height: 1.15;
         }
 
         th {
             background: #fff;
             font-weight: bold;
-            font-size: 8px;
+            font-size: 7.2px;
             color: #000;
         }
 
         th.utility-header {
             background: #f5f5f5;
-            font-size: 9px;
+            font-size: 7.6px;
         }
 
         td.nome {
             text-align: left;
-            font-size: 11px;
+            font-size: 8.2px;
             max-width: 70mm;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            padding-left: 2mm;
+            padding-left: 1.2mm;
         }
 
         td.posto {
-            font-size: 10px;
+            font-size: 7.6px;
         }
 
         .col-num {
@@ -134,7 +198,7 @@
         }
 
         .col-nome {
-            width: 65mm;
+            width: 62mm;
         }
 
         .col-genero {
@@ -154,7 +218,20 @@
         }
 
         .col-obs {
-            width: 20mm;
+            width: 18mm;
+        }
+
+        .info-table {
+            margin-bottom: 1.7mm;
+        }
+
+        .grades-table th {
+            padding: 0.8mm 0.7mm;
+        }
+
+        .grades-table td {
+            height: 5.7mm;
+            padding: 0.75mm 0.8mm;
         }
 
         tr:nth-child(even) td {
@@ -173,86 +250,106 @@
 
         /* ── Estatística ── */
         .stats-section {
-            margin-top: 4mm;
+            margin-top: 2.4mm;
+            page-break-inside: avoid;
         }
 
         .stats-title {
             text-align: center;
             font-weight: bold;
-            font-size: 11px;
-            margin-bottom: 2mm;
+            font-size: 9px;
+            margin-bottom: 1mm;
         }
 
         table.stats-table {
-            font-size: 8px;
+            font-size: 6.8px;
         }
 
         table.stats-table th {
             background: #f5f5f5;
-            font-size: 8px;
-            padding: 1mm;
+            font-size: 6.8px;
+            padding: 0.6mm;
         }
 
         table.stats-table td {
-            padding: 1.5mm 1mm;
+            padding: 0.75mm 0.6mm;
             font-weight: 600;
         }
 
         /* ── Footer ── */
         .footer-container {
-            margin-top: 5mm;
+            margin-top: 2.5mm;
             text-align: center;
+            page-break-inside: avoid;
         }
 
         .footer-container .main-text {
             font-weight: bold;
             font-style: italic;
-            font-size: 10px;
-            margin-bottom: 3mm;
+            font-size: 8.2px;
+            margin-bottom: 1.6mm;
         }
 
         .details-section {
-            font-size: 10px;
-            line-height: 1.8;
+            font-size: 8px;
+            line-height: 1.35;
         }
 
         .details-section .date-line {
             border-bottom: 1px solid #000;
             display: inline-block;
-            min-width: 25mm;
+            min-width: 17mm;
         }
 
         .coordinator-text {
-            margin-top: 10mm;
+            margin-top: 4mm;
             font-weight: bold;
         }
 
         @media print {
+            html,
             body {
+                width: auto;
+                min-height: auto;
+                background: #fff;
+                padding: 0;
                 print-color-adjust: exact;
                 -webkit-print-color-adjust: exact;
+            }
+
+            .container {
+                width: 100%;
+                min-height: auto;
+                padding: 0;
+                overflow: visible;
+            }
+
+            tr,
+            .stats-section,
+            .footer-container {
+                page-break-inside: avoid;
             }
         }
     </style>
 </head>
 
-<body>
+<body class="{{ $embeddedMode ? 'embedded-print-preview' : '' }}">
     <div class="container">
         {{-- Logo --}}
         <div class="container-logo">
-            <img src="/images/logo-pna.png" alt="Logotipo">
+            <img src="{{ $reportLogoUrl }}" alt="Logotipo">
         </div>
 
         {{-- Header institucional --}}
         <div class="conteiner">
-            {{ strtoupper($instituicao->name ?? 'ESCOLA PRÁTICA DE POLÍCIA') }}<br>
-            ÁREA DE INSTRUÇÃO DE ENSINO<br>
-            <strong>DEPARTAMENTO DE FORMAÇÃO</strong><br>
+            @foreach($reportHeaderLines as $line)
+                {{ $reportUpper($line) }}<br>
+            @endforeach
             <p><strong>MINI PAUTA PROFESSOR</strong></p>
         </div>
 
         {{-- Info da disciplina/turma --}}
-        <table style="margin-bottom: 2mm;">
+        <table class="info-table">
             <thead>
                 <tr>
                     <th class="utility-header" colspan="2">
@@ -281,7 +378,7 @@
 
         {{-- Tabela de notas --}}
         <div class="table-container">
-            <table>
+            <table class="grades-table">
                 <thead>
                     <tr>
                         <th rowspan="2" class="col-num">Nº</th>
@@ -400,21 +497,32 @@
         {{-- Footer --}}
         <div class="footer-container">
             <p class="main-text">
-                FORMAÇÃO, PROFISSIONALISMO E APERFEIÇOAMENTO
+                {{ $reportFooterText ?: 'FORMAÇÃO, PROFISSIONALISMO E APERFEIÇOAMENTO' }}
             </p>
             <div class="details-section">
                 <p>
-                    DEPARTAMENTO DE FORMAÇÃO/ÁREA DE INSTRUÇÃO E ENSINO/{{ strtoupper(substr($instituicao->name ?? 'EPP', 0, 3)) }}/PNA, em {{ $instituicao->city ?? 'Luanda' }}, aos
+                    {{ strtoupper($reportInstitutionAcronym ?: substr($reportInstitutionName, 0, 3)) }}, em {{ $reportLocation ?: 'Luanda' }}, aos
                     <span class="date-line">________</span> /
                     <span class="date-line">________</span> / {{ date('Y') }}.
                 </p>
                 <p class="coordinator-text">
-                    O COORDENADOR/CHEFE DE CÁTEDRA
+                    {{ strtoupper($reportDirectorTitle ?: 'O COORDENADOR/CHEFE DE CÁTEDRA') }}
                     <br><span class="date-line" style="margin-top: 8mm; display: inline-block;">________________________</span>
                 </p>
             </div>
         </div>
     </div>
+
+    @if($autoPrint)
+        <script>
+            window.addEventListener('load', function () {
+                setTimeout(function () {
+                    window.focus();
+                    window.print();
+                }, 350);
+            });
+        </script>
+    @endif
 </body>
 
 </html>

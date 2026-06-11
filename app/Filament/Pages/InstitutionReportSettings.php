@@ -4,17 +4,18 @@ namespace App\Filament\Pages;
 
 use App\Models\Institution;
 use App\Models\SystemSetting;
+use Filament\Facades\Filament;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Concerns\RestrictsFileUploadsToSchemaComponents;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
-use Livewire\WithFileUploads;
 
 class InstitutionReportSettings extends Page
 {
-    use WithFileUploads;
+    use RestrictsFileUploadsToSchemaComponents;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-building-office-2';
     protected static string|\UnitEnum|null $navigationGroup = 'Configurações';
@@ -42,12 +43,13 @@ class InstitutionReportSettings extends Page
     public ?string $report_institution_province = '';
     public ?string $report_institution_municipality = '';
     public ?string $report_institution_address = '';
-    public $report_institution_logo_path = '';
+    public array $report_institution_logo_path = [];
     public ?string $report_institution_footer_text = '';
 
     public function mount(): void
     {
-        $this->institution_id = auth()->user()?->institution_id
+        $this->institution_id = Filament::getTenant()?->id
+            ?: auth()->user()?->institution_id
             ?: Institution::query()->orderBy('name')->value('id');
 
         $this->loadInstitutionConfig();
@@ -87,6 +89,7 @@ class InstitutionReportSettings extends Page
                             ->disk('public')
                             ->directory('report-institution')
                             ->imageEditor()
+                            ->maxFiles(1)
                             ->columnSpanFull(),
                         Forms\Components\TextInput::make('report_institution_republic_line')
                             ->label('Linha 1')
@@ -248,7 +251,9 @@ class InstitutionReportSettings extends Page
     private function normalizeValueForForm(string $key, mixed $value): mixed
     {
         if ($key === 'logo_path') {
-            return filled($value) ? (string) $value : null;
+            $path = $this->normalizeStoredFilePath($value);
+
+            return $path ? [$path] : [];
         }
 
         return is_scalar($value) ? (string) $value : '';
@@ -264,6 +269,43 @@ class InstitutionReportSettings extends Page
             return $value->store('report-institution', 'public') ?: '';
         }
 
-        return is_scalar($value) ? trim((string) $value) : '';
+        return $this->normalizeStoredFilePath($value) ?: '';
+    }
+
+    private function normalizeStoredFilePath(mixed $value): ?string
+    {
+        if (is_array($value)) {
+            $value = reset($value) ?: null;
+        }
+
+        if ($value instanceof TemporaryUploadedFile) {
+            return $value->store('report-institution', 'public') ?: null;
+        }
+
+        if (! is_scalar($value)) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        if ($value === '') {
+            return null;
+        }
+
+        $decoded = json_decode($value, true);
+
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            return $this->normalizeStoredFilePath(reset($decoded) ?: null);
+        }
+
+        if (str_starts_with($value, '/storage/')) {
+            return ltrim(substr($value, strlen('/storage/')), '/');
+        }
+
+        if (str_starts_with($value, 'storage/')) {
+            return ltrim(substr($value, strlen('storage/')), '/');
+        }
+
+        return $value;
     }
 }

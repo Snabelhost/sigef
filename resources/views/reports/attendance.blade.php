@@ -1,3 +1,59 @@
+@php
+    $reportInstitution = \App\Models\SystemSetting::getReportInstitutionConfig($institution ?? null);
+    $resolveReportLogo = function (mixed $path): ?string {
+        if (is_array($path)) {
+            $path = reset($path) ?: null;
+        }
+
+        if (! is_scalar($path)) {
+            $path = null;
+        }
+
+        $path = trim((string) $path);
+
+        if ($path !== '') {
+            $decoded = json_decode($path, true);
+
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $path = trim((string) (reset($decoded) ?: ''));
+            }
+        }
+
+        $candidates = [];
+
+        if ($path !== '') {
+            $normalizedPath = str_replace('\\', '/', $path);
+
+            if (\Illuminate\Support\Str::startsWith($normalizedPath, ['http://', 'https://', 'data:'])) {
+                return $normalizedPath;
+            }
+
+            if (\Illuminate\Support\Str::startsWith($normalizedPath, '/storage/')) {
+                $normalizedPath = ltrim(substr($normalizedPath, strlen('/storage/')), '/');
+            } elseif (\Illuminate\Support\Str::startsWith($normalizedPath, 'storage/')) {
+                $normalizedPath = ltrim(substr($normalizedPath, strlen('storage/')), '/');
+            }
+
+            $candidates[] = \Illuminate\Support\Facades\Storage::disk('public')->path($normalizedPath);
+            $candidates[] = public_path($normalizedPath);
+        }
+
+        $candidates[] = public_path('images/logo-pna.png');
+
+        foreach ($candidates as $candidate) {
+            if (! is_string($candidate) || ! is_file($candidate) || ! is_readable($candidate)) {
+                continue;
+            }
+
+            $mime = mime_content_type($candidate) ?: 'image/png';
+
+            return 'data:'.$mime.';base64,'.base64_encode(file_get_contents($candidate));
+        }
+
+        return null;
+    };
+    $logoSrc = $resolveReportLogo($reportInstitution['logo_path'] ?? '');
+@endphp
 <!DOCTYPE html>
 <html>
 
@@ -176,11 +232,13 @@
 
 <body>
     <div class="header">
-        <div class="header-logo">
-            <img src="{{ public_path('images/logo-pna.png') }}" alt="Logo PNA">
-        </div>
+        @if($logoSrc)
+            <div class="header-logo">
+                <img src="{{ $logoSrc }}" alt="Logotipo">
+            </div>
+        @endif
         <h1>Ponto de Presenças</h1>
-        <h2>Sistema Integrado de Gestão Escolar e Formação</h2>
+        <h2>{{ $reportInstitution['name'] ?? 'Sistema Integrado de Gestão Escolar e Formação' }}</h2>
         <p class="subtitle">Gerado em: {{ now()->format('d/m/Y H:i') }}</p>
     </div>
 

@@ -7,24 +7,29 @@ use App\Models\Subject;
 use App\Models\Student;
 use App\Models\Evaluation;
 use App\Models\Institution;
+use App\Models\SystemSetting;
 use App\Models\StudentClassEnrollment;
 use App\Models\TrainerSubjectAuthorization;
+use Filament\Facades\Filament;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class PautaController extends Controller
 {
     public function miniPautaPrint(Request $request)
     {
-        $turma = StudentClass::with(['academicYear', 'courseMap.course', 'institution'])->findOrFail($request->turma);
+        $turma = StudentClass::with(['academicYear', 'courseMap.course', 'courseMap.institution', 'institution'])->findOrFail($request->turma);
         $disciplina = Subject::findOrFail($request->disciplina);
-        $instituicao = $turma->institution ?? Institution::find($turma->institution_id);
+        $instituicao = $this->resolveReportInstitutionForClass($turma);
+        $reportInstitution = $this->reportInstitutionPayload($instituicao);
 
         // Buscar alunos inscritos na turma
         $studentIds = StudentClassEnrollment::where('class_id', $turma->id)
             ->where('is_active', true)
             ->pluck('student_id');
 
-        $institutionId = $turma->institution_id;
+        $institutionId = $instituicao?->id ?? $turma->institution_id ?? $turma->courseMap?->institution_id;
         $students = Student::whereIn('id', $studentIds)
             ->with(['candidate', 'evaluations' => fn($q) => $q->where('subject_id', $disciplina->id)->where('institution_id', $institutionId)])
             ->orderBy('id')
@@ -86,17 +91,21 @@ class PautaController extends Controller
             'disciplina' => $disciplina,
             'alunos' => $alunos,
             'instituicao' => $instituicao,
+            'reportInstitution' => $reportInstitution,
             'formador' => $formador,
             'stats' => $stats,
             'anoLectivo' => $turma->academicYear?->year ?? date('Y'),
             'curso' => $turma->courseMap?->course?->name ?? '-',
+            'autoPrint' => $request->boolean('autoprint', false),
+            'embeddedMode' => $request->boolean('embedded', false),
         ]);
     }
 
     public function pautaGeralPrint(Request $request)
     {
-        $turma = StudentClass::with(['academicYear', 'courseMap.course', 'institution'])->findOrFail($request->turma);
-        $instituicao = $turma->institution ?? Institution::find($turma->institution_id);
+        $turma = StudentClass::with(['academicYear', 'courseMap.course', 'courseMap.institution', 'institution'])->findOrFail($request->turma);
+        $instituicao = $this->resolveReportInstitutionForClass($turma);
+        $reportInstitution = $this->reportInstitutionPayload($instituicao);
 
         $studentIds = StudentClassEnrollment::where('class_id', $turma->id)
             ->where('is_active', true)
@@ -111,7 +120,7 @@ class PautaController extends Controller
             ? Subject::whereIn('id', $subjectIds)->orderBy('name')->get()
             : Subject::orderBy('name')->get();
 
-        $institutionId = $turma->institution_id;
+        $institutionId = $instituicao?->id ?? $turma->institution_id ?? $turma->courseMap?->institution_id;
         $students = Student::whereIn('id', $studentIds)
             ->with(['candidate', 'evaluations' => fn($q) => $q->where('institution_id', $institutionId)])
             ->orderBy('id')
@@ -153,12 +162,137 @@ class PautaController extends Controller
             'disciplinas' => $disciplinas,
             'alunos' => $alunos,
             'instituicao' => $instituicao,
+            'reportInstitution' => $reportInstitution,
             'anoLectivo' => $turma->academicYear?->year ?? date('Y'),
             'curso' => $turma->courseMap?->course?->name ?? '-',
+            'autoPrint' => $request->boolean('autoprint', false),
+            'embeddedMode' => $request->boolean('embedded', false),
         ]);
     }
 
     // ── Helpers ─────────────────────────────────────────
+
+    private function resolveReportInstitutionForClass(StudentClass $class): ?Institution
+    {
+        $class->loadMissing(['institution', 'courseMap.institution']);
+
+        if ($class->institution) {
+            return $class->institution;
+        }
+
+        if ($class->courseMap?->institution) {
+            return $class->courseMap->institution;
+        }
+
+        if (filled($class->institution_id)) {
+            return Institution::query()->find((int) $class->institution_id);
+        }
+
+        if (filled($class->courseMap?->institution_id)) {
+            return Institution::query()->find((int) $class->courseMap->institution_id);
+        }
+
+        try {
+            $tenant = Filament::getTenant();
+        } catch (\Throwable) {
+            $tenant = null;
+        }
+
+        if ($tenant instanceof Institution) {
+            return $tenant;
+        }
+
+        $userInstitutionId = auth()->user()?->institution_id;
+
+        if (filled($userInstitutionId)) {
+            return Institution::query()->find((int) $userInstitutionId);
+        }
+
+        return Institution::query()
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->first()
+            ?? Institution::query()->orderBy('id')->first();
+    }
+
+    private function reportInstitutionPayload(?Institution $institution): array
+    {
+        $config = SystemSetting::getReportInstitutionConfig($institution);
+        $headerLines = array_values(array_filter([
+            $config['republic_line'] ?? null,
+            $config['ministry_line'] ?? null,
+            $config['organ_line'] ?? null,
+            $config['department_line'] ?? null,
+        ], fn($line) => filled($line)));
+
+        return [
+            'config' => $config,
+            'headerLines' => $headerLines,
+            'logoUrl' => $this->publicAssetUrl($config['logo_path'] ?? null, asset('images/logo-pna.png')),
+            'footerText' => trim((string) (($config['footer_text'] ?? '') ?: implode(' | ', array_filter([
+                $config['name'] ?? null,
+                $config['address'] ?? null,
+                ! empty($config['phone']) ? 'Tel.: '.$config['phone'] : null,
+                $config['email'] ?? null,
+                $config['website'] ?? null,
+            ])))),
+            'location' => $config['municipality'] ?: ($config['province'] ?: ($config['country'] ?: 'Luanda')),
+        ];
+    }
+
+    private function publicAssetUrl(mixed $path, string $fallback): string
+    {
+        $path = $this->normalizeStoredFilePath($path);
+
+        if (blank($path)) {
+            return $fallback;
+        }
+
+        if (Str::startsWith($path, ['http://', 'https://', 'data:', '/'])) {
+            return $path;
+        }
+
+        if (Str::startsWith($path, 'storage/')) {
+            return asset($path);
+        }
+
+        if (file_exists(public_path($path))) {
+            return asset($path);
+        }
+
+        return Storage::disk('public')->url($path);
+    }
+
+    private function normalizeStoredFilePath(mixed $path): ?string
+    {
+        if (is_array($path)) {
+            $path = reset($path) ?: null;
+        }
+
+        if (! is_scalar($path)) {
+            return null;
+        }
+
+        $path = trim((string) $path);
+
+        if ($path === '') {
+            return null;
+        }
+
+        $decoded = json_decode($path, true);
+
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            $decodedPath = reset($decoded) ?: null;
+
+            return $this->normalizeStoredFilePath($decodedPath);
+        }
+
+        if (Str::startsWith($path, '/storage/')) {
+            return ltrim(substr($path, strlen('/storage/')), '/');
+        }
+
+        return $path;
+    }
 
     protected function getScore(Student $student, string $type, int $order): ?string
     {

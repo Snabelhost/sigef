@@ -9,7 +9,9 @@ use App\Models\CourseMap;
 use App\Models\Effective;
 use App\Models\Student;
 use App\Models\Institution;
+use App\Models\Subject;
 use App\Models\Trainer;
+use App\Models\TrainerClassAssignment;
 use App\Models\StudentClassEnrollment;
 use Carbon\Carbon;
 use Filament\Facades\Filament;
@@ -37,6 +39,10 @@ class AttendanceManagement extends Page
     public ?int $selectedCourseId = null;
     public ?string $selectedCia = null;
     public ?string $selectedPlatoon = null;
+    public ?int $selectedSubjectId = null;
+    public string $trainerSearch = '';
+    public string $effectiveSearch = '';
+    public ?string $selectedEffectiveUnit = null;
     public ?string $selectedDate = null;
     public array $attendanceData = [];
 
@@ -70,6 +76,8 @@ class AttendanceManagement extends Page
         $this->selectedCourseId = null;
         $this->selectedCia = null;
         $this->selectedPlatoon = null;
+        $this->selectedSubjectId = null;
+        $this->selectedEffectiveUnit = null;
         $this->attendanceData = [];
         $this->loadAttendanceData();
     }
@@ -79,6 +87,7 @@ class AttendanceManagement extends Page
         $this->selectedCourseId = null;
         $this->selectedCia = null;
         $this->selectedPlatoon = null;
+        $this->selectedSubjectId = null;
         $this->attendanceData = [];
         $this->loadAttendanceData();
     }
@@ -87,6 +96,7 @@ class AttendanceManagement extends Page
     {
         $this->selectedCia = null;
         $this->selectedPlatoon = null;
+        $this->selectedSubjectId = null;
         $this->attendanceData = [];
         $this->loadAttendanceData();
     }
@@ -94,11 +104,32 @@ class AttendanceManagement extends Page
     public function updatedSelectedCia(): void
     {
         $this->selectedPlatoon = null;
+        $this->selectedSubjectId = null;
         $this->attendanceData = [];
         $this->loadAttendanceData();
     }
 
     public function updatedSelectedPlatoon(): void
+    {
+        $this->loadAttendanceData();
+    }
+
+    public function updatedSelectedSubjectId(): void
+    {
+        $this->loadAttendanceData();
+    }
+
+    public function updatedTrainerSearch(): void
+    {
+        $this->loadAttendanceData();
+    }
+
+    public function updatedEffectiveSearch(): void
+    {
+        $this->loadAttendanceData();
+    }
+
+    public function updatedSelectedEffectiveUnit(): void
     {
         $this->loadAttendanceData();
     }
@@ -157,8 +188,14 @@ class AttendanceManagement extends Page
                 ->whereHas('student', fn (Builder $studentQuery): Builder => $studentQuery->where('institution_id', $this->selectedInstitutionId))
                 ->pluck('academic_year_id');
 
+            $trainerAssignmentYearIds = TrainerClassAssignment::query()
+                ->whereNotNull('academic_year_id')
+                ->whereHas('studentClass', fn (Builder $classQuery): Builder => $classQuery->where('institution_id', $this->selectedInstitutionId))
+                ->pluck('academic_year_id');
+
             $academicYearIds = $courseMapYearIds
                 ->merge($enrollmentYearIds)
+                ->merge($trainerAssignmentYearIds)
                 ->filter()
                 ->unique()
                 ->values();
@@ -190,6 +227,29 @@ class AttendanceManagement extends Page
             ->filter()
             ->unique()
             ->values();
+
+        if ($this->activeTab === 'trainers') {
+            $trainerCourseIds = TrainerClassAssignment::query()
+                ->join('classes', 'classes.id', '=', 'trainer_class_assignments.class_id')
+                ->join('course_maps', 'course_maps.id', '=', 'classes.course_map_id')
+                ->where('trainer_class_assignments.is_active', true)
+                ->where('classes.institution_id', $this->selectedInstitutionId)
+                ->where(function ($query): void {
+                    $query
+                        ->where('trainer_class_assignments.academic_year_id', $this->selectedAcademicYearId)
+                        ->orWhere('classes.academic_year_id', $this->selectedAcademicYearId)
+                        ->orWhere('course_maps.academic_year_id', $this->selectedAcademicYearId);
+                })
+                ->pluck('course_maps.course_id')
+                ->filter()
+                ->unique()
+                ->values();
+
+            $courseIds = $courseIds
+                ->merge($trainerCourseIds)
+                ->unique()
+                ->values();
+        }
 
         if ($courseIds->isEmpty()) {
             $courseIds = StudentClassEnrollment::query()
@@ -294,22 +354,151 @@ class AttendanceManagement extends Page
     }
 
     #[Computed]
+    public function trainerSubjects(): Collection
+    {
+        if (!$this->selectedInstitutionId) {
+            return collect();
+        }
+
+        $subjectIds = $this->trainerAssignmentFilterQuery(applySubject: false)
+            ->whereNotNull('subject_id')
+            ->pluck('subject_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($subjectIds->isEmpty()) {
+            return collect();
+        }
+
+        return Subject::query()
+            ->whereIn('id', $subjectIds)
+            ->orderBy('name')
+            ->pluck('name', 'id');
+    }
+
+    protected function trainerAssignmentFilterQuery(bool $applySubject = true): Builder
+    {
+        return $this->applyTrainerAssignmentFilters(TrainerClassAssignment::query(), $applySubject);
+    }
+
+    protected function applyTrainerAssignmentFilters(Builder $query, bool $applySubject = true): Builder
+    {
+        $query
+            ->where('is_active', true)
+            ->whereHas('studentClass', fn (Builder $classQuery): Builder => $classQuery->where('institution_id', $this->selectedInstitutionId));
+
+        if ($this->selectedAcademicYearId) {
+            $academicYearId = $this->selectedAcademicYearId;
+
+            $query->where(function (Builder $assignmentQuery) use ($academicYearId): void {
+                $assignmentQuery
+                    ->where('academic_year_id', $academicYearId)
+                    ->orWhereHas('studentClass', function (Builder $classQuery) use ($academicYearId): void {
+                        $classQuery
+                            ->where('academic_year_id', $academicYearId)
+                            ->orWhereHas('courseMap', fn (Builder $courseMapQuery): Builder => $courseMapQuery->where('academic_year_id', $academicYearId));
+                    });
+            });
+        }
+
+        if ($this->selectedCourseId) {
+            $courseId = $this->selectedCourseId;
+
+            $query->whereHas(
+                'studentClass.courseMap',
+                fn (Builder $courseMapQuery): Builder => $courseMapQuery->where('course_id', $courseId)
+            );
+        }
+
+        if (filled($this->selectedCia)) {
+            $query->whereIn(
+                'class_id',
+                StudentClassEnrollment::query()
+                    ->select('student_class_enrollments.class_id')
+                    ->join('students', 'students.id', '=', 'student_class_enrollments.student_id')
+                    ->where('students.institution_id', $this->selectedInstitutionId)
+                    ->where('students.cia', $this->selectedCia)
+            );
+        }
+
+        if ($applySubject && filled($this->selectedSubjectId)) {
+            $query->where('subject_id', $this->selectedSubjectId);
+        }
+
+        return $query;
+    }
+
+    protected function hasTrainerAssignmentFilters(): bool
+    {
+        return filled($this->selectedAcademicYearId)
+            || filled($this->selectedCourseId)
+            || filled($this->selectedCia)
+            || filled($this->selectedSubjectId);
+    }
+
+    #[Computed]
     public function trainers(): Collection
     {
         if (!$this->selectedInstitutionId) {
             return collect();
         }
 
-        return Trainer::query()
+        $query = Trainer::query()
             ->with('rank')
             ->where('is_active', true)
             ->where(function ($query): void {
                 $query
                     ->where('institution_id', $this->selectedInstitutionId)
-                    ->orWhereHas('institutions', fn ($institutionQuery) => $institutionQuery->whereKey($this->selectedInstitutionId));
-            })
+                    ->orWhereHas('institutions', fn ($institutionQuery) => $institutionQuery->whereKey($this->selectedInstitutionId))
+                    ->orWhereHas('classAssignments', function (Builder $assignmentQuery): void {
+                        $assignmentQuery
+                            ->where('is_active', true)
+                            ->whereHas(
+                                'studentClass',
+                                fn (Builder $classQuery): Builder => $classQuery->where('institution_id', $this->selectedInstitutionId)
+                            );
+                    });
+            });
+
+        if (filled($this->trainerSearch)) {
+            $search = trim($this->trainerSearch);
+
+            $query->where('full_name', 'like', "%{$search}%");
+        }
+
+        if ($this->hasTrainerAssignmentFilters()) {
+            $query->whereHas(
+                'classAssignments',
+                fn (Builder $assignmentQuery): Builder => $this->applyTrainerAssignmentFilters($assignmentQuery)
+            );
+        }
+
+        return $query
             ->orderBy('full_name')
             ->get();
+    }
+
+    #[Computed]
+    public function effectiveUnits(): Collection
+    {
+        if (!$this->selectedInstitutionId) {
+            return collect();
+        }
+
+        return Effective::query()
+            ->where('institution_id', $this->selectedInstitutionId)
+            ->where('is_active', true)
+            ->get(['unit', 'department'])
+            ->flatMap(fn (Effective $effective): array => [
+                $effective->unit,
+                $effective->department,
+            ])
+            ->map(fn ($value): string => trim((string) $value))
+            ->filter()
+            ->unique()
+            ->sort()
+            ->mapWithKeys(fn (string $value): array => [$value => $value]);
     }
 
     #[Computed]
@@ -319,9 +508,34 @@ class AttendanceManagement extends Page
             return collect();
         }
 
-        return Effective::query()
+        $query = Effective::query()
             ->where('institution_id', $this->selectedInstitutionId)
-            ->where('is_active', true)
+            ->where('is_active', true);
+
+        if (filled($this->effectiveSearch)) {
+            $search = trim($this->effectiveSearch);
+
+            $query->where(function (Builder $searchQuery) use ($search): void {
+                $searchQuery
+                    ->where('full_name', 'like', "%{$search}%")
+                    ->orWhere('employee_number', 'like', "%{$search}%")
+                    ->orWhere('identity_document', 'like', "%{$search}%")
+                    ->orWhere('document_number', 'like', "%{$search}%")
+                    ->orWhere('nas', 'like', "%{$search}%");
+            });
+        }
+
+        if (filled($this->selectedEffectiveUnit)) {
+            $unit = $this->selectedEffectiveUnit;
+
+            $query->where(function (Builder $unitQuery) use ($unit): void {
+                $unitQuery
+                    ->where('unit', $unit)
+                    ->orWhere('department', $unit);
+            });
+        }
+
+        return $query
             ->orderBy('full_name')
             ->get();
     }

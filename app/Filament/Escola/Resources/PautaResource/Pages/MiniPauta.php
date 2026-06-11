@@ -3,6 +3,10 @@
 namespace App\Filament\Escola\Resources\PautaResource\Pages;
 
 use App\Filament\Escola\Resources\PautaResource;
+use App\Filament\Resources\Concerns\ResolvesInstitutionLogo;
+use App\Models\AcademicYear;
+use App\Models\CourseMap;
+use App\Models\Institution;
 use App\Models\StudentClass;
 use App\Models\Subject;
 use App\Models\Student;
@@ -18,18 +22,25 @@ use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Filament\Tables;
 use Filament\Actions\Action;
+use Filament\Facades\Filament;
+use Filament\Support\Enums\Width;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Storage;
 
 class MiniPauta extends Page implements HasForms, HasTable
 {
     use InteractsWithForms;
     use InteractsWithTable;
+    use ResolvesInstitutionLogo;
 
     protected static string $resource = PautaResource::class;
 
+    public ?int $institution_id = null;
+    public ?int $academic_year_id = null;
     public ?int $course_id = null;
     public ?int $class_id = null;
     public ?int $subject_id = null;
+    public ?int $selected_student_id = null;
     public bool $showTable = false;
 
     public function getView(): string
@@ -39,9 +50,12 @@ class MiniPauta extends Page implements HasForms, HasTable
 
     public function mount(): void
     {
+        $this->institution_id = Filament::getTenant()?->id;
+        $this->academic_year_id = null;
         $this->course_id = null;
         $this->class_id = null;
         $this->subject_id = null;
+        $this->selected_student_id = null;
         $this->showTable = false;
     }
 
@@ -69,22 +83,94 @@ class MiniPauta extends Page implements HasForms, HasTable
         ];
     }
 
+    public function getInstitutions()
+    {
+        if ($tenant = Filament::getTenant()) {
+            return collect([$tenant]);
+        }
+
+        return Institution::orderBy('name')->get();
+    }
+
+    public function getAcademicYears()
+    {
+        $query = AcademicYear::query();
+
+        if ($this->institution_id) {
+            $courseMapYearIds = CourseMap::query()
+                ->where('institution_id', $this->institution_id)
+                ->whereNotNull('academic_year_id')
+                ->pluck('academic_year_id');
+
+            $classYearIds = StudentClass::query()
+                ->where('institution_id', $this->institution_id)
+                ->whereNotNull('academic_year_id')
+                ->pluck('academic_year_id');
+
+            $academicYearIds = $courseMapYearIds
+                ->merge($classYearIds)
+                ->filter()
+                ->unique()
+                ->values();
+
+            if ($academicYearIds->isNotEmpty()) {
+                $query->whereIn('id', $academicYearIds);
+            }
+        }
+
+        return $query->orderByDesc('year')->get();
+    }
+
+    public function getCourses()
+    {
+        if (!$this->institution_id || !$this->academic_year_id) {
+            return collect();
+        }
+
+        $courseIds = CourseMap::query()
+            ->where('institution_id', $this->institution_id)
+            ->where('academic_year_id', $this->academic_year_id)
+            ->pluck('course_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($courseIds->isNotEmpty()) {
+            return Course::query()
+                ->whereIn('id', $courseIds)
+                ->orderBy('name')
+                ->get();
+        }
+
+        return Course::query()
+            ->where('institution_id', $this->institution_id)
+            ->orderBy('name')
+            ->get();
+    }
+
     public function getClasses()
     {
-        if (!$this->course_id) {
+        if (!$this->institution_id || !$this->academic_year_id || !$this->course_id) {
             return collect();
         }
 
         $query = StudentClass::with('institution')
+            ->where('institution_id', $this->institution_id)
+            ->whereIn(
+                'id',
+                \App\Models\StudentClassEnrollment::query()
+                    ->select('class_id')
+                    ->where('is_active', true)
+                    ->whereHas('student', fn (Builder $studentQuery): Builder => $studentQuery->where('institution_id', $this->institution_id))
+            )
+            ->where(function (Builder $query): void {
+                $query
+                    ->where('academic_year_id', $this->academic_year_id)
+                    ->orWhereHas('courseMap', fn (Builder $courseMapQuery): Builder => $courseMapQuery->where('academic_year_id', $this->academic_year_id));
+            })
             ->whereHas('courseMap', fn($q) => $q->where('course_id', $this->course_id));
 
-        // Filter by tenant institution in Escola panel
-        $tenant = \Filament\Facades\Filament::getTenant();
-        if ($tenant) {
-            $query->where('institution_id', $tenant->id);
-        }
-
-        return $query->get();
+        return $query->orderBy('name')->get();
     }
 
     public function getSelectedClass(): ?StudentClass
@@ -103,10 +189,77 @@ class MiniPauta extends Page implements HasForms, HasTable
         return Subject::find($this->subject_id);
     }
 
+    public function getSelectedStudent(): ?Student
+    {
+        if (!$this->selected_student_id) {
+            return null;
+        }
+
+        return Student::with('candidate')->find($this->selected_student_id);
+    }
+
+    public function getSelectedStudentName(): ?string
+    {
+        $student = $this->getSelectedStudent();
+
+        return $student?->candidate?->full_name ?: $student?->full_name;
+    }
+
+    public function getSelectedStudentPhotoUrl(): ?string
+    {
+        return $this->studentPhotoUrl($this->getSelectedStudent());
+    }
+
+    public function selectStudentPhoto(int $studentId): void
+    {
+        $this->selected_student_id = $studentId;
+    }
+
+    protected function studentPhotoUrl(?Student $student): ?string
+    {
+        $photo = trim((string) ($student?->photo ?: $student?->candidate?->photo ?: ''));
+
+        if ($photo === '') {
+            return null;
+        }
+
+        $photo = str_replace('\\', '/', $photo);
+
+        if (str_starts_with($photo, 'http://') || str_starts_with($photo, 'https://') || str_starts_with($photo, 'data:')) {
+            return $photo;
+        }
+
+        $path = ltrim($photo, '/');
+
+        if (str_starts_with($path, 'storage/')) {
+            $storagePath = substr($path, strlen('storage/'));
+
+            if (file_exists(public_path($path)) || Storage::disk('public')->exists($storagePath)) {
+                return asset('storage/' . $storagePath);
+            }
+
+            return null;
+        }
+
+        if (str_starts_with($path, 'public/')) {
+            $path = substr($path, strlen('public/'));
+        }
+
+        if (Storage::disk('public')->exists($path)) {
+            return asset('storage/' . $path);
+        }
+
+        if (file_exists(public_path($path))) {
+            return asset($path);
+        }
+
+        return null;
+    }
+
     public function getSubjects()
     {
         if (!$this->class_id) {
-            return Subject::orderBy('name')->get();
+            return collect();
         }
 
         // Buscar disciplinas que alunos da turma estão inscritos
@@ -114,12 +267,18 @@ class MiniPauta extends Page implements HasForms, HasTable
             ->where('is_active', true)
             ->pluck('student_id');
 
+        if ($studentIds->isEmpty()) {
+            return collect();
+        }
+
         $subjectIds = \App\Models\StudentSubjectEnrollment::whereIn('student_id', $studentIds)
+            ->where('class_id', $this->class_id)
+            ->where('is_active', true)
             ->distinct()
             ->pluck('subject_id');
 
         if ($subjectIds->isEmpty()) {
-            return Subject::orderBy('name')->get();
+            return collect();
         }
 
         return Subject::whereIn('id', $subjectIds)->orderBy('name')->get();
@@ -145,21 +304,47 @@ class MiniPauta extends Page implements HasForms, HasTable
         return $authorization?->trainer?->full_name ?? '-';
     }
 
+    public function updatedInstitutionId(): void
+    {
+        $this->academic_year_id = null;
+        $this->course_id = null;
+        $this->class_id = null;
+        $this->subject_id = null;
+        $this->selected_student_id = null;
+        $this->showTable = false;
+    }
+
+    public function updatedAcademicYearId(): void
+    {
+        $this->course_id = null;
+        $this->class_id = null;
+        $this->subject_id = null;
+        $this->selected_student_id = null;
+        $this->showTable = false;
+    }
+
     public function updatedCourseId(): void
     {
         $this->class_id = null;
         $this->subject_id = null;
+        $this->selected_student_id = null;
         $this->showTable = false;
     }
 
     public function updatedClassId(): void
     {
+        $this->subject_id = null;
+        $this->selected_student_id = null;
         // Se mudar a turma, esconde a tabela até pesquisar novamente
         $this->showTable = false;
     }
 
     public function updatedSubjectId(): void
     {
+        $this->selected_student_id = null;
+        $this->showTable = false;
+        return;
+
         // Se já tiver turma selecionada e selecionar nova disciplina, mostra automaticamente
         if ($this->class_id && $this->subject_id) {
             $this->showTable = true;
@@ -169,10 +354,40 @@ class MiniPauta extends Page implements HasForms, HasTable
 
     public function pesquisar(): void
     {
-        if ($this->class_id && $this->subject_id) {
+        if ($this->institution_id && $this->academic_year_id && $this->course_id && $this->class_id && $this->subject_id) {
             $this->showTable = true;
+            $this->selected_student_id = $this->firstStudentIdForSelectedClass();
             $this->resetTable();
         }
+    }
+
+    protected function firstStudentIdForSelectedClass(): ?int
+    {
+        if (!$this->class_id) {
+            return null;
+        }
+
+        return \App\Models\StudentClassEnrollment::query()
+            ->join('students', 'students.id', '=', 'student_class_enrollments.student_id')
+            ->leftJoin('candidates', 'candidates.id', '=', 'students.candidate_id')
+            ->where('student_class_enrollments.class_id', $this->class_id)
+            ->where('student_class_enrollments.is_active', true)
+            ->orderBy('candidates.full_name')
+            ->value('students.id');
+    }
+
+    protected function scoreInputAttributes(Student $record, mixed $state): array
+    {
+        $attributes = [
+            'wire:focus' => "selectStudentPhoto({$record->id})",
+            'wire:click' => "selectStudentPhoto({$record->id})",
+        ];
+
+        if (is_numeric($state) && floatval($state) < 10 && $state !== null && $state !== '') {
+            $attributes['style'] = 'color: #dc2626; font-weight: 600';
+        }
+
+        return $attributes;
     }
 
     protected function getHeaderActions(): array
@@ -240,12 +455,17 @@ class MiniPauta extends Page implements HasForms, HasTable
                     ->label('Nome do Aluno')
                     ->searchable()
                     ->sortable()
+                    ->extraAttributes(fn (Student $record): array => [
+                        'wire:click' => "selectStudentPhoto({$record->id})",
+                        'style' => 'cursor: pointer; color: #041B4E; font-weight: 700;',
+                        'title' => 'Ver foto do aluno',
+                    ])
                     ->toggleable(),
                 Tables\Columns\TextInputColumn::make('npp_1')
                     ->label('NPP1')
                     ->width('20px')
                     ->rules(['numeric', 'min:0', 'max:20'])
-                    ->extraInputAttributes(fn($state) => is_numeric($state) && floatval($state) < 10 && $state !== null && $state !== '' ? ['style' => 'color: #dc2626; font-weight: 600'] : [])
+                    ->extraInputAttributes(fn (Student $record, $state): array => $this->scoreInputAttributes($record, $state))
                     ->getStateUsing(fn(Student $record) => $this->getEvaluationScore($record, 'npp', 1))
                     ->updateStateUsing(fn(Student $record, $state) => $this->saveEvaluation($record, 'npp', 1, $state))
                     ->toggleable(),
@@ -253,7 +473,7 @@ class MiniPauta extends Page implements HasForms, HasTable
                     ->label('NPP2')
                     ->width('20px')
                     ->rules(['numeric', 'min:0', 'max:20'])
-                    ->extraInputAttributes(fn($state) => is_numeric($state) && floatval($state) < 10 && $state !== null && $state !== '' ? ['style' => 'color: #dc2626; font-weight: 600'] : [])
+                    ->extraInputAttributes(fn (Student $record, $state): array => $this->scoreInputAttributes($record, $state))
                     ->getStateUsing(fn(Student $record) => $this->getEvaluationScore($record, 'npp', 2))
                     ->updateStateUsing(fn(Student $record, $state) => $this->saveEvaluation($record, 'npp', 2, $state))
                     ->toggleable(),
@@ -261,7 +481,7 @@ class MiniPauta extends Page implements HasForms, HasTable
                     ->label('NPP3')
                     ->width('20px')
                     ->rules(['numeric', 'min:0', 'max:20'])
-                    ->extraInputAttributes(fn($state) => is_numeric($state) && floatval($state) < 10 && $state !== null && $state !== '' ? ['style' => 'color: #dc2626; font-weight: 600'] : [])
+                    ->extraInputAttributes(fn (Student $record, $state): array => $this->scoreInputAttributes($record, $state))
                     ->getStateUsing(fn(Student $record) => $this->getEvaluationScore($record, 'npp', 3))
                     ->updateStateUsing(fn(Student $record, $state) => $this->saveEvaluation($record, 'npp', 3, $state))
                     ->toggleable(),
@@ -275,7 +495,7 @@ class MiniPauta extends Page implements HasForms, HasTable
                     ->label('Exame')
                     ->width('20px')
                     ->rules(['numeric', 'min:0', 'max:20'])
-                    ->extraInputAttributes(fn($state) => is_numeric($state) && floatval($state) < 10 && $state !== null && $state !== '' ? ['style' => 'color: #dc2626; font-weight: 600'] : [])
+                    ->extraInputAttributes(fn (Student $record, $state): array => $this->scoreInputAttributes($record, $state))
                     ->getStateUsing(fn(Student $record) => $this->getEvaluationScore($record, 'exame', 1))
                     ->updateStateUsing(fn(Student $record, $state) => $this->saveEvaluation($record, 'exame', 1, $state))
                     ->toggleable(),
@@ -315,6 +535,8 @@ class MiniPauta extends Page implements HasForms, HasTable
 
     protected function saveEvaluation(Student $student, string $type, int $order, $score): void
     {
+        $this->selectStudentPhoto($student->id);
+
         if ($score === null || $score === '' || !$this->subject_id || !$this->class_id) {
             return;
         }
@@ -399,5 +621,52 @@ class MiniPauta extends Page implements HasForms, HasTable
         ]);
 
         return redirect($url);
+    }
+
+    public function printMiniPautaAction(): Action
+    {
+        return Action::make('printMiniPauta')
+            ->label('Imprimir Pauta')
+            ->icon('heroicon-o-printer')
+            ->color('primary')
+            ->disabled(fn (): bool => ! $this->class_id || ! $this->subject_id)
+            ->modalHeading('MINI PAUTA PROFESSOR')
+            ->modalDescription(null)
+            ->modalWidth(Width::SevenExtraLarge)
+            ->modalSubmitAction(false)
+            ->modalCancelAction(fn (Action $action) => $action
+                ->icon('heroicon-o-x-mark')
+                ->label('Fechar Pre-visualizacao')
+                ->color('danger'))
+            ->stickyModalHeader()
+            ->stickyModalFooter()
+            ->closeModalByClickingAway(false)
+            ->modalContent(function () {
+                $printUrl = route('pauta.mini-pauta.print', [
+                    'turma' => $this->class_id,
+                    'disciplina' => $this->subject_id,
+                ]);
+
+                $className = $this->getSelectedClass()?->name ?? '-';
+                $subjectName = $this->getSelectedSubject()?->name ?? '-';
+                $embeddedUrl = $printUrl . '&embedded=1&autoprint=0';
+                $fallbackPrintUrl = $printUrl . '&autoprint=1';
+
+                return view('trainers.sheet-modal', [
+                    'viewerId' => 'sigef-mini-pauta-viewer-' . ($this->class_id ?: 'none') . '-' . ($this->subject_id ?: 'none'),
+                    'frameId' => 'sigef-mini-pauta-frame-' . ($this->class_id ?: 'none') . '-' . ($this->subject_id ?: 'none'),
+                    'documentName' => 'MINI PAUTA PROFESSOR',
+                    'documentBadge' => 'TURMA: ' . e($className) . ' &nbsp;|&nbsp; DISCIPLINA: ' . e($subjectName),
+                    'documentType' => 'mini pauta',
+                    'defaultOrientation' => 'vertical',
+                    'showOrientationSelector' => false,
+                    'loadingText' => 'A preparar mini pauta...',
+                    'hintText' => 'Pre-visualize a Mini Pauta do Professor em A4 antes de imprimir.',
+                    'embeddedHorizontalUrl' => $embeddedUrl,
+                    'embeddedVerticalUrl' => $embeddedUrl,
+                    'fallbackPrintHorizontalUrl' => $fallbackPrintUrl,
+                    'fallbackPrintVerticalUrl' => $fallbackPrintUrl,
+                ]);
+            });
     }
 }

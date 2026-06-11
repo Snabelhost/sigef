@@ -20,15 +20,44 @@ use App\Models\{
     Attendance,
     Institution,
     Document,
-    AcademicYear
+    AcademicYear,
+    StudentType,
+    ActivityLog
 };
+use App\Support\AuditReportFormatter;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use OwenIt\Auditing\Models\Audit;
 use Carbon\Carbon;
 
 class ReportController extends Controller
 {
+    private function renderReport(Request $request, string $view, array $data, string $filename, array $paper = [])
+    {
+        $data = array_merge($data, [
+            'embeddedMode' => $request->boolean('embedded'),
+            'autoPrint' => $request->boolean('autoprint'),
+            'paperSize' => $paper['size'] ?? 'a4',
+            'paperOrientation' => $paper['orientation'] ?? 'portrait',
+        ]);
+
+        if ($request->boolean('embedded')) {
+            return response()
+                ->view($view, $data)
+                ->header('X-Frame-Options', 'SAMEORIGIN');
+        }
+
+        $pdf = Pdf::loadView($view, $data);
+
+        if (! empty($paper)) {
+            $pdf->setPaper($paper['size'] ?? 'a4', $paper['orientation'] ?? 'portrait');
+        }
+
+        return $pdf->stream($filename);
+    }
+
     private function checkAccess()
     {
         $user = auth()->user();
@@ -49,12 +78,108 @@ class ReportController extends Controller
         if ($request->date_to) $query->whereDate('created_at', '<=', $request->date_to);
         $records = $query->orderBy('name')->get();
 
-        $pdf = Pdf::loadView('reports.users', [
+        return $this->renderReport($request, 'reports.users', [
             'records' => $records,
             'dateFrom' => $request->date_from,
             'dateTo' => $request->date_to,
-        ]);
-        return $pdf->stream('relatorio-utilizadores.pdf');
+        ], 'relatorio-utilizadores.pdf');
+    }
+
+    public function accessLogs(Request $request)
+    {
+        $this->checkAccess();
+
+        $query = ActivityLog::with('user')
+            ->whereIn('action', ['login', 'logout']);
+
+        if ($request->user) {
+            $query->where('user_id', $request->user);
+        }
+
+        if ($request->action) {
+            $query->where('action', $request->action);
+        }
+
+        if ($request->date_from) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+
+        if ($request->date_to) {
+            $query->whereDate('created_at', '<=', $request->date_to);
+        }
+
+        $records = $query->latest('created_at')->get();
+        $selectedUser = $request->user ? User::find($request->user) : null;
+
+        $summary = [
+            'total' => $records->count(),
+            'logins' => $records->where('action', 'login')->count(),
+            'logouts' => $records->where('action', 'logout')->count(),
+            'users' => $records->pluck('user_id')->filter()->unique()->count(),
+        ];
+
+        return $this->renderReport($request, 'reports.access-logs', [
+            'records' => $records,
+            'summary' => $summary,
+            'selectedUser' => $selectedUser,
+            'action' => $request->action,
+            'dateFrom' => $request->date_from,
+            'dateTo' => $request->date_to,
+        ], 'relatorio-acessos.pdf', ['size' => 'a4', 'orientation' => 'landscape']);
+    }
+
+    public function auditLogs(Request $request)
+    {
+        $this->checkAccess();
+
+        $query = Audit::with('user');
+
+        if ($request->user) {
+            $query->where('user_id', $request->user);
+        }
+
+        if ($request->event) {
+            $query->where('event', $request->event);
+        }
+
+        if ($request->model) {
+            $query->where('auditable_type', $request->model);
+        }
+
+        if ($request->date_from) {
+            $query->whereDate('created_at', '>=', $request->date_from);
+        }
+
+        if ($request->date_to) {
+            $query->whereDate('created_at', '<=', $request->date_to);
+        }
+
+        $records = $query
+            ->latest('created_at')
+            ->get()
+            ->reject(fn ($audit): bool => AuditReportFormatter::isTechnicalSessionAudit($audit))
+            ->values();
+
+        $selectedUser = $request->user ? User::find($request->user) : null;
+
+        $summary = [
+            'total' => $records->count(),
+            'created' => $records->where('event', 'created')->count(),
+            'updated' => $records->where('event', 'updated')->count(),
+            'deleted' => $records->where('event', 'deleted')->count(),
+            'users' => $records->pluck('user_id')->filter()->unique()->count(),
+        ];
+
+        return $this->renderReport($request, 'reports.audit-logs', [
+            'records' => $records,
+            'summary' => $summary,
+            'selectedUser' => $selectedUser,
+            'event' => $request->event,
+            'model' => $request->model,
+            'modelLabel' => $request->model ? AuditReportFormatter::auditModelLabel($request->model) : null,
+            'dateFrom' => $request->date_from,
+            'dateTo' => $request->date_to,
+        ], 'relatorio-auditoria.pdf', ['size' => 'a4', 'orientation' => 'landscape']);
     }
 
     // ═══════════════════════════════════════
@@ -65,32 +190,28 @@ class ReportController extends Controller
     {
         $this->checkAccess();
         $records = CourseMap::with(['course', 'institution', 'academicYear'])->orderBy('id')->get();
-        $pdf = Pdf::loadView('reports.course-maps', ['records' => $records]);
-        return $pdf->stream('relatorio-mapas-curso.pdf');
+        return $this->renderReport($request, 'reports.course-maps', ['records' => $records], 'relatorio-mapas-curso.pdf');
     }
 
     public function coursePlans(Request $request)
     {
         $this->checkAccess();
         $records = CoursePlan::with(['course', 'academicYear', 'subjects'])->orderBy('id')->get();
-        $pdf = Pdf::loadView('reports.course-plans', ['records' => $records]);
-        return $pdf->stream('relatorio-planos-curso.pdf');
+        return $this->renderReport($request, 'reports.course-plans', ['records' => $records], 'relatorio-planos-curso.pdf');
     }
 
     public function courses(Request $request)
     {
         $this->checkAccess();
         $records = Course::with(['institution'])->orderBy('name')->get();
-        $pdf = Pdf::loadView('reports.courses', ['records' => $records]);
-        return $pdf->stream('relatorio-cursos.pdf');
+        return $this->renderReport($request, 'reports.courses', ['records' => $records], 'relatorio-cursos.pdf');
     }
 
     public function subjects(Request $request)
     {
         $this->checkAccess();
         $records = Subject::with(['institution', 'coursePhase'])->orderBy('name')->get();
-        $pdf = Pdf::loadView('reports.subjects', ['records' => $records]);
-        return $pdf->stream('relatorio-disciplinas.pdf');
+        return $this->renderReport($request, 'reports.subjects', ['records' => $records], 'relatorio-disciplinas.pdf');
     }
 
     // ═══════════════════════════════════════
@@ -111,11 +232,10 @@ class ReportController extends Controller
         }
         $records = $query->orderBy('full_name')->get();
 
-        $pdf = Pdf::loadView('reports.trainers', [
+        return $this->renderReport($request, 'reports.trainers', [
             'records' => $records,
             'institution' => $institution,
-        ]);
-        return $pdf->stream('relatorio-formadores.pdf');
+        ], 'relatorio-formadores.pdf');
     }
 
     public function cadetes(Request $request)
@@ -138,14 +258,115 @@ class ReportController extends Controller
 
         $records = $query->orderBy('student_number')->get();
 
-        $pdf = Pdf::loadView('reports.cadetes', [
+        return $this->renderReport($request, 'reports.cadetes', [
             'records' => $records,
             'institution' => $institution,
             'class' => $class,
             'dateFrom' => $request->date_from,
             'dateTo' => $request->date_to,
+        ], 'relatorio-cadetes.pdf');
+    }
+
+    public function studentsByType(Request $request)
+    {
+        $this->checkAccess();
+
+        $studentType = trim((string) $request->query('student_type', ''));
+
+        if ($studentType === '') {
+            abort(404);
+        }
+
+        $institution = null;
+        $class = null;
+        $academicYear = null;
+
+        $studentQuery = Student::with([
+            'candidate',
+            'institution',
+            'courseMap.course',
+            'classEnrollments.studentClass.courseMap.course',
+            'classEnrollments.academicYear',
+            'studentTypeRelation',
         ]);
-        return $pdf->stream('relatorio-cadetes.pdf');
+
+        $this->applyStudentTypeFilter($studentQuery, $studentType);
+
+        if ($request->institution) {
+            $studentQuery->where('institution_id', $request->institution);
+            $institution = Institution::find($request->institution);
+        }
+
+        if ($request->class) {
+            $studentQuery->whereHas('classEnrollments', fn ($q) => $q->where('class_id', $request->class));
+            $class = StudentClass::find($request->class);
+        }
+
+        if ($request->academic_year) {
+            $studentQuery->whereHas('classEnrollments', fn ($q) => $q->where('academic_year_id', $request->academic_year));
+            $academicYear = AcademicYear::find($request->academic_year);
+        }
+
+        if ($request->date_from) {
+            $studentQuery->whereDate('enrollment_date', '>=', $request->date_from);
+        }
+
+        if ($request->date_to) {
+            $studentQuery->whereDate('enrollment_date', '<=', $request->date_to);
+        }
+
+        $studentRecords = $studentQuery
+            ->orderBy('student_number')
+            ->get();
+
+        $candidateQuery = Candidate::with(['institution', 'academicYear', 'provenance'])
+            ->where(function ($query) use ($studentType) {
+                $query->where('student_type', $studentType);
+
+                foreach ($this->studentTypeLikeTerms($studentType) as $term) {
+                    $query->orWhere('student_type', 'like', '%'.$term.'%');
+                }
+            });
+
+        if ($request->institution) {
+            $candidateQuery->where('institution_id', $request->institution);
+        }
+
+        if ($request->academic_year) {
+            $candidateQuery->where('academic_year_id', $request->academic_year);
+        }
+
+        if ($request->date_from) {
+            $candidateQuery->whereDate('created_at', '>=', $request->date_from);
+        }
+
+        if ($request->date_to) {
+            $candidateQuery->whereDate('created_at', '<=', $request->date_to);
+        }
+
+        $candidateRecords = $candidateQuery
+            ->whereNotIn('id', $studentRecords->pluck('candidate_id')->filter()->all())
+            ->orderBy('full_name')
+            ->get();
+
+        $records = $studentRecords
+            ->map(fn (Student $student) => $this->studentTypeReportRowFromStudent($student))
+            ->merge($candidateRecords->map(fn (Candidate $candidate) => $this->studentTypeReportRowFromCandidate($candidate)))
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
+
+        $reportLabel = $this->studentTypeReportLabel($studentType);
+
+        return $this->renderReport($request, 'reports.students-by-type', [
+            'records' => $records,
+            'studentType' => $studentType,
+            'reportLabel' => $reportLabel,
+            'institution' => $institution,
+            'class' => $class,
+            'academicYear' => $academicYear,
+            'dateFrom' => $request->date_from,
+            'dateTo' => $request->date_to,
+        ], 'relatorio-'.(Str::slug($reportLabel) ?: 'tipo-aluno').'.pdf');
     }
 
     public function alistados(Request $request)
@@ -164,13 +385,12 @@ class ReportController extends Controller
 
         $records = $query->orderBy('full_name')->get();
 
-        $pdf = Pdf::loadView('reports.alistados', [
+        return $this->renderReport($request, 'reports.alistados', [
             'records' => $records,
             'academicYear' => $academicYear,
             'dateFrom' => $request->date_from,
             'dateTo' => $request->date_to,
-        ]);
-        return $pdf->stream('relatorio-alistados.pdf');
+        ], 'relatorio-alistados.pdf');
     }
 
     public function enrollments(Request $request)
@@ -190,12 +410,11 @@ class ReportController extends Controller
         }
         $records = $query->orderBy('student_number')->get();
 
-        $pdf = Pdf::loadView('reports.enrollments', [
+        return $this->renderReport($request, 'reports.enrollments', [
             'records' => $records,
             'class' => $class,
             'institution' => $institution,
-        ]);
-        return $pdf->stream('relatorio-gestao-formandos.pdf');
+        ], 'relatorio-gestao-formandos.pdf');
     }
 
     public function equipment(Request $request)
@@ -213,13 +432,12 @@ class ReportController extends Controller
 
         $records = $query->get();
 
-        $pdf = Pdf::loadView('reports.equipment', [
+        return $this->renderReport($request, 'reports.equipment', [
             'records' => $records,
             'institution' => $institution,
             'dateFrom' => $request->date_from,
             'dateTo' => $request->date_to,
-        ]);
-        return $pdf->stream('relatorio-atribuicao-meios.pdf');
+        ], 'relatorio-atribuicao-meios.pdf');
     }
 
     public function transfers(Request $request)
@@ -230,12 +448,11 @@ class ReportController extends Controller
         if ($request->date_to) $query->whereDate('created_at', '<=', $request->date_to);
         $records = $query->orderBy('created_at', 'desc')->get();
 
-        $pdf = Pdf::loadView('reports.transfers', [
+        return $this->renderReport($request, 'reports.transfers', [
             'records' => $records,
             'dateFrom' => $request->date_from,
             'dateTo' => $request->date_to,
-        ]);
-        return $pdf->stream('relatorio-transferencias.pdf');
+        ], 'relatorio-transferencias.pdf');
     }
 
     public function leaves(Request $request)
@@ -252,13 +469,12 @@ class ReportController extends Controller
         if ($request->date_to) $query->whereDate('start_date', '<=', $request->date_to);
         $records = $query->orderBy('start_date', 'desc')->get();
 
-        $pdf = Pdf::loadView('reports.leaves', [
+        return $this->renderReport($request, 'reports.leaves', [
             'records' => $records,
             'institution' => $institution,
             'dateFrom' => $request->date_from,
             'dateTo' => $request->date_to,
-        ]);
-        return $pdf->stream('relatorio-dispensas-faltas.pdf');
+        ], 'relatorio-dispensas-faltas.pdf');
     }
 
     // ═══════════════════════════════════════
@@ -282,12 +498,11 @@ class ReportController extends Controller
         }
         $records = $query->get();
 
-        $pdf = Pdf::loadView('reports.evaluations', [
+        return $this->renderReport($request, 'reports.evaluations', [
             'records' => $records,
             'class' => $class,
             'institution' => $institution,
-        ]);
-        return $pdf->stream('relatorio-avaliacoes.pdf');
+        ], 'relatorio-avaliacoes.pdf');
     }
 
     public function miniPauta(Request $request)
@@ -307,12 +522,11 @@ class ReportController extends Controller
         }
         $records = $query->orderBy('student_number')->get();
 
-        $pdf = Pdf::loadView('reports.mini-pauta', [
+        return $this->renderReport($request, 'reports.mini-pauta', [
             'records' => $records,
             'class' => $class,
             'institution' => $institution,
-        ]);
-        return $pdf->stream('mini-pauta.pdf');
+        ], 'mini-pauta.pdf');
     }
 
     public function pautaGeral(Request $request)
@@ -349,13 +563,12 @@ class ReportController extends Controller
             $subjects = Subject::whereIn('id', $subjectIds)->orderBy('name')->get();
         }
 
-        $pdf = Pdf::loadView('reports.pauta-geral', [
+        return $this->renderReport($request, 'reports.pauta-geral', [
             'records' => $records,
             'class' => $class,
             'subjects' => $subjects,
             'institution' => $institution,
-        ])->setPaper('a4', 'landscape');
-        return $pdf->stream('pauta-geral.pdf');
+        ], 'pauta-geral.pdf', ['size' => 'a3', 'orientation' => 'landscape']);
     }
 
     public function certificados(Request $request)
@@ -375,12 +588,11 @@ class ReportController extends Controller
         }
         $records = $query->orderBy('student_number')->get();
 
-        $pdf = Pdf::loadView('reports.certificados', [
+        return $this->renderReport($request, 'reports.certificados', [
             'records' => $records,
             'class' => $class,
             'institution' => $institution,
-        ]);
-        return $pdf->stream('relatorio-certificados.pdf');
+        ], 'relatorio-certificados.pdf');
     }
 
     public function attendance(Request $request)
@@ -459,7 +671,7 @@ class ReportController extends Controller
             $attendanceMap[$sid][$dateKey] = $record->status;
         }
 
-        $pdf = Pdf::loadView('reports.attendance', [
+        return $this->renderReport($request, 'reports.attendance', [
             'students' => $students,
             'cia' => $cia,
             'institution' => $institution,
@@ -469,9 +681,7 @@ class ReportController extends Controller
             'totalDays' => $totalDays,
             'dayNames' => $dayNames,
             'attendanceMap' => $attendanceMap,
-        ]);
-        $pdf->setPaper('a4', 'landscape');
-        return $pdf->stream('ponto-presencas.pdf');
+        ], 'ponto-presencas.pdf', ['size' => 'a4', 'orientation' => 'landscape']);
     }
 
     // ═══════════════════════════════════════
@@ -482,8 +692,7 @@ class ReportController extends Controller
     {
         $this->checkAccess();
         $records = Institution::with(['institutionType'])->orderBy('name')->get();
-        $pdf = Pdf::loadView('reports.institutions', ['records' => $records]);
-        return $pdf->stream('relatorio-instituicoes.pdf');
+        return $this->renderReport($request, 'reports.institutions', ['records' => $records], 'relatorio-instituicoes.pdf');
     }
 
     public function documents(Request $request)
@@ -500,12 +709,95 @@ class ReportController extends Controller
         if ($request->date_to) $query->whereDate('created_at', '<=', $request->date_to);
         $records = $query->orderBy('created_at', 'desc')->get();
 
-        $pdf = Pdf::loadView('reports.documents', [
+        return $this->renderReport($request, 'reports.documents', [
             'records' => $records,
             'institution' => $institution,
             'dateFrom' => $request->date_from,
             'dateTo' => $request->date_to,
-        ]);
-        return $pdf->stream('relatorio-documentos.pdf');
+        ], 'relatorio-documentos.pdf');
+    }
+
+    private function applyStudentTypeFilter($query, string $studentType): void
+    {
+        $studentTypeId = StudentType::query()->where('name', $studentType)->value('id');
+
+        $query->where(function ($query) use ($studentType, $studentTypeId) {
+            $query->where('student_type', $studentType);
+
+            if ($studentTypeId) {
+                $query->orWhere('student_type_id', $studentTypeId);
+            }
+
+            foreach ($this->studentTypeLikeTerms($studentType) as $term) {
+                $query->orWhere('student_type', 'like', '%'.$term.'%');
+            }
+        });
+    }
+
+    private function studentTypeLikeTerms(string $studentType): array
+    {
+        $normalized = Str::of(Str::ascii($studentType))->lower()->toString();
+
+        return match (true) {
+            str_contains($normalized, 'recruta') => ['Recruta'],
+            str_contains($normalized, 'instruendo') => ['Instruendo'],
+            str_contains($normalized, 'em formacao') => ['Em Forma', 'Em Formação', 'Em Formacao'],
+            str_contains($normalized, 'conclu') => ['Conclu'],
+            default => [],
+        };
+    }
+
+    private function studentTypeReportLabel(string $studentType): string
+    {
+        $normalized = Str::of(Str::ascii($studentType))->lower()->toString();
+
+        return match (true) {
+            $normalized === 'formando' => 'Formandos',
+            str_contains($normalized, 'recruta') => 'Recrutas',
+            str_contains($normalized, 'instruendo') => 'Instruendos',
+            str_contains($normalized, 'conclu') => 'Formandos Concluídos',
+            default => $studentType,
+        };
+    }
+
+    private function studentTypeReportRowFromStudent(Student $student): array
+    {
+        $enrollment = $student->classEnrollments->firstWhere('is_active', true)
+            ?? $student->classEnrollments->sortByDesc('enrolled_at')->first();
+
+        return [
+            'origin' => 'Gestão de Formandos',
+            'name' => $student->candidate?->full_name ?? $student->full_name ?? '-',
+            'number' => $student->nuri ?: $student->student_number,
+            'bi' => $student->candidate?->id_number ?? $student->bilhete_identidade,
+            'institution' => $student->institution?->acronym ?: $student->institution?->name,
+            'course' => $enrollment?->studentClass?->courseMap?->course?->name
+                ?: $student->courseMap?->course?->name
+                ?: $student->courseMap?->name,
+            'class' => $enrollment?->studentClass?->name,
+            'cia' => $student->cia,
+            'platoon' => $student->platoon,
+            'section' => $student->section,
+            'type' => $student->student_type,
+            'date' => $student->enrollment_date,
+        ];
+    }
+
+    private function studentTypeReportRowFromCandidate(Candidate $candidate): array
+    {
+        return [
+            'origin' => 'Formandos',
+            'name' => $candidate->full_name ?? '-',
+            'number' => $candidate->nuri ?: $candidate->student_number,
+            'bi' => $candidate->id_number,
+            'institution' => $candidate->institution?->acronym ?: $candidate->institution?->name,
+            'course' => null,
+            'class' => null,
+            'cia' => $candidate->cia,
+            'platoon' => $candidate->platoon,
+            'section' => $candidate->section,
+            'type' => $candidate->student_type,
+            'date' => $candidate->created_at,
+        ];
     }
 }

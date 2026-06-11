@@ -168,7 +168,7 @@ class SystemSetting extends Model
                 $scopedValue = static::get($scopedKey, null);
 
                 if (filled($scopedValue) || ! array_key_exists($key, self::REPORT_INSTITUTION_MODEL_FIELDS)) {
-                    return $scopedValue;
+                    return static::normalizeReportInstitutionValue($key, $scopedValue);
                 }
             }
 
@@ -176,11 +176,51 @@ class SystemSetting extends Model
             $modelValue = $modelField ? $institution->getAttribute($modelField) : null;
 
             if (filled($modelValue)) {
-                return $modelValue;
+                return static::normalizeReportInstitutionValue($key, $modelValue);
             }
         }
 
-        return static::get(static::reportInstitutionSettingKey($key), $default);
+        return static::normalizeReportInstitutionValue(
+            $key,
+            static::get(static::reportInstitutionSettingKey($key), $default)
+        );
+    }
+
+    private static function normalizeReportInstitutionValue(string $key, mixed $value): mixed
+    {
+        if ($key !== 'logo_path') {
+            return $value;
+        }
+
+        if (is_array($value)) {
+            $value = reset($value) ?: null;
+        }
+
+        if (! is_scalar($value)) {
+            return '';
+        }
+
+        $value = trim((string) $value);
+
+        if ($value === '') {
+            return '';
+        }
+
+        $decoded = json_decode($value, true);
+
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            return static::normalizeReportInstitutionValue($key, reset($decoded) ?: '');
+        }
+
+        if (str_starts_with($value, '/storage/')) {
+            return ltrim(substr($value, strlen('/storage/')), '/');
+        }
+
+        if (str_starts_with($value, 'storage/')) {
+            return ltrim(substr($value, strlen('storage/')), '/');
+        }
+
+        return $value;
     }
 
     private static function resolveReportInstitution(Institution|int|null $institution = null): ?Institution
@@ -191,6 +231,22 @@ class SystemSetting extends Model
 
         if (filled($institution)) {
             return Institution::query()->find((int) $institution);
+        }
+
+        try {
+            $tenant = \Filament\Facades\Filament::getTenant();
+        } catch (\Throwable) {
+            $tenant = null;
+        }
+
+        if ($tenant instanceof Institution) {
+            return $tenant;
+        }
+
+        $userInstitutionId = auth()->user()?->institution_id;
+
+        if (filled($userInstitutionId)) {
+            return Institution::query()->find((int) $userInstitutionId);
         }
 
         return null;

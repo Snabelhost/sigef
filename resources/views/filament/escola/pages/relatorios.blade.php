@@ -143,7 +143,8 @@
 
     @php
     $iconDownload = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+        <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178z" />
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>';
     @endphp
 
@@ -156,7 +157,7 @@
         <div class="report-card">
             <h3><x-heroicon-o-briefcase /> Formadores</h3>
             <p class="desc">Lista de formadores da escola</p>
-            <a class="btn-pdf" onclick="openReport('trainers', this)" href="javascript:void(0)">{!! $iconDownload !!} Baixar PDF</a>
+            <a class="btn-pdf" onclick="openReport('trainers', this)" href="javascript:void(0)">{!! $iconDownload !!} Pr&eacute; Visualizar</a>
         </div>
 
         <div class="report-card">
@@ -170,7 +171,7 @@
                     @endforeach
                 </select>
             </div>
-            <a class="btn-pdf" onclick="openReport('enrollments', this)" href="javascript:void(0)">{!! $iconDownload !!} Baixar PDF</a>
+            <a class="btn-pdf" onclick="openReport('enrollments', this)" href="javascript:void(0)">{!! $iconDownload !!} Pr&eacute; Visualizar</a>
         </div>
         <div class="report-card">
             <h3><x-heroicon-o-wrench-screwdriver /> Atribuição de Meios</h3>
@@ -181,7 +182,7 @@
                     <input type="date" id="equipment_date_to">
                 </div>
             </div>
-            <a class="btn-pdf" onclick="openReport('equipment', this)" href="javascript:void(0)">{!! $iconDownload !!} Baixar PDF</a>
+            <a class="btn-pdf" onclick="openReport('equipment', this)" href="javascript:void(0)">{!! $iconDownload !!} Pr&eacute; Visualizar</a>
         </div>
         <div class="report-card">
             <h3><x-heroicon-o-clock /> Dispensas e Faltas</h3>
@@ -192,7 +193,7 @@
                     <input type="date" id="leaves_date_to">
                 </div>
             </div>
-            <a class="btn-pdf" onclick="openReport('leaves', this)" href="javascript:void(0)">{!! $iconDownload !!} Baixar PDF</a>
+            <a class="btn-pdf" onclick="openReport('leaves', this)" href="javascript:void(0)">{!! $iconDownload !!} Pr&eacute; Visualizar</a>
         </div>
     </div>
 
@@ -213,7 +214,7 @@
                     @endforeach
                 </select>
             </div>
-            <a class="btn-pdf" onclick="openReport('evaluations', this)" href="javascript:void(0)">{!! $iconDownload !!} Baixar PDF</a>
+            <a class="btn-pdf" onclick="openReport('evaluations', this)" href="javascript:void(0)">{!! $iconDownload !!} Pr&eacute; Visualizar</a>
         </div>
         <div class="report-card">
             <h3><x-heroicon-o-document-text /> Mini Pauta</h3>
@@ -226,7 +227,7 @@
                     @endforeach
                 </select>
             </div>
-            <a class="btn-pdf" onclick="openReport('mini-pauta', this)" href="javascript:void(0)">{!! $iconDownload !!} Baixar PDF</a>
+            <a class="btn-pdf" onclick="openReport('mini-pauta', this)" href="javascript:void(0)">{!! $iconDownload !!} Pr&eacute; Visualizar</a>
         </div>
         <div class="report-card">
             <h3><x-heroicon-o-table-cells /> Pauta Geral</h3>
@@ -239,7 +240,7 @@
                     @endforeach
                 </select>
             </div>
-            <a class="btn-pdf" onclick="openReport('pauta-geral', this)" href="javascript:void(0)">{!! $iconDownload !!} Baixar PDF</a>
+            <a class="btn-pdf" onclick="openReport('pauta-geral', this)" href="javascript:void(0)">{!! $iconDownload !!} Pr&eacute; Visualizar</a>
         </div>
         <div class="report-card">
             <h3><x-heroicon-o-trophy /> Certificados</h3>
@@ -252,7 +253,7 @@
                     @endforeach
                 </select>
             </div>
-            <a class="btn-pdf" onclick="openReport('certificados', this)" href="javascript:void(0)">{!! $iconDownload !!} Baixar PDF</a>
+            <a class="btn-pdf" onclick="openReport('certificados', this)" href="javascript:void(0)">{!! $iconDownload !!} Pr&eacute; Visualizar</a>
         </div>
         <div class="report-card">
             <h3><x-heroicon-o-check-badge /> Ponto de Presenças</h3>
@@ -269,7 +270,7 @@
                     <input type="date" id="attendance_date_to">
                 </div>
             </div>
-            <a class="btn-pdf" onclick="openReport('attendance', this)" href="javascript:void(0)">{!! $iconDownload !!} Baixar PDF</a>
+            <a class="btn-pdf" onclick="openReport('attendance', this)" href="javascript:void(0)">{!! $iconDownload !!} Pr&eacute; Visualizar</a>
         </div>
     </div>
 
@@ -288,7 +289,7 @@
                     <input type="date" id="documents_date_to">
                 </div>
             </div>
-            <a class="btn-pdf" onclick="openReport('documents', this)" href="javascript:void(0)">{!! $iconDownload !!} Baixar PDF</a>
+            <a class="btn-pdf" onclick="openReport('documents', this)" href="javascript:void(0)">{!! $iconDownload !!} Pr&eacute; Visualizar</a>
         </div>
     </div>
 
@@ -333,9 +334,20 @@
                     }
                 });
             }
-            var url = '/reports/' + type;
-            if (params.toString()) url += '?' + params.toString();
-            window.open(url, '_blank');
+            params.set('embedded', '1');
+            params.set('autoprint', '0');
+
+            var url = '/reports/' + type + '?' + params.toString();
+            var title = 'Relat\u00f3rio';
+
+            if (btn) {
+                var cardTitle = btn.closest('.report-card')?.querySelector('h3')?.textContent;
+                if (cardTitle) {
+                    title = cardTitle.replace(/\s+/g, ' ').trim();
+                }
+            }
+
+            @this.openReportPreview(url, title);
         }
     </script>
 </x-filament-panels::page>

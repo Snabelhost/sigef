@@ -39,6 +39,8 @@ Route::post('/logout', [UnifiedLoginController::class, 'logout'])
 Route::middleware(['auth'])->prefix('reports')->name('reports.')->group(function () {
     // Gestão de Acesso
     Route::get('/users', [ReportController::class, 'users'])->name('users');
+    Route::get('/accesses', [ReportController::class, 'accessLogs'])->name('accesses');
+    Route::get('/audit', [ReportController::class, 'auditLogs'])->name('audit');
     // Currículo
     Route::get('/course-maps', [ReportController::class, 'courseMaps'])->name('course-maps');
     Route::get('/course-plans', [ReportController::class, 'coursePlans'])->name('course-plans');
@@ -46,7 +48,7 @@ Route::middleware(['auth'])->prefix('reports')->name('reports.')->group(function
     Route::get('/subjects', [ReportController::class, 'subjects'])->name('subjects');
     // Gestão Escolar
     Route::get('/trainers', [ReportController::class, 'trainers'])->name('trainers');
-    Route::get('/cadetes', [ReportController::class, 'cadetes'])->name('cadetes');
+    Route::get('/student-types', [ReportController::class, 'studentsByType'])->name('student-types');
     Route::get('/alistados', [ReportController::class, 'alistados'])->name('alistados');
     Route::get('/enrollments', [ReportController::class, 'enrollments'])->name('enrollments');
     Route::get('/equipment', [ReportController::class, 'equipment'])->name('equipment');
