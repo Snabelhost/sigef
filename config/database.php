@@ -2,6 +2,30 @@
 
 use Illuminate\Support\Str;
 
+$defaultMySqlDumpBinaryPath = env('DB_DUMP_BINARY_PATH');
+
+if (! $defaultMySqlDumpBinaryPath && PHP_OS_FAMILY === 'Windows') {
+    foreach ([
+        'C:/laragon/bin/mysql/mysql-8.4.3-winx64/bin',
+        'C:/laragon/bin/mysql/mysql-8.0.30-winx64/bin',
+        'C:/xampp/mysql/bin',
+    ] as $candidatePath) {
+        if (is_file($candidatePath . '/mysqldump.exe')) {
+            $defaultMySqlDumpBinaryPath = $candidatePath;
+            break;
+        }
+    }
+}
+
+$mysqlDumpConfig = array_filter([
+    'dump_binary_path' => $defaultMySqlDumpBinaryPath,
+    'use_single_transaction' => true,
+    'skip_lock_tables' => true,
+    'do_not_use_column_statistics' => true,
+    'use_quick' => true,
+    'timeout' => (int) env('DB_DUMP_TIMEOUT', 300),
+], fn ($value): bool => filled($value));
+
 return [
 
     /*
@@ -61,6 +85,7 @@ return [
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 (PHP_VERSION_ID >= 80500 ? constant('Pdo\\Mysql::ATTR_SSL_CA') : constant('PDO::MYSQL_ATTR_SSL_CA')) => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
+            'dump' => $mysqlDumpConfig,
         ],
 
         'mariadb' => [
@@ -81,6 +106,7 @@ return [
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 (PHP_VERSION_ID >= 80500 ? constant('Pdo\\Mysql::ATTR_SSL_CA') : constant('PDO::MYSQL_ATTR_SSL_CA')) => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
+            'dump' => $mysqlDumpConfig,
         ],
 
         'pgsql' => [

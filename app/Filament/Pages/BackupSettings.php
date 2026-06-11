@@ -121,19 +121,34 @@ class BackupSettings extends Page
             $filepath = "{$backupDir}/{$filename}";
 
             // Get database config
-            $host = config('database.connections.mysql.host', '127.0.0.1');
-            $port = config('database.connections.mysql.port', '3306');
-            $database = config('database.connections.mysql.database');
-            $username = config('database.connections.mysql.username');
-            $password = config('database.connections.mysql.password');
+            $connectionName = config('database.default', 'mysql');
+            $connection = config("database.connections.{$connectionName}", config('database.connections.mysql'));
+            $host = $connection['host'] ?? '127.0.0.1';
+            $port = $connection['port'] ?? '3306';
+            $database = $connection['database'] ?? null;
+            $username = $connection['username'] ?? null;
+            $password = $connection['password'] ?? '';
+
+            if (! in_array($connection['driver'] ?? null, ['mysql', 'mariadb'], true)) {
+                throw new \RuntimeException('Backup manual suportado apenas para MySQL/MariaDB.');
+            }
+
+            if (blank($database) || blank($username)) {
+                throw new \RuntimeException('Configuração da base de dados incompleta para criar backup.');
+            }
 
             // Try mysqldump first
+            $passwordArgument = filled($password)
+                ? ' --password=' . escapeshellarg($password)
+                : '';
+
             $command = sprintf(
-                'mysqldump --host=%s --port=%s --user=%s --password=%s --single-transaction --routines --triggers --skip-lock-tables %s > %s 2>&1',
+                '%s --host=%s --port=%s --user=%s%s --single-transaction --routines --triggers --skip-lock-tables --column-statistics=0 --default-character-set=utf8mb4 %s > %s 2>&1',
+                escapeshellarg($this->mysqlDumpBinary($connection)),
                 escapeshellarg($host),
                 escapeshellarg($port),
                 escapeshellarg($username),
-                escapeshellarg($password),
+                $passwordArgument,
                 escapeshellarg($database),
                 escapeshellarg($filepath)
             );
@@ -204,6 +219,19 @@ class BackupSettings extends Page
 
         $sql .= "SET FOREIGN_KEY_CHECKS=1;\n";
         file_put_contents($filepath, $sql);
+    }
+
+    protected function mysqlDumpBinary(array $connection): string
+    {
+        $dumpPath = $connection['dump']['dump_binary_path'] ?? null;
+
+        if (filled($dumpPath)) {
+            $binary = rtrim(str_replace('\\', '/', $dumpPath), '/') . '/mysqldump';
+
+            return PHP_OS_FAMILY === 'Windows' ? $binary . '.exe' : $binary;
+        }
+
+        return 'mysqldump';
     }
 
     public function previewImport(): void
@@ -471,19 +499,23 @@ class BackupSettings extends Page
 
     public function getBackupsList(): array
     {
-        $backupDir = storage_path('app/backups');
-        if (!is_dir($backupDir)) return [];
-
-        $files = glob("{$backupDir}/*.sql");
         $backups = [];
 
-        foreach ($files as $file) {
-            $backups[] = [
-                'filename' => basename($file),
-                'size' => $this->formatBytes(filesize($file)),
-                'date' => date('d/m/Y H:i:s', filemtime($file)),
-                'timestamp' => filemtime($file),
-            ];
+        foreach ($this->backupDirectories() as $backupDir) {
+            if (! is_dir($backupDir)) {
+                continue;
+            }
+
+            foreach (['sql', 'zip'] as $extension) {
+                foreach (glob($backupDir . DIRECTORY_SEPARATOR . "*.{$extension}") ?: [] as $file) {
+                    $backups[] = [
+                        'filename' => basename($file),
+                        'size' => $this->formatBytes(filesize($file)),
+                        'date' => date('d/m/Y H:i:s', filemtime($file)),
+                        'timestamp' => filemtime($file),
+                    ];
+                }
+            }
         }
 
         usort($backups, fn($a, $b) => $b['timestamp'] <=> $a['timestamp']);
@@ -512,20 +544,39 @@ class BackupSettings extends Page
 
     protected function resolveBackupPath(string $filename): ?string
     {
-        $backupDir = storage_path('app/backups');
-        $basePath = realpath($backupDir);
-
-        if ($basePath === false || basename($filename) !== $filename || ! str_ends_with($filename, '.sql')) {
+        if (
+            basename($filename) !== $filename ||
+            ! in_array(strtolower(pathinfo($filename, PATHINFO_EXTENSION)), ['sql', 'zip'], true)
+        ) {
             return null;
         }
 
-        $path = realpath($basePath . DIRECTORY_SEPARATOR . $filename);
+        foreach ($this->backupDirectories() as $backupDir) {
+            $basePath = realpath($backupDir);
 
-        if ($path === false || ! str_starts_with($path, $basePath . DIRECTORY_SEPARATOR)) {
-            return null;
+            if ($basePath === false) {
+                continue;
+            }
+
+            $path = realpath($basePath . DIRECTORY_SEPARATOR . $filename);
+
+            if ($path !== false && str_starts_with($path, $basePath . DIRECTORY_SEPARATOR)) {
+                return $path;
+            }
         }
 
-        return $path;
+        return null;
+    }
+
+    protected function backupDirectories(): array
+    {
+        $applicationBackupName = config('backup.backup.name', config('app.name', 'laravel-backup'));
+
+        return array_values(array_unique([
+            storage_path('app/backups'),
+            storage_path("app/private/{$applicationBackupName}"),
+            storage_path("app/{$applicationBackupName}"),
+        ]));
     }
 
     protected function formatBytes(int $bytes): string

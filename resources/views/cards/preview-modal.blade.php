@@ -1574,8 +1574,9 @@
         .sigef-access-placement-row {
             display: block;
             min-width: 0;
-            font-size: 9.2px;
-            line-height: 1.08;
+            font-size: inherit;
+            font-weight: 600;
+            line-height: inherit;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -1586,7 +1587,7 @@
         }
 
         .sigef-access-placement-row .sigef-access-placement-separator {
-            margin: 0 4px;
+            margin: 0 2px;
             font-weight: 950;
         }
 

@@ -43,7 +43,7 @@ class EvaluationResource extends Resource
                         Forms\Components\Hidden::make('institution_id'),
                         Forms\Components\Hidden::make('course_phase_id'),
                         Forms\Components\Select::make('student_id')
-                            ->label('Formando')
+                            ->label('Nome completo')
                             ->options(fn (): array => static::studentOptions())
                             ->getOptionLabelUsing(function ($value): ?string {
                                 $student = Student::with('candidate')->find($value);
@@ -119,6 +119,8 @@ class EvaluationResource extends Resource
             })
             ->orderBy('nuri')
             ->get()
+            ->filter(fn (Student $student): bool => filled(static::studentOptionLabel($student)))
+            ->sortBy(fn (Student $student): string => static::studentOptionLabel($student) ?? '')
             ->mapWithKeys(fn (Student $student): array => [
                 $student->id => static::studentOptionLabel($student),
             ])
@@ -140,12 +142,16 @@ class EvaluationResource extends Resource
         ];
     }
 
-    protected static function studentOptionLabel(Student $student): string
+    protected static function studentOptionLabel(Student $student): ?string
     {
-        $name = trim((string) ($student->candidate?->full_name ?: 'N/A'));
-        $identifier = trim((string) ($student->nuri ?: $student->student_number ?: ''));
+        $name = trim((string) ($student->candidate?->full_name ?: $student->full_name ?: ''));
+        $normalized = mb_strtolower($name);
 
-        return $identifier !== '' ? "{$name} - {$identifier}" : $name;
+        if ($name === '' || in_array($normalized, ['-', 'n/a', 'na', 'n.a', 'sem nome'], true)) {
+            return null;
+        }
+
+        return $name;
     }
 
     protected static function studentInstitutionId(mixed $studentId): ?int
@@ -304,9 +310,14 @@ class EvaluationResource extends Resource
                     ->size(42)
                     ->defaultImageUrl(fn ($record) => 'https://ui-avatars.com/api/?name=' . urlencode($record->student?->candidate?->full_name ?? 'NA') . '&background=0D4C8B&color=fff&size=100'),
                 Tables\Columns\TextColumn::make('student.candidate.full_name')
-                    ->label('Formando')
+                    ->label('Nome')
                     ->sortable()
                     ->searchable()
+                    ->toggleable(),
+                Tables\Columns\TextColumn::make('student_identifier')
+                    ->label('NIP/NURI')
+                    ->getStateUsing(fn (Evaluation $record): string => static::studentIdentifierValue($record->student))
+                    ->searchable(query: fn (Builder $query, string $search): Builder => static::applyStudentIdentifierSearch($query, $search))
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('subject.name')
                     ->label('Disciplina')
@@ -344,6 +355,20 @@ class EvaluationResource extends Resource
                     ->relationship('subject', 'name')
                     ->searchable()
                     ->preload(),
+                Tables\Filters\Filter::make('student_identifier')
+                    ->label('NIP/NURI')
+                    ->form([
+                        Forms\Components\TextInput::make('value')
+                            ->label('NIP/NURI')
+                            ->placeholder('Pesquisar NIP/NURI'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $search = trim((string) ($data['value'] ?? ''));
+
+                        return $search === ''
+                            ? $query
+                            : static::applyStudentIdentifierSearch($query, $search);
+                    }),
                 Tables\Filters\SelectFilter::make('cia')
                     ->label('CIA')
                     ->options(fn() => \App\Models\Student::whereNotNull('cia')->distinct()->pluck('cia', 'cia')->toArray())
@@ -357,6 +382,8 @@ class EvaluationResource extends Resource
                     ->options(fn() => \App\Models\Student::whereNotNull('section')->distinct()->pluck('section', 'section')->toArray())
                     ->query(fn($query, array $data) => $query->when($data['value'], fn($q) => $q->whereHas('student', fn($sq) => $sq->where('section', $data['value'])))),
             ])
+            ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContentCollapsible)
+            ->filtersFormColumns(4)
             ->headerActions([
                 \Filament\Actions\CreateAction::make()
                     ->icon('heroicon-o-plus')
@@ -495,10 +522,27 @@ class EvaluationResource extends Resource
             $student?->nuri
             ?: $student?->candidate?->nuri
             ?: $student?->student_number
+            ?: $student?->candidate?->student_number
+            ?: $student?->candidate?->id_number
             ?: ''
         ));
 
         return $identifier !== '' ? $identifier : 'N/A';
+    }
+
+    protected static function applyStudentIdentifierSearch(Builder $query, string $search): Builder
+    {
+        return $query->whereHas('student', function (Builder $studentQuery) use ($search): void {
+            $studentQuery
+                ->where('nuri', 'like', "%{$search}%")
+                ->orWhere('student_number', 'like', "%{$search}%")
+                ->orWhereHas('candidate', function (Builder $candidateQuery) use ($search): void {
+                    $candidateQuery
+                        ->where('nuri', 'like', "%{$search}%")
+                        ->orWhere('student_number', 'like', "%{$search}%")
+                        ->orWhere('id_number', 'like', "%{$search}%");
+                });
+        });
     }
 
     protected static function formatStudentUnit($state, string $label, string $suffix): string

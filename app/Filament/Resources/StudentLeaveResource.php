@@ -5,10 +5,11 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\StudentLeaveResource\Pages;
 use App\Filament\Resources\StudentLeaveResource\RelationManagers;
 use App\Models\Candidate;
-use App\Models\Institution;
 use App\Models\StudentLeave;
 use App\Models\Student;
 use Filament\Forms;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -246,6 +247,8 @@ class StudentLeaveResource extends Resource
                     ->options(fn() => Student::whereNotNull('section')->distinct()->pluck('section', 'section')->toArray())
                     ->query(fn($query, array $data) => $query->when($data['value'], fn($q) => $q->whereHas('student', fn($sq) => $sq->where('section', $data['value'])))),
             ])
+            ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContentCollapsible)
+            ->filtersFormColumns(4)
             ->headerActions([
                 \Filament\Actions\Action::make('createOccurrence')
                     ->label('Nova Ocorrência')
@@ -473,34 +476,52 @@ class StudentLeaveResource extends Resource
     {
         return [
             \Filament\Schemas\Components\Grid::make(2)->schema([
+            Forms\Components\Hidden::make('student_identifier_locked')
+                ->default(false)
+                ->dehydrated(false),
+            Forms\Components\Hidden::make('cia_locked')
+                ->default(false)
+                ->dehydrated(false),
+            Forms\Components\Hidden::make('platoon_locked')
+                ->default(false)
+                ->dehydrated(false),
+            Forms\Components\Hidden::make('section_locked')
+                ->default(false)
+                ->dehydrated(false),
             Forms\Components\Select::make('student_id')
-                ->label('Formando')
+                ->label('Nome completo')
                 ->options(fn (): array => static::studentOptionsForLeaves())
-                ->getOptionLabelUsing(fn ($value): ?string => static::studentOptionLabel(Student::with('candidate')->find($value)))
+                ->getOptionLabelUsing(fn ($value): ?string => static::studentNameLabel(Student::with('candidate')->find($value)))
                 ->required()
                 ->searchable()
-                ->preload(),
+                ->preload()
+                ->live()
+                ->afterStateUpdated(function ($state, Set $set): void {
+                    static::fillOccurrenceStudentFields($state, $set);
+                }),
             Forms\Components\TextInput::make('student_identifier')
                 ->label('NIP/NURI')
-                ->maxLength(191),
-            Forms\Components\Select::make('institution_id')
-                ->label('Instituicao')
-                ->options(fn (): array => Institution::query()->orderBy('name')->pluck('name', 'id')->toArray())
-                ->default(fn (): ?int => auth()->user()?->institution_id)
-                ->searchable()
-                ->preload(),
+                ->maxLength(191)
+                ->dehydrated(true)
+                ->disabled(fn (Get $get): bool => blank($get('student_id')) || (bool) $get('student_identifier_locked')),
             Forms\Components\Select::make('cia')
                 ->label('CIA')
                 ->options(collect(range(1, 15))->mapWithKeys(fn (int $number): array => [$number => "{$number}ª CIA"]))
-                ->searchable(),
+                ->searchable()
+                ->dehydrated(true)
+                ->disabled(fn (Get $get): bool => blank($get('student_id')) || (bool) $get('cia_locked')),
             Forms\Components\Select::make('platoon')
-                ->label('Pelotao')
-                ->options(collect(range(1, 15))->mapWithKeys(fn (int $number): array => [$number => "{$number}º Pelotao"]))
-                ->searchable(),
+                ->label('Pelotão')
+                ->options(collect(range(1, 15))->mapWithKeys(fn (int $number): array => [$number => "{$number}º Pelotão"]))
+                ->searchable()
+                ->dehydrated(true)
+                ->disabled(fn (Get $get): bool => blank($get('student_id')) || (bool) $get('platoon_locked')),
             Forms\Components\Select::make('section')
-                ->label('Seccao')
-                ->options(collect(range(1, 15))->mapWithKeys(fn (int $number): array => [$number => "{$number}ª Seccao"]))
-                ->searchable(),
+                ->label('Secção')
+                ->options(collect(range(1, 15))->mapWithKeys(fn (int $number): array => [$number => "{$number}ª Secção"]))
+                ->searchable()
+                ->dehydrated(true)
+                ->disabled(fn (Get $get): bool => blank($get('student_id')) || (bool) $get('section_locked')),
             Forms\Components\Select::make('leave_type')
                 ->label('Tipo de Ocorrencia')
                 ->options(static::leaveTypeOptions())
@@ -536,7 +557,7 @@ class StudentLeaveResource extends Resource
 
             return StudentLeave::create([
                 'student_id' => $student->id,
-                'institution_id' => $data['institution_id'] ?? $student->institution_id,
+                'institution_id' => $student->institution_id,
                 'leave_type' => $data['leave_type'],
                 'start_date' => $data['start_date'],
                 'end_date' => $data['end_date'],
@@ -665,7 +686,7 @@ class StudentLeaveResource extends Resource
         $identifier = trim((string) ($data['student_identifier'] ?? ''));
         $studentUpdates = [];
 
-        foreach (['institution_id', 'cia', 'platoon', 'section'] as $field) {
+        foreach (['cia', 'platoon', 'section'] as $field) {
             if (filled($data[$field] ?? null)) {
                 $studentUpdates[$field] = $data[$field];
             }
@@ -687,14 +708,38 @@ class StudentLeaveResource extends Resource
                 $candidateUpdates['nuri'] = $identifier;
             }
 
-            if (filled($data['institution_id'] ?? null)) {
-                $candidateUpdates['institution_id'] = $data['institution_id'];
-            }
-
             if ($candidateUpdates !== []) {
                 $student->candidate->update($candidateUpdates);
             }
         }
+    }
+
+    protected static function fillOccurrenceStudentFields($studentId, Set $set): void
+    {
+        $student = filled($studentId)
+            ? Student::with('candidate')->find($studentId)
+            : null;
+
+        $values = [
+            'student_identifier' => static::studentIdentifierForForm($student),
+            'cia' => $student?->cia ?: $student?->candidate?->cia,
+            'platoon' => $student?->platoon ?: $student?->candidate?->platoon,
+            'section' => $student?->section ?: $student?->candidate?->section,
+        ];
+
+        $locked = $student !== null;
+
+        foreach ($values as $field => $value) {
+            $set($field, filled($value) ? $value : null);
+            $set("{$field}_locked", $locked);
+        }
+    }
+
+    protected static function studentIdentifierForForm(?Student $student): ?string
+    {
+        $identifier = static::studentIdentifier($student);
+
+        return $identifier !== '-' ? $identifier : null;
     }
 
     protected static function studentOptionsForLeaves(): array
@@ -702,8 +747,9 @@ class StudentLeaveResource extends Resource
         return static::allowedStudentsForLeavesQuery()
             ->with('candidate')
             ->get()
-            ->sortBy(fn (Student $student): string => $student->candidate?->full_name ?? '')
-            ->mapWithKeys(fn (Student $student): array => [$student->id => static::studentOptionLabel($student)])
+            ->filter(fn (Student $student): bool => filled(static::studentNameLabel($student)))
+            ->sortBy(fn (Student $student): string => static::studentNameLabel($student) ?? '')
+            ->mapWithKeys(fn (Student $student): array => [$student->id => static::studentNameLabel($student)])
             ->toArray();
     }
 
@@ -719,16 +765,16 @@ class StudentLeaveResource extends Resource
             });
     }
 
-    protected static function studentOptionLabel(?Student $student): ?string
+    protected static function studentNameLabel(?Student $student): ?string
     {
-        if (! $student) {
+        $name = trim((string) ($student?->candidate?->full_name ?: $student?->full_name ?: ''));
+        $normalized = mb_strtolower($name);
+
+        if ($name === '' || in_array($normalized, ['-', 'n/a', 'na', 'n.a', 'sem nome'], true)) {
             return null;
         }
 
-        $name = $student->candidate?->full_name ?? 'N/A';
-        $identifier = static::studentIdentifier($student);
-
-        return $identifier !== '-' ? "{$name} ({$identifier})" : $name;
+        return $name;
     }
 
     protected static function studentIdentifier(?Student $student): string

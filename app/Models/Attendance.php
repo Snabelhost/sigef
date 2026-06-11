@@ -17,6 +17,7 @@ class Attendance extends Model implements Auditable
         'subject_id',
         'institution_id',
         'trainer_id',
+        'effective_id',
         'date',
         'status',
         'entry_time',
@@ -88,6 +89,11 @@ class Attendance extends Model implements Auditable
     public function trainer()
     {
         return $this->belongsTo(Trainer::class);
+    }
+
+    public function effective()
+    {
+        return $this->belongsTo(Effective::class);
     }
 
     public function createdBy()

@@ -129,7 +129,7 @@
     }
 </style>
 
-<div class="sigef-full-header {{ request()->is('admin') || request()->is('admin/') || request()->is('admin/shield/roles/create') || request()->is('admin/shield/roles/*') ? 'sigef-dashboard-header-hidden' : '' }}">
+<div class="sigef-full-header {{ request()->is('admin') || request()->is('admin/') || request()->is('admin/attendance-management') || request()->is('escola/*/attendance-management') || request()->is('admin/shield/roles/create') || request()->is('admin/shield/roles/*') ? 'sigef-dashboard-header-hidden' : '' }}">
     {{-- Lado Esquerdo: Ícone + Texto (dinâmico por página) --}}
     <div class="sigef-header-left">
         {{-- Container para o ícone --}}
@@ -167,13 +167,14 @@
             const currentPath = window.location.pathname;
             const isAdminDashboard = currentPath === '/admin' || currentPath === '/admin/' || currentPath.endsWith('/admin');
             const isAccessForm = currentPath === '/admin/shield/roles/create' || /^\/admin\/shield\/roles\/[^/]+(?:\/edit)?$/.test(currentPath);
+            const isAttendanceManagement = currentPath === '/admin/attendance-management' || /^\/escola\/\d+\/attendance-management\/?$/.test(currentPath);
             const isDashboard = currentPath === '/admin' || currentPath === '/admin/' || currentPath.endsWith('/admin') || /^\/escola\/\d+\/?$/.test(currentPath);
 
             if (headerEl) {
-                headerEl.classList.toggle('sigef-dashboard-header-hidden', isAdminDashboard || isAccessForm);
+                headerEl.classList.toggle('sigef-dashboard-header-hidden', isAdminDashboard || isAccessForm || isAttendanceManagement);
             }
 
-            if (isAdminDashboard || isAccessForm) {
+            if (isAdminDashboard || isAccessForm || isAttendanceManagement) {
                 return;
             }
 
@@ -373,6 +374,11 @@
             return path === '/admin/shield/roles/create' || /^\/admin\/shield\/roles\/[^/]+(?:\/edit)?\/?$/.test(path);
         }
 
+        function isAttendanceManagement(path) {
+            return normalizePath(path) === '/admin/attendance-management'
+                || /^\/escola\/\d+\/attendance-management\/?$/.test(path);
+        }
+
         function dashboardIcon() {
             return `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 512 512" fill="currentColor" style="${iconStyle}">
                 <path d="M0 256a256 256 0 1 1 512 0 256 256 0 1 1 -512 0zM288 96a32 32 0 1 0 -64 0 32 32 0 1 0 64 0zM256 416c35.3 0 64-28.7 64-64 0-16.2-6-31.1-16-42.3l69.5-138.9c5.9-11.9 1.1-26.3-10.7-32.2s-26.3-1.1-32.2 10.7L261.1 288.2c-1.7-.1-3.4-.2-5.1-.2-35.3 0-64 28.7-64 64s28.7 64 64 64zM176 144a32 32 0 1 0 -64 0 32 32 0 1 0 64 0zM96 288a32 32 0 1 0 0-64 32 32 0 1 0 0 64zm352-32a32 32 0 1 0 -64 0 32 32 0 1 0 64 0z"/>
@@ -552,7 +558,7 @@
             }
 
             const currentPath = normalizePath(window.location.pathname);
-            const hideHeader = isAdminDashboard(currentPath) || isAccessForm(currentPath);
+            const hideHeader = isAdminDashboard(currentPath) || isAccessForm(currentPath) || isAttendanceManagement(currentPath);
             headerEl.classList.toggle('sigef-dashboard-header-hidden', hideHeader);
 
             if (hideHeader) {

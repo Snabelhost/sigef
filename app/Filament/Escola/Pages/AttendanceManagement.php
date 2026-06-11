@@ -3,13 +3,17 @@
 namespace App\Filament\Escola\Pages;
 
 use App\Models\Attendance;
+use App\Models\Effective;
 use App\Models\Student;
 use App\Models\Institution;
+use App\Models\Trainer;
 use Carbon\Carbon;
 use Filament\Pages\Page;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
+use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 
@@ -18,13 +22,14 @@ class AttendanceManagement extends Page implements HasForms
     use InteractsWithForms;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-clipboard-document-check';
-    protected static ?string $navigationLabel = 'Pontos / Presenças';
+    protected static ?string $navigationLabel = 'Presenças';
     protected static ?string $title = 'Gestão de Presenças';
     protected static string|\UnitEnum|null $navigationGroup = 'Gestão Escolar';
-    protected static ?int $navigationSort = 15;
+    protected static ?int $navigationSort = 9;
     protected string $view = 'filament.pages.attendance-management';
 
     // Propriedades públicas para Livewire
+    public string $activeTab = 'students';
     public ?int $selectedInstitutionId = null;
     public ?string $selectedCia = null;
     public ?string $selectedDate = null;
@@ -41,10 +46,26 @@ class AttendanceManagement extends Page implements HasForms
         }
     }
 
+    public function getTitle(): string
+    {
+        return '';
+    }
+
+    public function getHeading(): string|Htmlable
+    {
+        return '';
+    }
+
+    public function getSubheading(): ?string
+    {
+        return null;
+    }
+
     public function updatedSelectedInstitutionId(): void
     {
         $this->selectedCia = null;
         $this->attendanceData = [];
+        $this->loadAttendanceData();
     }
 
     public function updatedSelectedCia(): void
@@ -54,6 +75,17 @@ class AttendanceManagement extends Page implements HasForms
 
     public function updatedSelectedDate(): void
     {
+        $this->loadAttendanceData();
+    }
+
+    public function setActiveTab(string $tab): void
+    {
+        if (! in_array($tab, ['students', 'trainers', 'effectives'], true)) {
+            return;
+        }
+
+        $this->activeTab = $tab;
+        $this->attendanceData = [];
         $this->loadAttendanceData();
     }
 
@@ -99,6 +131,49 @@ class AttendanceManagement extends Page implements HasForms
     }
 
     #[Computed]
+    public function trainers(): Collection
+    {
+        if (!$this->selectedInstitutionId) {
+            return collect();
+        }
+
+        return Trainer::query()
+            ->with('rank')
+            ->where('is_active', true)
+            ->where(function ($query): void {
+                $query
+                    ->where('institution_id', $this->selectedInstitutionId)
+                    ->orWhereHas('institutions', fn ($institutionQuery) => $institutionQuery->whereKey($this->selectedInstitutionId));
+            })
+            ->orderBy('full_name')
+            ->get();
+    }
+
+    #[Computed]
+    public function effectives(): Collection
+    {
+        if (!$this->selectedInstitutionId) {
+            return collect();
+        }
+
+        return Effective::query()
+            ->where('institution_id', $this->selectedInstitutionId)
+            ->where('is_active', true)
+            ->orderBy('full_name')
+            ->get();
+    }
+
+    #[Computed]
+    public function attendancePeople(): Collection
+    {
+        return match ($this->activeTab) {
+            'trainers' => $this->trainers,
+            'effectives' => $this->effectives,
+            default => $this->students,
+        };
+    }
+
+    #[Computed]
     public function weekDays()
     {
         $startDate = Carbon::parse($this->selectedDate)->startOfWeek(Carbon::MONDAY);
@@ -120,25 +195,26 @@ class AttendanceManagement extends Page implements HasForms
 
     public function loadAttendanceData(): void
     {
-        if (!$this->selectedInstitutionId || !$this->selectedCia || !$this->selectedDate) {
+        if (!$this->selectedInstitutionId || !$this->selectedDate || ($this->activeTab === 'students' && !$this->selectedCia)) {
             $this->attendanceData = [];
             return;
         }
 
-        $students = $this->students;
+        $people = $this->attendancePeople;
+        $foreignKey = $this->attendanceForeignKey();
 
         // Carregar presenças do dia selecionado
         $attendances = Attendance::where('institution_id', $this->selectedInstitutionId)
             ->where('date', $this->selectedDate)
-            ->whereIn('student_id', $students->pluck('id'))
+            ->whereIn($foreignKey, $people->pluck('id'))
             ->get()
-            ->keyBy('student_id');
+            ->keyBy($foreignKey);
 
         $this->attendanceData = [];
 
-        foreach ($students as $student) {
-            $attendance = $attendances->get($student->id);
-            $this->attendanceData[$student->id] = [
+        foreach ($people as $person) {
+            $attendance = $attendances->get($person->id);
+            $this->attendanceData[$person->id] = [
                 'status' => $attendance?->status ?? null,
                 'entry_time' => $attendance?->entry_time ?? null,
                 'exit_time' => $attendance?->exit_time ?? null,
@@ -240,26 +316,20 @@ class AttendanceManagement extends Page implements HasForms
         return true;
     }
 
-    public function setStatus(int $studentId, string $status): void
+    public function setStatus(int $personId, string $status): void
     {
         if (!$this->validateDateRestrictions($status)) return;
 
-        $institutionId = $this->selectedInstitutionId;
-
         Attendance::updateOrCreate(
-            [
-                'student_id' => $studentId,
-                'institution_id' => $institutionId,
-                'date' => $this->selectedDate,
-            ],
-            [
+            $this->attendanceLookup($personId),
+            array_merge($this->attendanceActorValues($personId), [
                 'status' => $status,
-                'entry_time' => $status === 'P' ? ($this->attendanceData[$studentId]['entry_time'] ?? '08:00') : null,
+                'entry_time' => $status === 'P' ? ($this->attendanceData[$personId]['entry_time'] ?? '08:00') : null,
                 'created_by' => Auth::id(),
-            ]
+            ])
         );
 
-        $this->attendanceData[$studentId]['status'] = $status;
+        $this->attendanceData[$personId]['status'] = $status;
 
         $statusLabel = match ($status) {
             'P' => 'Presente',
@@ -276,66 +346,70 @@ class AttendanceManagement extends Page implements HasForms
             ->send();
     }
 
-    public function updateEntryTime(int $studentId, string $time): void
+    public function updateEntryTime(int $personId, string $time): void
     {
         if (empty($time)) return;
         if (!$this->validateTodayOnly()) return;
-
-        $institutionId = $this->selectedInstitutionId;
 
         Attendance::updateOrCreate(
-            [
-                'student_id' => $studentId,
-                'institution_id' => $institutionId,
-                'date' => $this->selectedDate,
-            ],
-            [
+            $this->attendanceLookup($personId),
+            array_merge($this->attendanceActorValues($personId), [
                 'entry_time' => $time,
-                'status' => $this->attendanceData[$studentId]['status'] ?? 'P',
+                'status' => $this->attendanceData[$personId]['status'] ?? 'P',
                 'created_by' => Auth::id(),
-            ]
+            ])
         );
 
-        $this->attendanceData[$studentId]['entry_time'] = $time;
+        $this->attendanceData[$personId]['entry_time'] = $time;
     }
 
-    public function updateExitTime(int $studentId, string $time): void
+    public function updateExitTime(int $personId, string $time): void
     {
         if (empty($time)) return;
         if (!$this->validateTodayOnly()) return;
 
-        Attendance::where('student_id', $studentId)
-            ->where('institution_id', $this->selectedInstitutionId)
-            ->where('date', $this->selectedDate)
-            ->update(['exit_time' => $time]);
+        Attendance::where($this->attendanceLookup($personId))->update(['exit_time' => $time]);
 
-        $this->attendanceData[$studentId]['exit_time'] = $time;
+        $this->attendanceData[$personId]['exit_time'] = $time;
+    }
+
+    public function updateObservation(int $personId, ?string $observation): void
+    {
+        if (!$this->validateTodayOnly()) return;
+
+        $observation = trim((string) $observation);
+
+        Attendance::updateOrCreate(
+            $this->attendanceLookup($personId),
+            array_merge($this->attendanceActorValues($personId), [
+                'observation' => $observation !== '' ? $observation : null,
+                'status' => $this->attendanceData[$personId]['status'] ?? 'P',
+                'created_by' => Auth::id(),
+            ])
+        );
+
+        $this->attendanceData[$personId]['observation'] = $observation;
     }
 
     public function markAllPresent(): void
     {
         if (!$this->validateTodayOnly()) return;
 
-        $students = $this->students;
-        $institutionId = $this->selectedInstitutionId;
+        $people = $this->attendancePeople;
         $count = 0;
 
-        foreach ($students as $student) {
-            if (empty($this->attendanceData[$student->id]['status'])) {
+        foreach ($people as $person) {
+            if (empty($this->attendanceData[$person->id]['status'])) {
                 Attendance::updateOrCreate(
-                    [
-                        'student_id' => $student->id,
-                        'institution_id' => $institutionId,
-                        'date' => $this->selectedDate,
-                    ],
-                    [
+                    $this->attendanceLookup($person->id),
+                    array_merge($this->attendanceActorValues($person->id), [
                         'status' => 'P',
                         'entry_time' => '08:00',
                         'created_by' => Auth::id(),
-                    ]
+                    ])
                 );
-                $this->attendanceData[$student->id]['status'] = 'P';
-                $this->attendanceData[$student->id]['entry_time'] = '08:00';
+                $this->attendanceData[$person->id]['status'] = 'P';
+                $this->attendanceData[$person->id]['entry_time'] = '08:00';
                 $count++;
             }
         }
@@ -343,7 +417,7 @@ class AttendanceManagement extends Page implements HasForms
         $this->loadAttendanceData();
 
         Notification::make()
-            ->title("{$count} alunos marcados como presente")
+            ->title("{$count} {$this->attendanceCollectionLabel()} marcados como presente")
             ->success()
             ->send();
     }
@@ -352,24 +426,19 @@ class AttendanceManagement extends Page implements HasForms
     {
         if (!$this->validateTodayOnly()) return;
 
-        $students = $this->students;
-        $institutionId = $this->selectedInstitutionId;
+        $people = $this->attendancePeople;
         $count = 0;
 
-        foreach ($students as $student) {
-            if (empty($this->attendanceData[$student->id]['status'])) {
+        foreach ($people as $person) {
+            if (empty($this->attendanceData[$person->id]['status'])) {
                 Attendance::updateOrCreate(
-                    [
-                        'student_id' => $student->id,
-                        'institution_id' => $institutionId,
-                        'date' => $this->selectedDate,
-                    ],
-                    [
+                    $this->attendanceLookup($person->id),
+                    array_merge($this->attendanceActorValues($person->id), [
                         'status' => 'F',
                         'created_by' => Auth::id(),
-                    ]
+                    ])
                 );
-                $this->attendanceData[$student->id]['status'] = 'F';
+                $this->attendanceData[$person->id]['status'] = 'F';
                 $count++;
             }
         }
@@ -377,7 +446,7 @@ class AttendanceManagement extends Page implements HasForms
         $this->loadAttendanceData();
 
         Notification::make()
-            ->title("{$count} alunos marcados como falta")
+            ->title("{$count} {$this->attendanceCollectionLabel()} marcados como falta")
             ->warning()
             ->send();
     }
@@ -386,11 +455,11 @@ class AttendanceManagement extends Page implements HasForms
     {
         if (!$this->validateTodayOnly()) return;
 
-        $students = $this->students;
+        $people = $this->attendancePeople;
 
         Attendance::where('institution_id', $this->selectedInstitutionId)
             ->where('date', $this->selectedDate)
-            ->whereIn('student_id', $students->pluck('id'))
+            ->whereIn($this->attendanceForeignKey(), $people->pluck('id'))
             ->delete();
 
         $this->loadAttendanceData();
@@ -399,6 +468,98 @@ class AttendanceManagement extends Page implements HasForms
             ->title('Todos os registos foram removidos')
             ->info()
             ->send();
+    }
+
+    protected function attendanceForeignKey(): string
+    {
+        return match ($this->activeTab) {
+            'trainers' => 'trainer_id',
+            'effectives' => 'effective_id',
+            default => 'student_id',
+        };
+    }
+
+    protected function attendanceLookup(int $personId): array
+    {
+        return [
+            $this->attendanceForeignKey() => $personId,
+            'institution_id' => $this->selectedInstitutionId,
+            'date' => $this->selectedDate,
+            'period' => 'full_day',
+        ];
+    }
+
+    protected function attendanceActorValues(int $personId): array
+    {
+        return [
+            'student_id' => $this->activeTab === 'students' ? $personId : null,
+            'trainer_id' => $this->activeTab === 'trainers' ? $personId : null,
+            'effective_id' => $this->activeTab === 'effectives' ? $personId : null,
+            'institution_id' => $this->selectedInstitutionId,
+            'date' => $this->selectedDate,
+            'period' => 'full_day',
+        ];
+    }
+
+    protected function attendanceCollectionLabel(): string
+    {
+        return match ($this->activeTab) {
+            'trainers' => 'professores',
+            'effectives' => 'efectivos',
+            default => 'formandos',
+        };
+    }
+
+    public function activeTabLabel(): string
+    {
+        return match ($this->activeTab) {
+            'trainers' => 'Professores',
+            'effectives' => 'Efectivos',
+            default => 'Formandos',
+        };
+    }
+
+    public function personName(mixed $person): string
+    {
+        return trim((string) ($person->full_name ?? $person->candidate?->full_name ?? '-')) ?: '-';
+    }
+
+    public function personInitials(mixed $person): string
+    {
+        $name = $this->personName($person);
+        $parts = preg_split('/\s+/u', $name, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $first = $parts[0] ?? 'S';
+        $last = $parts[count($parts) - 1] ?? '';
+        $initials = mb_strtoupper(mb_substr($first, 0, 1) . mb_substr($last, 0, 1));
+
+        return mb_strlen($initials) >= 2 ? $initials : mb_strtoupper(mb_substr($name, 0, 2));
+    }
+
+    public function personIdentifier(mixed $person): string
+    {
+        $identifier = match ($this->activeTab) {
+            'trainers' => $person->nip ?: $person->bilhete,
+            'effectives' => $person->identifier ?: $person->employee_number ?: $person->nas ?: $person->document_number,
+            default => $person->nuri ?: $person->candidate?->nuri ?: $person->student_number,
+        };
+
+        return trim((string) $identifier) ?: '-';
+    }
+
+    public function personContext(mixed $person): string
+    {
+        return match ($this->activeTab) {
+            'trainers' => trim((string) ($person->rank?->name ?: $person->trainer_type ?: $person->department ?: '-')) ?: '-',
+            'effectives' => trim((string) ($person->position_label ?: $person->unit ?: $person->department ?: '-')) ?: '-',
+            default => trim((string) ($person->student_type ?: $person->rank?->name ?: '-')) ?: '-',
+        };
+    }
+
+    public function contextIsReady(): bool
+    {
+        return filled($this->selectedInstitutionId)
+            && filled($this->selectedDate)
+            && ($this->activeTab !== 'students' || filled($this->selectedCia));
     }
 
     public function getStats(): array

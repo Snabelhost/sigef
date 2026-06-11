@@ -28,7 +28,7 @@
         background: #fff;
         border: 1px solid #dbe3f0;
         border-radius: 8px;
-        max-height: min(430px, 55vh);
+        max-height: 286px;
         overflow: auto;
     }
 
@@ -42,9 +42,9 @@
     .sigef-evaluation-table th {
         background: #061b49;
         color: #fff;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 800;
-        padding: 12px 16px;
+        padding: 10px 14px;
         position: sticky;
         text-align: left;
         top: 0;
@@ -60,9 +60,9 @@
     .sigef-evaluation-table td {
         border-top: 1px solid #e5eaf2;
         color: #111827;
-        font-size: 13px;
-        line-height: 1.45;
-        padding: 13px 16px;
+        font-size: 12px;
+        line-height: 1.25;
+        padding: 9px 14px;
         vertical-align: middle;
     }
 
@@ -83,16 +83,16 @@
 
     .sigef-evaluation-muted {
         color: #64748b;
-        font-size: 12px;
+        font-size: 11px;
     }
 
     .sigef-evaluation-pill {
         border-radius: 999px;
         display: inline-flex;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 800;
         line-height: 1;
-        padding: 7px 10px;
+        padding: 5px 9px;
         white-space: nowrap;
     }
 
@@ -124,11 +124,11 @@
     .sigef-evaluation-score {
         border-radius: 8px;
         display: inline-flex;
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 900;
         justify-content: center;
-        min-width: 54px;
-        padding: 8px 10px;
+        min-width: 46px;
+        padding: 6px 9px;
     }
 
     .sigef-evaluation-score.is-pass {

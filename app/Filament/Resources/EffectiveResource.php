@@ -474,6 +474,29 @@ class EffectiveResource extends Resource
         return asset('storage/' . ltrim($photo, '/'));
     }
 
+    protected static function effectiveAvatarUrl(?Effective $record): string
+    {
+        $name = trim((string) ($record?->full_name ?: 'Efectivo'));
+        $parts = preg_split('/\s+/u', $name, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $first = $parts[0] ?? 'E';
+        $last = $parts[count($parts) - 1] ?? '';
+        $initials = mb_strtoupper(mb_substr($first, 0, 1) . mb_substr($last, 0, 1));
+
+        if (mb_strlen($initials) < 2) {
+            $initials = mb_strtoupper(mb_substr($name, 0, 2));
+        }
+
+        $safeInitials = htmlspecialchars($initials ?: 'EF', ENT_QUOTES, 'UTF-8');
+        $svg = <<<SVG
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+    <rect width="96" height="96" rx="48" fill="#041B4E"/>
+    <text x="48" y="56" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" font-weight="700" fill="#FFFFFF">{$safeInitials}</text>
+</svg>
+SVG;
+
+        return 'data:image/svg+xml;utf8,' . rawurlencode($svg);
+    }
+
     protected static function effectivePhotoUploadStyles(): HtmlString
     {
         return new HtmlString(<<<'HTML'
@@ -788,7 +811,8 @@ HTML);
                     ->label('Foto')
                     ->disk('public')
                     ->circular()
-                    ->size(42),
+                    ->size(42)
+                    ->defaultImageUrl(fn (Effective $record): string => static::effectiveAvatarUrl($record)),
                 Tables\Columns\TextColumn::make('full_name')
                     ->label('Nome')
                     ->searchable()

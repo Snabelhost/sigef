@@ -147,15 +147,15 @@
         .sigef-student-card-placement-row {
             display: block;
             min-width: 0;
-            font-size: {{ $isVertical ? '8px' : '8.8px' }};
-            line-height: 1.1;
+            font-size: inherit;
+            line-height: inherit;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
         }
 
         .sigef-student-card-placement-row .sigef-student-card-placement-separator {
-            margin: 0 4px;
+            margin: 0 2px;
             font-weight: 900;
         }
 
