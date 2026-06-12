@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Shield;
 
 use App\Filament\Resources\Shield\RoleResource\Pages;
+use App\Support\AccessPermissionCatalog;
 use BezhanSalleh\FilamentShield\Resources\Roles\RoleResource as BaseRoleResource;
 use BezhanSalleh\FilamentShield\Support\Utils;
 use Filament\Actions\Action as TableAction;
@@ -14,6 +15,7 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -47,6 +49,7 @@ class RoleResource extends BaseRoleResource
         'panels' => 'Painéis',
         'resources' => 'Recursos',
         'pages' => 'Páginas',
+        'actions' => 'Ações e Botões',
         'reports' => 'Relatórios',
         'dashboard' => 'Painel',
         'legacy' => 'Gerais',
@@ -174,6 +177,9 @@ class RoleResource extends BaseRoleResource
             Tab::make('Páginas')
                 ->badge(static::permissionTabBadge('pages'))
                 ->schema(static::permissionGroupSections('pages')),
+            Tab::make('Ações e Botões')
+                ->badge(static::permissionTabBadge('actions'))
+                ->schema(static::permissionGroupSections('actions')),
             Tab::make('Relatórios')
                 ->badge(static::permissionTabBadge('reports'))
                 ->schema(static::permissionGroupSections('reports')),
@@ -303,6 +309,8 @@ class RoleResource extends BaseRoleResource
      */
     protected static function buildPermissionGroups(): array
     {
+        AccessPermissionCatalog::sync(static::guardName());
+
         $groups = array_fill_keys(array_keys(static::PERMISSION_TYPES), []);
         $permissionModel = Utils::getPermissionModel();
 
@@ -349,6 +357,15 @@ class RoleResource extends BaseRoleResource
     protected static function permissionParts(string $permission): array
     {
         $separator = (string) config('filament-shield.permissions.separator', ':');
+
+        if (str_starts_with($permission, 'Action:')) {
+            $payload = (string) Str::after($permission, 'Action:');
+            [$subject, $action] = str_contains($payload, '.')
+                ? explode('.', $payload, 2)
+                : [$payload, 'Action'];
+
+            return ['Action' . Str::studly($action), static::normalizePermissionSubject($subject)];
+        }
 
         if ($separator !== '' && str_contains($permission, $separator)) {
             [$action, $subject] = explode($separator, $permission, 2);
@@ -397,6 +414,10 @@ class RoleResource extends BaseRoleResource
 
         if (static::isDashboardSubject($subject, $haystack)) {
             return 'dashboard';
+        }
+
+        if (str_starts_with($permissionName, 'Action:')) {
+            return 'actions';
         }
 
         if (static::isPageSubject($subject, $haystack)) {
@@ -470,15 +491,7 @@ class RoleResource extends BaseRoleResource
 
     protected static function shouldHidePermission(string $permissionName, string $subject): bool
     {
-        $haystack = static::normalizePermissionSearch($permissionName . ' ' . $subject);
-
-        return $subject === 'CoursePlan'
-            || str_contains($haystack, 'cadete')
-            || str_contains($haystack, 'cadet')
-            || str_contains($haystack, 'agent')
-            || str_contains($haystack, 'activitylog')
-            || str_contains($haystack, 'activity log')
-            || str_contains($haystack, 'audit');
+        return false;
     }
 
     protected static function subjectLabel(string $subject, string $type): string
@@ -486,24 +499,46 @@ class RoleResource extends BaseRoleResource
         $labels = [
             'AcademicYear' => 'Anos Lectivos',
             'Admin' => 'Painel Admin',
+            'Accesses' => 'Relatório de Acessos',
+            'ActivityLog' => 'Registo de Atividades',
+            'Agent' => 'Agentes',
+            'AgentTransferHistory' => 'Histórico de Transferências de Agentes',
+            'Alistados' => 'Relatório de Alistados',
+            'Attendance' => 'Relatório de Presenças',
             'AttendanceManagement' => 'Posto / Presenças',
+            'Audit' => 'Relatório de Auditoria',
             'BackupSettings' => 'Cópias de Segurança',
             'Candidate' => 'Alistados',
             'CandidateTransferHistory' => 'Histórico de Transferências',
             'Certificado' => 'Certificados',
             'Course' => 'Cursos',
             'CourseMap' => 'Mapas e Planos de Curso',
+            'CourseMaps' => 'Relatório de Mapas de Curso',
+            'CoursePhase' => 'Fases do Curso',
             'CoursePlan' => 'Planos de Curso (integrado)',
+            'CoursePlans' => 'Relatório de Planos de Curso',
+            'Courses' => 'Relatório de Cursos',
             'Dashboard' => 'Painel de Controlo',
             'Document' => 'Documentos',
+            'Documents' => 'Relatório de Documentos',
+            'Effectives' => 'Relatório de Efectivos',
+            'Enrollments' => 'Relatório de Gestão de Formandos',
             'EquipmentAssignment' => 'Atribuição de Meios',
+            'Equipment' => 'Relatório de Atribuição de Meios',
             'Escola' => 'Painel da Escola',
             'Evaluation' => 'Avaliações',
+            'Evaluations' => 'Relatório de Avaliações',
             'Institution' => 'Instituições',
+            'InstitutionReportSettings' => 'Configurar Instituição',
+            'Institutions' => 'Relatório de Instituições',
             'InstitutionType' => 'Tipos de Instituição',
+            'Leaves' => 'Relatório de Dispensas e Faltas',
             'MailSettings' => 'Configurações de E-mail',
+            'MiniPauta' => 'Relatório Mini Pauta',
             'Pauta' => 'Mini Pauta',
             'PautaGeral' => 'Pauta Geral',
+            'ProfessorAssignments' => 'Turmas e Disciplinas do Professor',
+            'ProfessorOverview' => 'Resumo do Professor',
             'Provenance' => 'Órgãos de Proveniência',
             'Professores' => 'Painel do Professor',
             'Rank' => 'Patentes',
@@ -511,6 +546,11 @@ class RoleResource extends BaseRoleResource
             'Relatorios' => 'Relatórios',
             'Role' => 'Acessos',
             'StatsOverview' => 'Resumo do Painel',
+            'EscolaCandidateStatusChart' => 'Gráfico de Estado dos Alistados da Escola',
+            'EscolaStatsOverview' => 'Resumo do Painel da Escola',
+            'EscolaStudentManagement' => 'Gestão de Formandos da Escola',
+            'EscolaStudentStatusChart' => 'Gráfico de Estado dos Formandos da Escola',
+            'EscolaStudentsByCourseChart' => 'Gráfico de Formandos por Curso da Escola',
             'CandidateStatusChart' => 'Gráfico de Estado dos Alistados',
             'CandidatesByProvinceChart' => 'Gráfico por Província',
             'StudentManagement' => 'Gestão de Formandos',
@@ -522,11 +562,18 @@ class RoleResource extends BaseRoleResource
             'StudentLeave' => 'Dispensas e Faltas',
             'StudentTransferHistory' => 'Histórico de Transferências de Formandos',
             'StudentType' => 'Tipos de Formando',
+            'StudentTypes' => 'Relatório de Tipos de Formando',
+            'StudentsByProvenance' => 'Relatório por Órgão de Proveniência',
             'Subject' => 'Disciplinas',
+            'Subjects' => 'Relatório de Disciplinas',
             'Trainer' => 'Formadores',
             'TrainerClassAssignment' => 'Atribuição de Formadores',
+            'TrainerSubjects' => 'Relatório de Formadores por Disciplina',
+            'Trainers' => 'Relatório de Formadores',
             'TransferHistory' => 'Histórico de Transferências',
+            'Transfers' => 'Relatório de Transferências',
             'User' => 'Utilizadores',
+            'Users' => 'Relatório de Utilizadores',
         ];
 
         return $labels[$subject] ?? Str::headline(Str::snake($subject, ' '));
@@ -537,6 +584,7 @@ class RoleResource extends BaseRoleResource
         return match ($type) {
             'panels' => 'Permite entrar neste painel após o login',
             'pages' => 'Página do painel administrativo',
+            'actions' => 'Ações, botões, atalhos e operações deste recurso',
             'reports' => 'Relatórios e mapas do sistema',
             'dashboard' => 'Cartões e gráficos do Painel de Controlo',
             'legacy' => 'Permissões gerais do sistema',
@@ -546,6 +594,105 @@ class RoleResource extends BaseRoleResource
 
     protected static function permissionActionLabel(string $action, string $permissionName): string
     {
+        if ($action === 'Report') {
+            return 'Pré-visualizar / Emitir relatório';
+        }
+
+        if (str_starts_with($action, 'Action')) {
+            $actionName = (string) Str::after($action, 'Action');
+            $customLabels = [
+                'AdicionarDisciplina' => 'Adicionar Disciplina',
+                'Archive' => 'Arquivar',
+                'AtribuirDisciplinas' => 'Atribuir Disciplinas',
+                'AtribuirEmMassa' => 'Atribuir em Massa',
+                'AtribuirInstituicaoEmMassa' => 'Atribuir Instituição em Massa',
+                'AtribuirMeios' => 'Atribuir Meios',
+                'AtribuirMeiosEmMassa' => 'Atribuir Meios em Massa',
+                'Audit' => 'Ver Auditoria',
+                'BaixarModelo' => 'Baixar Modelo',
+                'CancelImport' => 'Cancelar Importação',
+                'ClearAll' => 'Limpar Tudo',
+                'CreateBackup' => 'Criar Backup',
+                'CreateOccurrence' => 'Criar Ocorrência',
+                'CurrentWeek' => 'Semana Atual',
+                'DeleteBackup' => 'Eliminar Backup',
+                'Devolucao' => 'Devolução',
+                'DevolucaoEmMassa' => 'Devolução em Massa',
+                'DownloadBackup' => 'Baixar Backup',
+                'EditarAtribuicoes' => 'Editar Atribuições',
+                'EditarFormando' => 'Editar Formando',
+                'EffectiveSheet' => 'Ficha do Efectivo',
+                'EmFormacaoParaConcluido' => 'Converter Em Formação para Concluído',
+                'EnviarSmsEmMassa' => 'Enviar SMS em Massa',
+                'ExecuteImport' => 'Executar Importação',
+                'ExportPdf' => 'Exportar PDF',
+                'FichaDispensa' => 'Ficha de Dispensa',
+                'GerarCartao' => 'Gerar Cartão',
+                'GerenciarDisciplinas' => 'Gerir Disciplinas',
+                'GoToToday' => 'Ir para Hoje',
+                'ImportarExcel' => 'Importar Excel',
+                'ImprimirCertificado' => 'Pré-visualizar Certificado',
+                'ImprimirFicha' => 'Ficha de Inscrição',
+                'ListagemPautas' => 'Listagem de Pautas',
+                'MarkAllAbsent' => 'Marcar Todos Ausentes',
+                'MarkAllPresent' => 'Marcar Todos Presentes',
+                'MiniPauta' => 'Mini Pauta',
+                'MoverAluno' => 'Mover Aluno',
+                'MoverAlistado' => 'Mover Alistado',
+                'MoverInstituicao' => 'Mover Instituição',
+                'NextDay' => 'Próximo Dia',
+                'NextWeek' => 'Próxima Semana',
+                'NovaAtribuicao' => 'Nova Atribuição',
+                'NovaOcorrencia' => 'Nova Ocorrência',
+                'OpenAlistadosChart' => 'Abrir gráfico de Alistados',
+                'OpenCursosAnoLectivoChart' => 'Abrir gráfico de Cursos por Ano Lectivo',
+                'OpenDisciplinasCursoChart' => 'Abrir gráfico de Disciplinas por Curso',
+                'OpenEmFormacaoConcluidosChart' => 'Abrir gráfico de Em Formação e Concluídos',
+                'OpenFormadoresChart' => 'Abrir gráfico de Formadores',
+                'OpenFormandosChart' => 'Abrir gráfico de Formandos',
+                'OpenInstituicoesEnsinoChart' => 'Abrir gráfico de Instituições de Ensino',
+                'OpenRecrutasInstruendosChart' => 'Abrir gráfico de Recrutas e Instruendos',
+                'Pesquisar' => 'Pesquisar',
+                'PautaGeral' => 'Pauta Geral',
+                'Preview' => 'Pré-visualizar',
+                'PreviewCard' => 'Pré-visualizar Cartão',
+                'PreviewImport' => 'Pré-visualizar Importação',
+                'PreviewReport' => 'Pré-visualizar Relatório',
+                'PreviousDay' => 'Dia Anterior',
+                'PreviousWeek' => 'Semana Anterior',
+                'PrintCard' => 'Imprimir Cartão',
+                'PrintMiniPauta' => 'Imprimir Mini Pauta',
+                'PrintPautaGeral' => 'Imprimir Pauta Geral',
+                'RecrutaParaInstruendo' => 'Converter Recruta para Instruendo',
+                'Respond' => 'Responder',
+                'RespondInline' => 'Responder no Documento',
+                'Save' => 'Salvar',
+                'SaveSchedule' => 'Salvar Agendamento',
+                'SelectDate' => 'Selecionar Data',
+                'SelectStudent' => 'Selecionar Formando',
+                'SelectStudentPhoto' => 'Ver Foto do Formando',
+                'Send' => 'Enviar',
+                'SetActiveTab' => 'Alternar Separador',
+                'SetAttendance' => 'Marcar Presença',
+                'SetStatus' => 'Alterar Estado de Presença',
+                'SincronizarPortal' => 'Sincronizar Portal',
+                'SyncAccessPermissions' => 'Sincronizar Permissões',
+                'TestConnection' => 'Testar Conexão',
+                'TestSms' => 'Testar SMS',
+                'ToggleAttendance' => 'Alternar Presença',
+                'TrainerSheet' => 'Ficha do Formador',
+                'VerAtividades' => 'Ver Atividades',
+                'VerDetalhes' => 'Ver Detalhes',
+                'VerEquipamentos' => 'Ver Equipamentos',
+                'VincularEConverterRecruta' => 'Enviar para Instituição',
+                'VincularEIniciarFormacao' => 'Vincular e Iniciar Formação',
+                'VincularETransformarRecrutas' => 'Enviar Alistados para Instituição',
+                'Voltar' => 'Voltar',
+            ];
+
+            return $customLabels[$actionName] ?? Str::headline(Str::snake($actionName, ' '));
+        }
+
         $labels = [
             'ViewAny' => 'Ver Listagem',
             'View' => 'Visualizar',
@@ -708,6 +855,22 @@ class RoleResource extends BaseRoleResource
             ])
             ->filters([])
             ->headerActions([
+                TableAction::make('syncAccessPermissions')
+                    ->label('Sincronizar Permissões')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('gray')
+                    ->visible(fn (): bool => auth()->user()?->can('Update:Role') ?? false)
+                    ->action(function (): void {
+                        $created = AccessPermissionCatalog::sync(static::guardName());
+
+                        Notification::make()
+                            ->title('Permissões sincronizadas')
+                            ->body($created > 0
+                                ? "{$created} nova(s) permissão(ões) adicionada(s)."
+                                : 'Todas as permissões do sistema já estavam atualizadas.')
+                            ->success()
+                            ->send();
+                    }),
                 TableAction::make('create')
                     ->icon('heroicon-o-plus')
                     ->label('Criar Acesso')
@@ -758,7 +921,14 @@ class RoleResource extends BaseRoleResource
     {
         return match ($name) {
             'admin', 'administrador' => 'Administrador',
+            'admin_geral' => 'Administrador Geral',
             'super_admin' => 'Super Administrador',
+            'escola_admin' => 'Administrador da Escola',
+            'escola_user' => 'Utilizador da Escola',
+            'secretaria_escola' => 'Secretaria da Escola',
+            'professor' => 'Professor',
+            'professores_admin' => 'Administrador do Painel dos Professores',
+            'professores_user' => 'Professor',
             'panel_user' => 'Utilizador do Painel',
             default => Str::headline(str_replace(['_', '-'], ' ', $name)),
         };

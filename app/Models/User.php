@@ -16,6 +16,8 @@ use Filament\Panel;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Support\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 
 class User extends Authenticatable implements FilamentUser, HasTenants, Auditable
@@ -26,6 +28,13 @@ class User extends Authenticatable implements FilamentUser, HasTenants, Auditabl
         hasPermissionTo as traitHasPermissionTo;
         hasAnyPermission as traitHasAnyPermission;
         hasAllPermissions as traitHasAllPermissions;
+    }
+
+    protected static function booted(): void
+    {
+        static::deleting(function (User $user): void {
+            $user->prepareReferencesForDeletion();
+        });
     }
 
     public const PANEL_ACCESS_PERMISSIONS = [
@@ -125,11 +134,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants, Auditabl
 
         if (
             filled($this->institution_id)
-            && (
-                $this->hasPanelAccessPermission('escola')
-                || $this->hasRole('escola_admin')
-                || $this->hasRole('escola_user')
-            )
+            && $this->hasPanelAccessPermission('escola')
         ) {
             $panels['escola'] = [
                 ...self::PANEL_ACCESS_PERMISSIONS['escola'],
@@ -139,8 +144,6 @@ class User extends Authenticatable implements FilamentUser, HasTenants, Auditabl
 
         if (
             $this->hasPanelAccessPermission('professores')
-            || $this->hasRole('professores_admin')
-            || $this->hasRole('professores_user')
         ) {
             $panels['professores'] = [
                 ...self::PANEL_ACCESS_PERMISSIONS['professores'],
@@ -229,5 +232,79 @@ class User extends Authenticatable implements FilamentUser, HasTenants, Auditabl
     public function institution()
     {
         return $this->belongsTo(Institution::class);
+    }
+
+    private function prepareReferencesForDeletion(): void
+    {
+        $userId = (int) $this->getKey();
+
+        foreach ([
+            ['evaluations', 'evaluated_by'],
+            ['student_leaves', 'approved_by'],
+        ] as [$table, $column]) {
+            if (! $this->hasUserReferenceColumn($table, $column)) {
+                continue;
+            }
+
+            DB::table($table)
+                ->where($column, $userId)
+                ->update([$column => null]);
+        }
+
+        $replacementId = null;
+
+        foreach ([
+            ['equipment_assignments', 'assigned_by'],
+            ['trainer_subject_authorizations', 'authorized_by'],
+        ] as [$table, $column]) {
+            if (! $this->hasUserReferenceColumn($table, $column)) {
+                continue;
+            }
+
+            $hasReferences = DB::table($table)
+                ->where($column, $userId)
+                ->exists();
+
+            if (! $hasReferences) {
+                continue;
+            }
+
+            $replacementId ??= $this->replacementUserIdForRequiredReferences();
+
+            if (! $replacementId) {
+                throw new \RuntimeException('Nao foi possivel eliminar este utilizador porque existem registos vinculados e nao ha outro utilizador para assumir essas referencias.');
+            }
+
+            DB::table($table)
+                ->where($column, $userId)
+                ->update([$column => $replacementId]);
+        }
+
+        $this->tokens()->delete();
+        $this->roles()->detach();
+        $this->permissions()->detach();
+    }
+
+    private function replacementUserIdForRequiredReferences(): ?int
+    {
+        $currentUserId = auth()->id();
+
+        if ($currentUserId && (int) $currentUserId !== (int) $this->getKey()) {
+            return (int) $currentUserId;
+        }
+
+        return static::query()
+            ->where('id', '!=', $this->getKey())
+            ->where('is_active', true)
+            ->whereHas('roles', fn ($query) => $query->whereIn('name', ['super_admin', 'admin', 'admin_admin']))
+            ->value('id')
+            ?? static::query()
+                ->where('id', '!=', $this->getKey())
+                ->value('id');
+    }
+
+    private function hasUserReferenceColumn(string $table, string $column): bool
+    {
+        return Schema::hasTable($table) && Schema::hasColumn($table, $column);
     }
 }

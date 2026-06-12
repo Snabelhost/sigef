@@ -20,7 +20,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class EquipmentAssignmentResource extends Resource
 {
-    protected static bool $shouldSkipAuthorization = true;
+    protected static bool $shouldSkipAuthorization = false;
 
     // Mudamos o modelo base para Student para listar todos os formandos inscritos
     protected static ?string $model = Student::class;
@@ -31,6 +31,12 @@ class EquipmentAssignmentResource extends Resource
     protected static ?string $modelLabel = 'Atribuição de Meio';
     protected static ?string $pluralModelLabel = 'Atribuição de Meios';
     protected static ?string $slug = 'equipment-assignments';
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->when(\Filament\Facades\Filament::getTenant()?->id, fn (Builder $query, int $institutionId): Builder => $query->where('institution_id', $institutionId));
+    }
 
     public static function form(Schema $form): Schema
     {
@@ -44,6 +50,7 @@ class EquipmentAssignmentResource extends Resource
                                 $assignedStudentIds = EquipmentAssignment::distinct()->pluck('student_id');
 
                                 $query = Student::with(['candidate', 'classEnrollments'])
+                                    ->when(\Filament\Facades\Filament::getTenant()?->id, fn (Builder $query, int $institutionId): Builder => $query->where('institution_id', $institutionId))
                                     ->whereHas('classEnrollments');
 
                                 if (!$record) {
@@ -258,7 +265,8 @@ class EquipmentAssignmentResource extends Resource
                     ->label('Instituição')
                     ->relationship('institution', 'name')
                     ->searchable()
-                    ->preload(),
+                    ->preload()
+                    ->hidden(fn (): bool => filled(\Filament\Facades\Filament::getTenant()?->id)),
                 Tables\Filters\SelectFilter::make('cia')
                     ->label('CIA')
                     ->options(function () {
@@ -639,7 +647,7 @@ class EquipmentAssignmentResource extends Resource
 
     public static function canAccess(): bool
     {
-        return true;
+        return auth()->user()?->can('ViewAny:EquipmentAssignment') ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool

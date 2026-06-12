@@ -13,6 +13,7 @@ class Subject extends Model implements Auditable
 
     protected $fillable = [
         'institution_id',
+        'course_id',
         'name',
         'description',
         'workload_hours',
@@ -27,6 +28,11 @@ class Subject extends Model implements Auditable
     public function institution()
     {
         return $this->belongsTo(Institution::class);
+    }
+
+    public function course()
+    {
+        return $this->belongsTo(Course::class);
     }
 
     public function phase()

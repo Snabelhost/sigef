@@ -14,7 +14,7 @@ use Filament\Facades\Filament;
 
 class CourseMapResource extends Resource
 {
-    protected static bool $shouldSkipAuthorization = true;
+    protected static bool $shouldSkipAuthorization = false;
 
     protected static ?string $model = CourseMap::class;
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-puzzle-piece';
@@ -171,7 +171,7 @@ class CourseMapResource extends Resource
 
     public static function canAccess(): bool
     {
-        return true;
+        return auth()->user()?->can('ViewAny:CourseMap') ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool

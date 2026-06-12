@@ -18,6 +18,8 @@ class InstitutionTypeResource extends Resource
 {
     protected static ?string $model = InstitutionType::class;
 
+    protected static bool $isScopedToTenant = false;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-squares-2x2';
     protected static string|\UnitEnum|null $navigationGroup = 'Configurações';
     protected static ?int $navigationSort = 2;

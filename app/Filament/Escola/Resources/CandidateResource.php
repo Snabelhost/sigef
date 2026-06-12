@@ -25,7 +25,7 @@ class CandidateResource extends Resource
 {
     use HasCandidateRegimeForm;
 
-    protected static bool $shouldSkipAuthorization = true;
+    protected static bool $shouldSkipAuthorization = false;
 
     protected static ?string $model = Candidate::class;
 
@@ -41,8 +41,9 @@ class CandidateResource extends Resource
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
         return parent::getEloquentQuery()
+            ->when(\Filament\Facades\Filament::getTenant()?->id, fn (Builder $query, int $institutionId): Builder => $query->where('institution_id', $institutionId))
             ->whereIn('student_type', ['Alistado', 'Formando'])
-            ->with(['recruitmentType', 'academicYear']);
+            ->with(['recruitmentType', 'academicYear', 'institution', 'province', 'municipalityRelation', 'provenance']);
     }
 
     /**
@@ -77,10 +78,9 @@ class CandidateResource extends Resource
         return [
             static::candidateIdentificationSection(),
             static::candidateClassificationSection([
-                'Pendente' => 'Pendente',
                 'Apurado' => 'Apurado',
                 'Reprovado' => 'Reprovado',
-            ], 'Pendente'),
+            ], 'Apurado'),
         ];
 
         return [
@@ -267,7 +267,8 @@ class CandidateResource extends Resource
                     ->label('Instituição')
                     ->options(Institution::orderBy('name')->pluck('name', 'id'))
                     ->searchable()
-                    ->preload(),
+                    ->preload()
+                    ->hidden(fn (): bool => filled(\Filament\Facades\Filament::getTenant()?->id)),
                 Tables\Filters\SelectFilter::make('student_type')
                     ->label('Tipo')
                     ->options([
@@ -293,11 +294,12 @@ class CandidateResource extends Resource
             ->headerActions([
                 // Botão de Importação Excel
                 \Filament\Actions\Action::make('sincronizarPortal')
+                    ->visible(false)
                     ->label('Sincronizar Portal')
                     ->icon('heroicon-o-arrow-path')
                     ->color('info')
                     ->modalHeading('Sincronizar candidatos do portal')
-                    ->modalDescription('Importa e atualiza os candidatos apurados e reprovados do portal de recrutamento.')
+                    ->modalDescription('Importa e atualiza todos os candidatos disponíveis no portal de recrutamento. No SIGEF entram como Alistados.')
                     ->form([
                         Forms\Components\TextInput::make('endpoint')
                             ->label('Endpoint')
@@ -311,7 +313,7 @@ class CandidateResource extends Resource
 
                             \Filament\Notifications\Notification::make()
                                 ->title('Portal sincronizado')
-                                ->body("Recebidos: {$stats['received']} | Criados: {$stats['created']} | Atualizados: {$stats['updated']} | Ignorados: {$stats['skipped']}")
+                                ->body("Páginas: {$stats['pages']} | Recebidos: {$stats['received']} | Sincronizados: {$stats['synced']} | Apurados: {$stats['approved']} | Reprovados: {$stats['rejected']} | Pendentes: {$stats['pending']} | Outros: {$stats['other']} | Criados: {$stats['created']} | Atualizados: {$stats['updated']} | Ignorados: {$stats['skipped']}")
                                 ->success()
                                 ->duration(10000)
                                 ->send();
@@ -325,6 +327,7 @@ class CandidateResource extends Resource
                         }
                     }),
                 \Filament\Actions\Action::make('importarExcel')
+                    ->visible(false)
                     ->label('Importar Excel')
                     ->icon('heroicon-o-arrow-up-tray')
                     ->extraAttributes([
@@ -398,6 +401,7 @@ class CandidateResource extends Resource
                     ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->label('Cancelar')->icon('heroicon-o-x-mark')->color('danger')),
                 // Botão para baixar modelo
                 \Filament\Actions\Action::make('baixarModelo')
+                    ->visible(false)
                     ->label('Baixar Modelo')
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('danger')
@@ -405,13 +409,21 @@ class CandidateResource extends Resource
                         return Excel::download(new \App\Exports\CandidateTemplateExport(), 'modelo_importacao_formandos.xlsx');
                     }),
                 \Filament\Actions\CreateAction::make()
+                    ->visible(false)
                     ->icon('heroicon-o-plus')
                     ->modalWidth('6xl')
                     ->modalSubmitAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-check')->label('Criar'))
                     ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger'))
                     ->createAnotherAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-plus-circle')->label('Salvar e criar outro'))
                     ->createAnother(true)
-                    ->mutateFormDataUsing(fn (array $data): array => static::normalizeCandidateRegimeData($data))
+                    ->mutateFormDataUsing(function (array $data): array {
+                        $data = static::normalizeCandidateRegimeData($data);
+                        static::guardAgainstDuplicateCandidate($data);
+                        $data['status'] = 'Apurado';
+                        $data['institution_id'] = \Filament\Facades\Filament::getTenant()?->id;
+
+                        return $data;
+                    })
                     ->successNotificationTitle('Formando criado com sucesso!')
                     ->after(function (Candidate $record) {
                         // Enviar SMS ao alistado após criar
@@ -421,7 +433,7 @@ class CandidateResource extends Resource
                             $candidateName = $record->full_name ?? 'Alistado';
 
                             // Buscar nome da instituição selecionada
-                            $institutionName = 'Escola de Formacao da Policia Nacional';
+                            $institutionName = 'Escola de Formação da Polícia Nacional';
                             if ($record->institution_id) {
                                 $record->loadMissing('institution');
                                 if ($record->institution) {
@@ -496,13 +508,13 @@ class CandidateResource extends Resource
                                 if ($result['success']) {
                                     \Filament\Notifications\Notification::make()
                                         ->title('SMS enviado')
-                                        ->body("Notificacao enviada para {$phone}")
+                                        ->body("Notificação enviada para {$phone}")
                                         ->success()
                                         ->send();
                                 } else {
                                     \Filament\Notifications\Notification::make()
                                         ->title('Falha ao enviar SMS')
-                                        ->body("Nao foi possivel enviar SMS. Detalhes: " . ($result['message'] ?? 'Erro desconhecido'))
+                                        ->body("Não foi possível enviar SMS. Detalhes: " . ($result['message'] ?? 'Erro desconhecido'))
                                         ->warning()
                                         ->send();
                                 }
@@ -526,6 +538,7 @@ class CandidateResource extends Resource
                         ->modalWidth('6xl')
                         ->schema(static::candidateFormSchema())
                         ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Fechar')->color('danger')),
+                    static::imprimirFichaAction(),
                     \Filament\Actions\EditAction::make()
                         ->icon('heroicon-o-pencil-square')
                         ->modalWidth('6xl')
@@ -566,6 +579,13 @@ class CandidateResource extends Resource
 
                             // Atualizar a instituição do alistado
                             $record->update(['institution_id' => $newInstitutionId]);
+                            $newStudentType = Institution::getDefaultStudentTypeForId($newInstitutionId);
+                            $finalStudentType = $oldStudentType;
+
+                            if ($newStudentType) {
+                                $record->update(['student_type' => $newStudentType]);
+                                $finalStudentType = $newStudentType;
+                            }
 
                             \Filament\Notifications\Notification::make()
                                 ->title('Registo atualizado!')
@@ -573,7 +593,7 @@ class CandidateResource extends Resource
                                     "Registo: {$candidateName}",
                                     "BI/NIP: {$identifier}",
                                     "Instituição: {$oldInstitution} -> {$newInstitution}",
-                                    'Tipo: '.static::candidateChangeText($oldStudentType, $oldStudentType),
+                                    'Tipo: '.static::candidateChangeText($oldStudentType, $finalStudentType),
                                 ]))
                                 ->success()
                                 ->send();
@@ -755,7 +775,7 @@ class CandidateResource extends Resource
                     ->form([
                         Forms\Components\Textarea::make('mensagem')
                             ->label('Mensagem')
-                            ->default("Prezado(a) {nome}, informamos que deve apresentar-se na {escola} para obter informacoes sobre o aquartelamento. Compareça com documento de identificacao. Policia Nacional de Angola.")
+                            ->default("Prezado(a) {nome}, informamos que deve apresentar-se na {escola} para obter informações sobre o aquartelamento. Compareça com documento de identificação. Polícia Nacional de Angola.")
                             ->helperText('Use {nome} para o nome do alistado e {escola} para o nome da escola.')
                             ->required()
                             ->rows(4),
@@ -846,6 +866,51 @@ class CandidateResource extends Resource
                     ->deselectRecordsAfterCompletion(),
                 \Filament\Actions\DeleteBulkAction::make(),
             ]);
+    }
+
+    protected static function imprimirFichaAction(): \Filament\Actions\Action
+    {
+        return \Filament\Actions\Action::make('imprimirFicha')
+            ->label('Imprimir Ficha')
+            ->icon('heroicon-o-printer')
+            ->color('gray')
+            ->modalHeading('Pré-visualização da Ficha de Inscrição')
+            ->modalDescription(null)
+            ->modalWidth(\Filament\Support\Enums\Width::SixExtraLarge)
+            ->modalSubmitAction(false)
+            ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action
+                ->icon('heroicon-o-x-mark')
+                ->label('Fechar Pré-visualização')
+                ->color('danger'))
+            ->stickyModalHeader()
+            ->stickyModalFooter()
+            ->closeModalByClickingAway(false)
+            ->modalContent(function (Candidate $record) {
+                $record->loadMissing(['institution']);
+
+                $printUrl = route('candidates.sheet.print', ['candidate' => $record]);
+                $candidateName = trim((string) ($record->full_name ?: 'Formando'));
+                $identifierLabel = $record->staff_type === 'regime_especial' ? 'NIP' : 'N.o DO BI';
+                $identifierNumber = trim((string) (
+                    $record->staff_type === 'regime_especial'
+                        ? ($record->nuri ?: 'FORM-'.$record->getKey())
+                        : ($record->id_number ?: 'FORM-'.$record->getKey())
+                ));
+                $frameId = 'sigef-candidate-sheet-frame-'.$record->getKey();
+                $viewerId = 'sigef-candidate-sheet-viewer-'.$record->getKey();
+
+                return view('trainers.sheet-modal', [
+                    'viewerId' => $viewerId,
+                    'frameId' => $frameId,
+                    'documentName' => 'Ficha de Inscrição - '.$candidateName,
+                    'documentBadge' => $identifierLabel.': '.$identifierNumber,
+                    'defaultOrientation' => 'vertical',
+                    'embeddedHorizontalUrl' => $printUrl.'?embedded=1&autoprint=0&orientation=horizontal',
+                    'embeddedVerticalUrl' => $printUrl.'?embedded=1&autoprint=0&orientation=vertical',
+                    'fallbackPrintHorizontalUrl' => $printUrl.'?autoprint=1&orientation=horizontal',
+                    'fallbackPrintVerticalUrl' => $printUrl.'?autoprint=1&orientation=vertical',
+                ]);
+            });
     }
 
     protected static function candidateAlertName(Candidate $candidate): string
@@ -985,18 +1050,77 @@ class CandidateResource extends Resource
     protected static function formatRecruitmentStatus(?string $state): string
     {
         return match (strtolower((string) $state)) {
-            'approved', 'aprovado', 'apurado', 'admitted' => 'Apurado',
-            'rejected', 'reprovado' => 'Reprovado',
+            'approved', 'aprovado', 'apurado', 'admitted', 'apto' => 'Apurado',
+            'rejected', 'reprovado', 'failed', 'inapto' => 'Reprovado',
             'pending', 'pendente', '' => 'Pendente',
             default => (string) $state,
         };
     }
 
+    protected static function guardAgainstDuplicateCandidate(array $data): void
+    {
+        $checks = [
+            'id_number' => ['label' => 'Nº do BI', 'value' => $data['id_number'] ?? null],
+            'email' => ['label' => 'e-mail', 'value' => $data['email'] ?? null],
+        ];
+
+        foreach ($checks as $field => $check) {
+            if (! filled($check['value'])) {
+                continue;
+            }
+
+            $duplicate = Candidate::withTrashed()
+                ->where($field, $check['value'])
+                ->first();
+
+            if ($duplicate) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    $field => "Já existe um formando com este {$check['label']}.",
+                ]);
+            }
+        }
+
+        $phone = trim((string) ($data['phone'] ?? ''));
+        $phoneDigits = preg_replace('/\D+/', '', $phone);
+
+        if ($phone !== '' && $phoneDigits !== '') {
+            $duplicate = Candidate::withTrashed()
+                ->where('phone', $phone)
+                ->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '+', ''), '-', '') = ?", [$phoneDigits])
+                ->orWhereRaw("REPLACE(REPLACE(REPLACE(phone, ' ', ''), '+', ''), '-', '') = ?", ['244' . $phoneDigits])
+                ->first();
+
+            if ($duplicate) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'phone' => 'Já existe um formando com este telefone.',
+                ]);
+            }
+        }
+
+        $fullName = trim((string) ($data['full_name'] ?? ''));
+        $birthDate = $data['birth_date'] ?? null;
+
+        if ($fullName !== '') {
+            $duplicate = Candidate::withTrashed()
+                ->where('full_name', $fullName)
+                ->when($birthDate, fn (Builder $query) => $query->whereDate('birth_date', $birthDate))
+                ->first();
+
+            if ($duplicate) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'full_name' => $birthDate
+                        ? 'Já existe um formando com este nome e data de nascimento.'
+                        : 'Já existe um formando com este nome.',
+                ]);
+            }
+        }
+    }
+
     protected static function recruitmentStatusColor(?string $state): string
     {
         return match (strtolower((string) $state)) {
-            'approved', 'aprovado', 'apurado', 'admitted' => 'success',
-            'rejected', 'reprovado' => 'danger',
+            'approved', 'aprovado', 'apurado', 'admitted', 'apto' => 'success',
+            'rejected', 'reprovado', 'failed', 'inapto' => 'danger',
             'pending', 'pendente', '' => 'warning',
             default => 'gray',
         };
@@ -1023,7 +1147,12 @@ class CandidateResource extends Resource
         if ($tenant && $tenant->institution_type_id === 3) {
             return false;
         }
-        return true;
+        return auth()->user()?->can('ViewAny:Candidate') ?? false;
+    }
+
+    public static function canCreate(): bool
+    {
+        return false;
     }
 
     public static function shouldRegisterNavigation(): bool

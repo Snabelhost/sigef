@@ -24,6 +24,16 @@ class InstitutionReportSettings extends Page
     protected static ?string $title = 'Configurar Instituição';
     protected static ?string $slug = 'configuracoes/instituicao';
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->can('View:InstitutionReportSettings') ?? false;
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canAccess();
+    }
+
     protected string $view = 'filament.pages.institution-report-settings';
 
     public int|string|null $institution_id = null;
@@ -71,12 +81,15 @@ class InstitutionReportSettings extends Page
                     ->schema([
                         Forms\Components\Select::make('institution_id')
                             ->label('Instituição')
-                            ->options(fn() => Institution::query()->orderBy('name')->pluck('name', 'id'))
+                            ->options(fn() => Filament::getTenant()
+                                ? collect([Filament::getTenant()->id => Filament::getTenant()->name])
+                                : Institution::query()->orderBy('name')->pluck('name', 'id'))
                             ->searchable()
                             ->preload()
                             ->native(false)
                             ->required()
                             ->live()
+                            ->hidden(fn (): bool => Filament::getCurrentPanel()?->getId() === 'escola' && filled(Filament::getTenant()?->id))
                             ->afterStateUpdated(function ($state, Set $set): void {
                                 $this->institution_id = filled($state) ? (int) $state : null;
                                 $this->loadInstitutionConfig($set);

@@ -13,6 +13,7 @@ use App\Models\Provenance;
 use App\Models\Province;
 use App\Models\Rank;
 use Filament\Actions;
+use Filament\Facades\Filament;
 use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
@@ -58,6 +59,9 @@ class EffectiveResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->when(Filament::getCurrentPanel()?->getId() === 'escola' && Filament::getTenant()?->id, function (Builder $query): Builder {
+                return $query->where('institution_id', Filament::getTenant()->id);
+            })
             ->with(['institution', 'cardTemplate']);
     }
 
@@ -391,6 +395,9 @@ class EffectiveResource extends Resource
                         Forms\Components\Select::make('institution_id')
                             ->label('Escola')
                             ->options(fn (): array => Institution::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                            ->default(fn (): ?int => Filament::getCurrentPanel()?->getId() === 'escola' ? Filament::getTenant()?->id : null)
+                            ->hidden(fn (): bool => Filament::getCurrentPanel()?->getId() === 'escola' && filled(Filament::getTenant()?->id))
+                            ->dehydrated()
                             ->searchable()
                             ->preload(),
                         Forms\Components\TextInput::make('email')
@@ -853,7 +860,8 @@ HTML);
                     ->options(Effective::staffTypeOptions()),
                 Tables\Filters\SelectFilter::make('institution_id')
                     ->label('Escola / Unidade')
-                    ->relationship('institution', 'name'),
+                    ->relationship('institution', 'name')
+                    ->hidden(fn (): bool => Filament::getCurrentPanel()?->getId() === 'escola' && filled(Filament::getTenant()?->id)),
                 Tables\Filters\SelectFilter::make('card_template_id')
                     ->label('Modelo de cartão')
                     ->relationship('cardTemplate', 'name'),
@@ -1071,12 +1079,25 @@ HTML);
 
     public static function cardTemplateForRecord(Effective $record): CardTemplate
     {
-        return $record->cardTemplate
-            ?: CardTemplate::resolveForType(
-                CardTemplate::TYPE_STAFF,
-                $record->staff_type === 'regime_geral' ? 'civil' : 'with_department',
+        $institutionId = $record->institution_id ?: $record->institution?->id;
+        $recordTemplate = $record->cardTemplate;
+
+        if (
+            $recordTemplate instanceof CardTemplate
+            && (
+                blank($recordTemplate->institution_id)
+                || (int) $recordTemplate->institution_id === (int) $institutionId
             )
-            ?: CardTemplate::resolveForType(CardTemplate::TYPE_STAFF)
+        ) {
+            return $recordTemplate;
+        }
+
+        return CardTemplate::resolveForType(
+            CardTemplate::TYPE_STAFF,
+            $record->staff_type === 'regime_geral' ? 'civil' : 'with_department',
+            $institutionId,
+        )
+            ?: CardTemplate::resolveForType(CardTemplate::TYPE_STAFF, null, $institutionId)
             ?: static::fallbackCardTemplate(CardTemplate::TYPE_STAFF);
     }
 

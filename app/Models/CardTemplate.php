@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CardTemplate extends Model
 {
@@ -22,6 +23,7 @@ class CardTemplate extends Model
     public const ORIENTATION_VERTICAL = 'vertical';
 
     protected $fillable = [
+        'institution_id',
         'name',
         'card_type',
         'card_variant',
@@ -91,10 +93,16 @@ class CardTemplate extends Model
 
             static::query()
                 ->where('card_type', $template->card_type)
+                ->where('institution_id', $template->institution_id)
                 ->when($template->card_type === self::TYPE_STAFF && filled($template->card_variant), fn (Builder $query): Builder => $query->where('card_variant', $template->card_variant))
                 ->whereKeyNot($template->id)
                 ->update(['is_default' => false]);
         });
+    }
+
+    public function institution(): BelongsTo
+    {
+        return $this->belongsTo(Institution::class);
     }
 
     public static function cardTypeOptions(): array
@@ -135,7 +143,7 @@ class CardTemplate extends Model
         ];
     }
 
-    public static function resolveForType(?string $cardType, ?string $cardVariant = null): ?self
+    public static function resolveForType(?string $cardType, ?string $cardVariant = null, ?int $institutionId = null): ?self
     {
         $cardType = trim((string) $cardType);
 
@@ -145,13 +153,30 @@ class CardTemplate extends Model
 
         $query = static::query()
             ->where('card_type', $cardType)
-            ->where('is_active', true);
+            ->where('is_active', true)
+            ->when(
+                filled($institutionId),
+                fn (Builder $query): Builder => $query->where(function (Builder $query) use ($institutionId): void {
+                    $query->where('institution_id', $institutionId)
+                        ->orWhereNull('institution_id');
+                }),
+                fn (Builder $query): Builder => $query->whereNull('institution_id'),
+            );
+
+        $orderByInstitution = function (Builder $query) use ($institutionId): Builder {
+            if (filled($institutionId)) {
+                return $query->orderByRaw('CASE WHEN institution_id = ? THEN 0 ELSE 1 END', [$institutionId]);
+            }
+
+            return $query->orderByDesc('is_default');
+        };
 
         $cardVariant = trim((string) $cardVariant);
 
         if ($cardVariant !== '') {
             $variantTemplate = (clone $query)
                 ->where('card_variant', $cardVariant)
+                ->tap($orderByInstitution)
                 ->orderByDesc('is_default')
                 ->orderByDesc('updated_at')
                 ->first();
@@ -162,6 +187,7 @@ class CardTemplate extends Model
         }
 
         return $query
+            ->tap($orderByInstitution)
             ->orderByDesc('is_default')
             ->orderByDesc('updated_at')
             ->first();

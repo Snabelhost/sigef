@@ -9,6 +9,7 @@ use App\Models\Institution;
 use App\Models\Municipality;
 use App\Models\Province;
 use App\Models\StudentType;
+use Filament\Facades\Filament;
 use Filament\Forms;
 use Filament\Pages\Page;
 use Filament\Tables\Table;
@@ -41,6 +42,16 @@ class TransferHistory extends Page implements HasTable
     
     protected static ?string $title = 'Histórico de Transferências';
     
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->can('View:TransferHistory') ?? false;
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canAccess();
+    }
+
     public function getView(): string
     {
         return 'filament.pages.transfer-history';
@@ -671,6 +682,14 @@ class TransferHistory extends Page implements HasTable
         return $model->newQuery()
             ->fromSub($union, 'transfer_history_entries')
             ->select('transfer_history_entries.*')
+            ->when(Filament::getTenant()?->id, function (Builder $query, int $institutionId): Builder {
+                return $query->where(function (Builder $query) use ($institutionId): void {
+                    $query
+                        ->where('transfer_history_entries.institution_id', $institutionId)
+                        ->orWhere('transfer_history_entries.from_institution_id', $institutionId)
+                        ->orWhere('transfer_history_entries.to_institution_id', $institutionId);
+                });
+            })
             ->with(['fromInstitution', 'toInstitution', 'transferredByUser']);
     }
 

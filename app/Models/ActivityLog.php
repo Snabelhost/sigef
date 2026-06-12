@@ -71,8 +71,14 @@ class ActivityLog extends Model
         $browser = self::detectBrowser($userAgent);
         $platform = self::detectPlatform($userAgent);
         
+        $userId = auth()->id() ?? $request->user()?->id;
+
+        if (! $userId) {
+            return new self();
+        }
+
         return self::create([
-            'user_id' => auth()->id(),
+            'user_id' => $userId,
             'action' => $action,
             'module' => $module,
             'description' => $description,

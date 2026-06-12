@@ -283,7 +283,11 @@ class CourseMapResource extends Resource
         }
 
         return Subject::query()
-            ->whereHas('phase', fn (Builder $query): Builder => $query->where('course_id', $courseId))
+            ->where(function (Builder $query) use ($courseId): void {
+                $query
+                    ->where('course_id', $courseId)
+                    ->orWhereHas('phase', fn (Builder $phaseQuery): Builder => $phaseQuery->where('course_id', $courseId));
+            })
             ->orderBy('name')
             ->pluck('name', 'id')
             ->toArray();

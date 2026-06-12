@@ -151,8 +151,11 @@ class UserResource extends Resource
         return match ($name) {
             'super_admin' => 'Super Administrador',
             'admin' => 'Administrador',
+            'admin_geral' => 'Administrador Geral',
             'escola_admin' => 'Administrador da Escola',
             'escola_user' => 'Utilizador da Escola',
+            'secretaria_escola' => 'Secretaria da Escola',
+            'professor' => 'Professor',
             'professores_admin' => 'Administrador do Painel dos Professores',
             'professores_user' => 'Professor',
             'panel_user' => 'Utilizador do Painel',
@@ -184,7 +187,10 @@ class UserResource extends Resource
                     ->color(fn(string $state): string => match ($state) {
                         'super_admin' => 'danger',
                         'admin' => 'warning',
+                        'admin_geral' => 'warning',
                         'escola_admin' => 'success',
+                        'secretaria_escola' => 'success',
+                        'professor' => 'primary',
                         'professores_admin' => 'primary',
                         'panel_user' => 'gray',
                         'escola_user' => 'success',

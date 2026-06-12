@@ -22,7 +22,7 @@ use Filament\Facades\Filament;
 
 class StudentTransferHistoryResource extends Resource
 {
-    protected static bool $shouldSkipAuthorization = true;
+    protected static bool $shouldSkipAuthorization = false;
 
     protected static ?string $model = StudentTransferHistory::class;
 
@@ -199,7 +199,7 @@ class StudentTransferHistoryResource extends Resource
 
     public static function canAccess(): bool
     {
-        return true;
+        return auth()->user()?->can('ViewAny:StudentTransferHistory') ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool

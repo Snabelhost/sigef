@@ -6,19 +6,16 @@ use App\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
-use Filament\Support\Colors\Color;
-use Filament\Widgets;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
-use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class EscolaPanelProvider extends PanelProvider
 {
@@ -27,24 +24,25 @@ class EscolaPanelProvider extends PanelProvider
         return $panel
             ->id('escola')
             ->path('escola')
-            ->login(false) // Desabilitar login do painel - usar /login unificado
-            ->brandLogo(fn() => view('filament.brand-logo'))
+            ->login(false)
+            ->brandLogo(fn () => view('filament.brand-logo'))
             ->brandLogoHeight('50px')
             ->sidebarCollapsibleOnDesktop()
+            ->globalSearch(\App\Providers\NavigationSearchProvider::class)
             ->globalSearchKeyBindings(['command+k', 'ctrl+k'])
             ->globalSearchDebounce(500)
             ->databaseNotifications()
-            ->databaseNotificationsPolling('30s') // Poll for new notifications every 30 seconds
+            ->databaseNotificationsPolling('30s')
             ->defaultAvatarProvider(\App\Providers\CustomAvatarProvider::class)
             ->colors([
                 'primary' => [
-                    50 => '236, 239, 247',   // muito claro
+                    50 => '236, 239, 247',
                     100 => '200, 210, 235',
                     200 => '150, 170, 210',
                     300 => '100, 130, 175',
                     400 => '50, 80, 140',
-                    500 => '4, 28, 79',      // #041c4f base
-                    600 => '4, 28, 79',      // #041c4f
+                    500 => '4, 28, 79',
+                    600 => '4, 28, 79',
                     700 => '3, 22, 65',
                     800 => '2, 18, 50',
                     900 => '2, 14, 40',
@@ -57,6 +55,7 @@ class EscolaPanelProvider extends PanelProvider
                 function (): string {
                     $themeVersion = @filemtime(public_path('css/sigef-theme.css')) ?: time();
                     $layoutVersion = @filemtime(public_path('js/sigef-layout-stability.js')) ?: time();
+                    $photoVersion = @filemtime(public_path('js/sigef-photo-upload.js')) ?: time();
 
                     return '
                     <link rel="stylesheet" href="/css/sigef-theme.css?v=' . $themeVersion . '">
@@ -66,11 +65,10 @@ class EscolaPanelProvider extends PanelProvider
                     <link rel="apple-touch-icon" href="/favicon.png">
                     <script src="/js/favicon-inject.js"></script>
                     <script src="/js/sigef-layout-stability.js?v=' . $layoutVersion . '" defer></script>
+                    <script src="/js/sigef-photo-upload.js?v=' . $photoVersion . '" defer></script>
                     <script>
-                        // Remover botão nativo de colapso do Filament
                         document.addEventListener("DOMContentLoaded", function() {
                             function removeNativeCollapseButton() {
-                                // Procurar botões na sidebar header que não são nosso botão customizado
                                 const sidebarHeader = document.querySelector(".fi-sidebar-header");
                                 if (sidebarHeader) {
                                     const buttons = sidebarHeader.querySelectorAll("button:not(.brand-logo-btn)");
@@ -93,7 +91,7 @@ class EscolaPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::CONTENT_START,
-                fn() => view('filament.header')
+                fn () => view('filament.header')
             )
             ->tenant(\App\Models\Institution::class)
             ->navigationGroups([
@@ -102,23 +100,55 @@ class EscolaPanelProvider extends PanelProvider
                 \Filament\Navigation\NavigationGroup::make()
                     ->label('Gestão Escolar'),
                 \Filament\Navigation\NavigationGroup::make()
+                    ->label('Recursos Humanos'),
+                \Filament\Navigation\NavigationGroup::make()
                     ->label('Instituições'),
                 \Filament\Navigation\NavigationGroup::make()
-                    ->label('Documentos'),
+                    ->label('Comunicação'),
                 \Filament\Navigation\NavigationGroup::make()
                     ->label('Relatórios'),
+                \Filament\Navigation\NavigationGroup::make()
+                    ->label('Configurações'),
             ])
-            ->discoverResources(in: app_path('Filament/Escola/Resources'), for: 'App\\Filament\\Escola\\Resources')
-            ->resources([])
-            ->discoverPages(in: app_path('Filament/Escola/Pages'), for: 'App\\Filament\\Escola\\Pages')
+            ->resources([
+                \App\Filament\Escola\Resources\AcademicYearResource::class,
+                \App\Filament\Escola\Resources\CandidateResource::class,
+                \App\Filament\Resources\CandidateTransferHistories\CandidateTransferHistoryResource::class,
+                \App\Filament\Resources\CardTemplateResource::class,
+                \App\Filament\Escola\Resources\CourseMapResource::class,
+                \App\Filament\Escola\Resources\CoursePhaseResource::class,
+                \App\Filament\Escola\Resources\CoursePlanResource::class,
+                \App\Filament\Escola\Resources\CourseResource::class,
+                \App\Filament\Escola\Resources\DocumentResource::class,
+                \App\Filament\Resources\EffectiveResource::class,
+                \App\Filament\Escola\Resources\EquipmentAssignmentResource::class,
+                \App\Filament\Escola\Resources\EvaluationResource::class,
+                \App\Filament\Escola\Resources\InstitutionResource::class,
+                \App\Filament\Resources\InstitutionTypeResource::class,
+                \App\Filament\Escola\Resources\PautaGeralResource::class,
+                \App\Filament\Escola\Resources\PautaResource::class,
+                \App\Filament\Resources\ProvenanceResource::class,
+                \App\Filament\Resources\RankResource::class,
+                \App\Filament\Escola\Resources\StudentClassEnrollmentResource::class,
+                \App\Filament\Escola\Resources\StudentClassResource::class,
+                \App\Filament\Escola\Resources\StudentLeaveResource::class,
+                \App\Filament\Resources\StudentTypeResource::class,
+                \App\Filament\Escola\Resources\SubjectResource::class,
+                \App\Filament\Escola\Resources\TrainerClassAssignmentResource::class,
+                \App\Filament\Escola\Resources\TrainerResource::class,
+            ])
             ->pages([
                 \App\Filament\Escola\Pages\Dashboard::class,
+                \App\Filament\Escola\Pages\AttendanceManagement::class,
+                \App\Filament\Pages\InstitutionReportSettings::class,
+                \App\Filament\Escola\Pages\Relatorios::class,
+                \App\Filament\Pages\TransferHistory::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/Escola/Widgets'), for: 'App\\Filament\\Escola\\Widgets')
             ->widgets([
                 \App\Filament\Escola\Widgets\EscolaStatsOverview::class,
                 \App\Filament\Escola\Widgets\EscolaCandidateStatusChart::class,
                 \App\Filament\Escola\Widgets\EscolaStudentStatusChart::class,
+                \App\Filament\Escola\Widgets\EscolaStudentsByCourseChart::class,
                 \App\Filament\Escola\Widgets\EscolaStudentManagement::class,
             ])
             ->middleware([
@@ -133,12 +163,12 @@ class EscolaPanelProvider extends PanelProvider
                 DispatchServingFilamentEvent::class,
             ])
             ->plugins([
-                // FilamentShield desabilitado - incompatível com multi-tenancy
+                \Tapp\FilamentAuditing\FilamentAuditingPlugin::make(),
             ])
             ->authMiddleware([
-                Authenticate::class, // Middleware customizado que redireciona para /login
-                \App\Http\Middleware\RefreshUserPermissions::class, // Atualiza permissões a cada request
-                \App\Http\Middleware\SingleSessionMiddleware::class, // Sessão única
+                Authenticate::class,
+                \App\Http\Middleware\RefreshUserPermissions::class,
+                \App\Http\Middleware\SingleSessionMiddleware::class,
             ])
             ->userMenuItems([
                 \Filament\Navigation\MenuItem::make()
@@ -148,7 +178,8 @@ class EscolaPanelProvider extends PanelProvider
             ])
             ->renderHook(
                 PanelsRenderHook::BODY_END,
-                fn() => '<div id="change-password-portal">' . Blade::render('@livewire(\'change-password-modal\')') . '</div>' .
+                fn () => '<div id="change-password-portal">' . Blade::render('@livewire(\'change-password-modal\')') . '</div>' .
+                    '<div id="stats-detail-portal">' . Blade::render('@livewire(\'stats-detail-modal\')') . '</div>' .
                     '<script>
                         document.addEventListener("click", function(e) {
                             var el = e.target.closest("a");
@@ -159,10 +190,17 @@ class EscolaPanelProvider extends PanelProvider
                             }
                         }, true);
                         (function movePortal() {
-                            var portal = document.getElementById("change-password-portal");
-                            if (portal && portal.parentElement !== document.body) {
-                                document.body.appendChild(portal);
-                            } else {
+                            var passwordPortal = document.getElementById("change-password-portal");
+                            if (passwordPortal && passwordPortal.parentElement !== document.body) {
+                                document.body.appendChild(passwordPortal);
+                            }
+
+                            var statsPortal = document.getElementById("stats-detail-portal");
+                            if (statsPortal && statsPortal.parentElement !== document.body) {
+                                document.body.appendChild(statsPortal);
+                            }
+
+                            if (!passwordPortal || !statsPortal) {
                                 setTimeout(movePortal, 200);
                             }
                         })();

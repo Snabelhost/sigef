@@ -740,13 +740,31 @@ class StudentClassEnrollmentResource extends Resource
                             }
 
                             if ($phaseName) {
-                                $phaseSubjects = Subject::whereIn('course_phase_id', $coursePhaseIds)
-                                    ->whereJsonContains('phases', $phaseName)
+                                $phaseSubjects = Subject::query()
+                                    ->where(function (Builder $query) use ($courseId, $coursePhaseIds): void {
+                                        $query
+                                            ->where('course_id', $courseId)
+                                            ->orWhereIn('course_phase_id', $coursePhaseIds);
+                                    })
+                                    ->where(function (Builder $query) use ($phaseName): void {
+                                        $query
+                                            ->where(function (Builder $blankPhaseQuery): void {
+                                                $blankPhaseQuery
+                                                    ->whereNull('phases')
+                                                    ->orWhereJsonLength('phases', 0);
+                                            })
+                                            ->orWhereJsonContains('phases', $phaseName);
+                                    })
                                     ->pluck('name', 'id');
                                 return $alreadySelected->union($phaseSubjects)->all();
                             }
 
-                            $allSubjects = Subject::whereIn('course_phase_id', $coursePhaseIds)
+                            $allSubjects = Subject::query()
+                                ->where(function (Builder $query) use ($courseId, $coursePhaseIds): void {
+                                    $query
+                                        ->where('course_id', $courseId)
+                                        ->orWhereIn('course_phase_id', $coursePhaseIds);
+                                })
                                 ->pluck('name', 'id');
                             return $alreadySelected->union($allSubjects)->all();
                         })
@@ -1221,7 +1239,12 @@ class StudentClassEnrollmentResource extends Resource
                             $alreadySelected = Subject::whereIn('id', $selectedIds)->pluck('name', 'id');
                         }
 
-                        $allSubjects = Subject::whereIn('course_phase_id', $coursePhaseIds)
+                        $allSubjects = Subject::query()
+                            ->where(function (Builder $query) use ($courseId, $coursePhaseIds): void {
+                                $query
+                                    ->where('course_id', $courseId)
+                                    ->orWhereIn('course_phase_id', $coursePhaseIds);
+                            })
                             ->pluck('name', 'id');
                         return $alreadySelected->union($allSubjects)->all();
                     })
@@ -1354,7 +1377,9 @@ class StudentClassEnrollmentResource extends Resource
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->can('ViewAny:StudentClassEnrollment') ?? false;
+        $user = auth()->user();
+
+        return ($user?->can('ViewAny:StudentClassEnrollment') || $user?->can('ViewAny:Student')) ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool

@@ -13,7 +13,12 @@ class EscolaCandidateStatusChart extends ChartWidget
     protected ?string $heading = 'Estado de Formandos';
     protected static ?int $sort = 3;
     protected ?string $pollingInterval = null;
-    protected static bool $isLazy = true;
+    protected static bool $isLazy = false;
+
+    public static function canView(): bool
+    {
+        return auth()->user()?->can('View:EscolaCandidateStatusChart') ?? false;
+    }
 
     protected function getData(): array
     {

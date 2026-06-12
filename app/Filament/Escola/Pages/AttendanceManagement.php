@@ -594,6 +594,6 @@ class AttendanceManagement extends Page implements HasForms
 
     public static function canAccess(): bool
     {
-        return true;
+        return auth()->user()?->can('View:AttendanceManagement') ?? false;
     }
 }

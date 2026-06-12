@@ -15,7 +15,7 @@ use Filament\Tables\Table;
 
 class PautaResource extends Resource
 {
-    protected static bool $shouldSkipAuthorization = true;
+    protected static bool $shouldSkipAuthorization = false;
     protected static bool $isScopedToTenant = false;
 
     protected static ?string $model = StudentClass::class;
@@ -29,7 +29,9 @@ class PautaResource extends Resource
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        return parent::getEloquentQuery()->with(['courseMap.course', 'academicYear', 'students', 'institution']);
+        return parent::getEloquentQuery()
+            ->when(\Filament\Facades\Filament::getTenant()?->id, fn (\Illuminate\Database\Eloquent\Builder $query, int $institutionId): \Illuminate\Database\Eloquent\Builder => $query->where('institution_id', $institutionId))
+            ->with(['courseMap.course', 'academicYear', 'students', 'institution']);
     }
 
     public static function table(Table $table): Table
@@ -43,6 +45,7 @@ class PautaResource extends Resource
                     ->label('Instituição')
                     ->searchable()
                     ->sortable()
+                    ->hidden(fn (): bool => filled(\Filament\Facades\Filament::getTenant()?->id))
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Turma')
@@ -67,7 +70,8 @@ class PautaResource extends Resource
             ->filters([
                 Tables\Filters\SelectFilter::make('institution_id')
                     ->label('Instituição')
-                    ->relationship('institution', 'name'),
+                    ->relationship('institution', 'name')
+                    ->hidden(fn (): bool => filled(\Filament\Facades\Filament::getTenant()?->id)),
             ])
             ->headerActions([
                 \Filament\Actions\Action::make('miniPauta')
@@ -104,7 +108,7 @@ class PautaResource extends Resource
 
     public static function canAccess(): bool
     {
-        return true;
+        return auth()->user()?->can('ViewAny:Pauta') ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool

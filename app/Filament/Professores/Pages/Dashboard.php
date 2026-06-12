@@ -12,6 +12,18 @@ class Dashboard extends BaseDashboard
 
     protected static ?string $title = 'Painel dos Professores';
 
+    public static function canAccess(): bool
+    {
+        $user = auth()->user();
+
+        return $user?->can('AccessPanel:Professores') || $user?->can('View:Dashboard');
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canAccess();
+    }
+
     public function getHeading(): string|\Illuminate\Contracts\Support\Htmlable
     {
         return 'Painel dos Professores';

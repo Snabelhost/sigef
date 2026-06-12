@@ -27,12 +27,12 @@ class StudentCardService
             'classEnrollments.studentClass.courseMap.academicYear',
         ]);
 
-        $template = CardTemplate::resolveForType(CardTemplate::TYPE_STUDENT) ?? $this->fallbackTemplate();
         $enrollment = $student->classEnrollments
             ->sortByDesc(fn ($enrollment): string => ($enrollment->is_active ? '1' : '0') . '|' . ($enrollment->enrolled_at ?? $enrollment->created_at ?? ''))
             ->first();
         $studentClass = $enrollment?->studentClass;
         $institution = $student->institution ?: $studentClass?->institution;
+        $template = CardTemplate::resolveForType(CardTemplate::TYPE_STUDENT, null, $institution?->id) ?? $this->fallbackTemplate();
         $academicYear = $this->studentAcademicYear($student, $enrollment);
         $course = $studentClass?->courseMap?->course;
         $courseAbbreviation = $this->abbreviateCourse($course?->name) ?: 'EPP';

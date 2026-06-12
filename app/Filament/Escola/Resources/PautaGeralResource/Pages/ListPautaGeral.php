@@ -369,7 +369,7 @@ class ListPautaGeral extends Page implements HasForms, HasTable
             ->modalSubmitAction(false)
             ->modalCancelAction(fn (Action $action) => $action
                 ->icon('heroicon-o-x-mark')
-                ->label('Fechar Pre-visualizacao')
+                ->label('Fechar Pré-visualização')
                 ->color('danger'))
             ->stickyModalHeader()
             ->stickyModalFooter()

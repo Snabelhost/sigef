@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Storage;
 
 class AgentResource extends Resource
 {
-    protected static bool $shouldSkipAuthorization = true;
+    protected static bool $shouldSkipAuthorization = false;
 
     protected static ?string $model = Student::class;
 
@@ -808,7 +808,7 @@ class AgentResource extends Resource
                     ->form([
                         Forms\Components\Textarea::make('mensagem')
                             ->label('Mensagem')
-                            ->default("Prezado(a) {nome}, informamos que deve apresentar-se na {escola} para obter informacoes sobre o aquartelamento. Compareça com documento de identificacao. Policia Nacional de Angola.")
+                            ->default("Prezado(a) {nome}, informamos que deve apresentar-se na {escola} para obter informações sobre o aquartelamento. Compareça com documento de identificação. Polícia Nacional de Angola.")
                             ->helperText('Use {nome} para o nome do agente e {escola} para o nome da escola.')
                             ->required()
                             ->rows(4),
@@ -911,6 +911,10 @@ class AgentResource extends Resource
 
     public static function canAccess(): bool
     {
+        if (! (auth()->user()?->can('ViewAny:Agent') || auth()->user()?->can('ViewAny:Student'))) {
+            return false;
+        }
+
         // Cadetes only visible in INSTITUTO type institutions
         $tenant = \Filament\Facades\Filament::getTenant();
         if ($tenant && $tenant->institution_type_id !== 3) {

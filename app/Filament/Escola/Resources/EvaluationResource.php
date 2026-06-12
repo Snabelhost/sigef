@@ -20,7 +20,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class EvaluationResource extends Resource
 {
-    protected static bool $shouldSkipAuthorization = true;
+    protected static bool $shouldSkipAuthorization = false;
 
     protected static ?string $model = Evaluation::class;
 
@@ -33,7 +33,9 @@ class EvaluationResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['student.candidate', 'subject', 'trainer', 'coursePhase']);
+        return parent::getEloquentQuery()
+            ->when(\Filament\Facades\Filament::getTenant()?->id, fn (Builder $query, int $institutionId): Builder => $query->where('institution_id', $institutionId))
+            ->with(['student.candidate', 'subject', 'trainer', 'coursePhase']);
     }
 
     public static function form(Schema $form): Schema
@@ -114,6 +116,7 @@ class EvaluationResource extends Resource
     protected static function studentOptions(): array
     {
         return Student::with('candidate')
+            ->when(\Filament\Facades\Filament::getTenant()?->id, fn (Builder $query, int $institutionId): Builder => $query->where('institution_id', $institutionId))
             ->where(function (Builder $query): void {
                 foreach (static::studentTypesShownInTrainingManagement() as $type) {
                     $query->orWhere('student_type', 'like', "%{$type}%");
@@ -598,7 +601,7 @@ class EvaluationResource extends Resource
 
     public static function canAccess(): bool
     {
-        return true;
+        return auth()->user()?->can('ViewAny:Evaluation') ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool

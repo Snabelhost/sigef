@@ -78,6 +78,6 @@ class Relatorios extends Page
 
     public static function canAccess(): bool
     {
-        return true;
+        return auth()->user()?->can('View:Relatorios') ?? false;
     }
 }

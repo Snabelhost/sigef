@@ -15,6 +15,8 @@ class StudentTypeResource extends Resource
 {
     protected static ?string $model = StudentType::class;
 
+    protected static bool $isScopedToTenant = false;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-tag';
     protected static string|\UnitEnum|null $navigationGroup = 'Configurações';
     protected static ?int $navigationSort = 6;

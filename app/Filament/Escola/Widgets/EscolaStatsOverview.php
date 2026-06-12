@@ -13,7 +13,12 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
 class EscolaStatsOverview extends BaseWidget
 {
     protected ?string $pollingInterval = null;
-    protected static bool $isLazy = true;
+    protected static bool $isLazy = false;
+
+    public static function canView(): bool
+    {
+        return auth()->user()?->can('View:EscolaStatsOverview') ?? false;
+    }
 
     protected function getStats(): array
     {

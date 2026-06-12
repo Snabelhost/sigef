@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class StudentLeaveResource extends Resource
 {
-    protected static bool $shouldSkipAuthorization = true;
+    protected static bool $shouldSkipAuthorization = false;
 
     protected static ?string $model = StudentLeave::class;
 
@@ -25,6 +25,13 @@ class StudentLeaveResource extends Resource
     protected static ?int $navigationSort = 8;
     protected static ?string $modelLabel = 'Dispensa/Falta';
     protected static ?string $pluralModelLabel = 'Dispensas e Faltas';
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->whereHas('student', fn (Builder $query): Builder => $query
+                ->when(\Filament\Facades\Filament::getTenant()?->id, fn (Builder $query, int $institutionId): Builder => $query->where('institution_id', $institutionId)));
+    }
 
     public static function form(Schema $form): Schema
     {
@@ -44,6 +51,7 @@ class StudentLeaveResource extends Resource
                         ];
 
                         return Student::with('candidate')
+                            ->when(\Filament\Facades\Filament::getTenant()?->id, fn (Builder $query, int $institutionId): Builder => $query->where('institution_id', $institutionId))
                             ->where(function ($q) use ($tiposPermitidos) {
                                 foreach ($tiposPermitidos as $tipo) {
                                     $q->orWhere('student_type', 'like', "%{$tipo}%");
@@ -319,13 +327,13 @@ class StudentLeaveResource extends Resource
                         ->label('Ficha de Dispensa')
                         ->icon('heroicon-o-document-text')
                         ->color('success')
-                        ->modalHeading('Pre-visualizacao da Ficha de Dispensa')
+                        ->modalHeading('Pré-visualização da Ficha de Dispensa')
                         ->modalDescription(null)
                         ->modalWidth(\Filament\Support\Enums\Width::SevenExtraLarge)
                         ->modalSubmitAction(false)
                         ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action
                             ->icon('heroicon-o-x-mark')
-                            ->label('Fechar Pre-visualizacao')
+                            ->label('Fechar Pré-visualização')
                             ->color('danger'))
                         ->stickyModalHeader()
                         ->stickyModalFooter()
@@ -470,7 +478,7 @@ class StudentLeaveResource extends Resource
 
     public static function canAccess(): bool
     {
-        return true;
+        return auth()->user()?->can('ViewAny:StudentLeave') ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool

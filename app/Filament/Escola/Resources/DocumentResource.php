@@ -13,7 +13,7 @@ use Filament\Facades\Filament;
 
 class DocumentResource extends Resource
 {
-    protected static bool $shouldSkipAuthorization = true;
+    protected static bool $shouldSkipAuthorization = false;
 
     protected static ?string $model = Document::class;
 
@@ -98,11 +98,11 @@ class DocumentResource extends Resource
 
     public static function canAccess(): bool
     {
-        return true;
+        return auth()->user()?->can('ViewAny:Document') ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        return true;
+        return static::canAccess();
     }
 }

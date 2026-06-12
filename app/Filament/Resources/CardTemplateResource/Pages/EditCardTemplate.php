@@ -5,11 +5,21 @@ namespace App\Filament\Resources\CardTemplateResource\Pages;
 use App\Filament\Resources\CardTemplateResource;
 use Filament\Actions;
 use Filament\Actions\Action;
+use Filament\Facades\Filament;
 use Filament\Resources\Pages\EditRecord;
 
 class EditCardTemplate extends EditRecord
 {
     protected static string $resource = CardTemplateResource::class;
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        if (Filament::getCurrentPanel()?->getId() === 'escola') {
+            $data['institution_id'] = Filament::getTenant()?->id;
+        }
+
+        return $data;
+    }
 
     protected function getHeaderActions(): array
     {

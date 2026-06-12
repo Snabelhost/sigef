@@ -17,6 +17,8 @@ class ProvenanceResource extends Resource
 {
     protected static ?string $model = Provenance::class;
 
+    protected static bool $isScopedToTenant = false;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-building-office-2';
     protected static string|\UnitEnum|null $navigationGroup = 'Configurações';
     protected static ?int $navigationSort = 3;
@@ -114,6 +116,5 @@ class ProvenanceResource extends Resource
         return static::canAccess();
     }
 }
-
 
 

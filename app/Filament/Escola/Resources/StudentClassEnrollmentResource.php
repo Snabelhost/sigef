@@ -26,7 +26,7 @@ class StudentClassEnrollmentResource extends Resource
 {
     use StudentEnrollmentEditForm;
 
-    protected static bool $shouldSkipAuthorization = true;
+    protected static bool $shouldSkipAuthorization = false;
 
     protected static ?string $model = Student::class;
 
@@ -76,6 +76,7 @@ class StudentClassEnrollmentResource extends Resource
         ];
 
         return Student::query()
+            ->when(\Filament\Facades\Filament::getTenant()?->id, fn (Builder $query, int $institutionId): Builder => $query->where('institution_id', $institutionId))
             ->where(function ($query) use ($tiposPermitidos) {
                 foreach ($tiposPermitidos as $tipo) {
                     $query->orWhere('student_type', 'like', "%{$tipo}%");
@@ -207,7 +208,8 @@ class StudentClassEnrollmentResource extends Resource
             Tables\Filters\SelectFilter::make('institution_id')
                 ->label('Instituição')
                 ->relationship('institution', 'name')
-                ->searchable(),
+                ->searchable()
+                ->hidden(fn (): bool => filled(\Filament\Facades\Filament::getTenant()?->id)),
             Tables\Filters\SelectFilter::make('cia')
                 ->label('CIA')
                 ->options(fn() => Student::whereNotNull('cia')->distinct()->pluck('cia', 'cia'))
@@ -739,13 +741,31 @@ class StudentClassEnrollmentResource extends Resource
                             }
 
                             if ($phaseName) {
-                                $phaseSubjects = Subject::whereIn('course_phase_id', $coursePhaseIds)
-                                    ->whereJsonContains('phases', $phaseName)
+                                $phaseSubjects = Subject::query()
+                                    ->where(function (Builder $query) use ($courseId, $coursePhaseIds): void {
+                                        $query
+                                            ->where('course_id', $courseId)
+                                            ->orWhereIn('course_phase_id', $coursePhaseIds);
+                                    })
+                                    ->where(function (Builder $query) use ($phaseName): void {
+                                        $query
+                                            ->where(function (Builder $blankPhaseQuery): void {
+                                                $blankPhaseQuery
+                                                    ->whereNull('phases')
+                                                    ->orWhereJsonLength('phases', 0);
+                                            })
+                                            ->orWhereJsonContains('phases', $phaseName);
+                                    })
                                     ->pluck('name', 'id');
                                 return $alreadySelected->union($phaseSubjects)->all();
                             }
 
-                            $allSubjects = Subject::whereIn('course_phase_id', $coursePhaseIds)
+                            $allSubjects = Subject::query()
+                                ->where(function (Builder $query) use ($courseId, $coursePhaseIds): void {
+                                    $query
+                                        ->where('course_id', $courseId)
+                                        ->orWhereIn('course_phase_id', $coursePhaseIds);
+                                })
                                 ->pluck('name', 'id');
                             return $alreadySelected->union($allSubjects)->all();
                         })
@@ -953,13 +973,13 @@ class StudentClassEnrollmentResource extends Resource
             ->label('Imprimir Ficha')
             ->icon('heroicon-o-printer')
             ->color('success')
-            ->modalHeading('Pre-visualizacao da Ficha de Inscricao')
+            ->modalHeading('Pré-visualização da Ficha de Inscrição')
             ->modalDescription(null)
             ->modalWidth(\Filament\Support\Enums\Width::SevenExtraLarge)
             ->modalSubmitAction(false)
             ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action
                 ->icon('heroicon-o-x-mark')
-                ->label('Fechar Pre-visualizacao')
+                ->label('Fechar Pré-visualização')
                 ->color('danger'))
             ->stickyModalHeader()
             ->stickyModalFooter()
@@ -974,7 +994,7 @@ class StudentClassEnrollmentResource extends Resource
                 return view('trainers.sheet-modal', [
                     'viewerId' => $viewerId,
                     'frameId' => $frameId,
-                    'documentName' => 'Ficha de Inscricao - '.$studentName,
+                    'documentName' => 'Ficha de Inscrição - '.$studentName,
                     'documentBadge' => 'FORMANDO: '.$identifierNumber,
                     'defaultOrientation' => 'vertical',
                     'embeddedHorizontalUrl' => $printUrl.'?embedded=1&autoprint=0&orientation=horizontal',
@@ -996,13 +1016,13 @@ class StudentClassEnrollmentResource extends Resource
             ->icon('heroicon-o-trophy')
             ->color('warning')
             ->visible(fn (Student $record): bool => static::canPrintCertificate($record))
-            ->modalHeading('Pre-visualizacao do Certificado')
+            ->modalHeading('Pré-visualização do Certificado')
             ->modalDescription(null)
             ->modalWidth(\Filament\Support\Enums\Width::Screen)
             ->modalSubmitAction(false)
             ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action
                 ->icon('heroicon-o-x-mark')
-                ->label('Fechar Pre-visualizacao')
+                ->label('Fechar Pré-visualização')
                 ->color('danger'))
             ->stickyModalHeader()
             ->stickyModalFooter()
@@ -1220,7 +1240,12 @@ class StudentClassEnrollmentResource extends Resource
                             $alreadySelected = Subject::whereIn('id', $selectedIds)->pluck('name', 'id');
                         }
 
-                        $allSubjects = Subject::whereIn('course_phase_id', $coursePhaseIds)
+                        $allSubjects = Subject::query()
+                            ->where(function (Builder $query) use ($courseId, $coursePhaseIds): void {
+                                $query
+                                    ->where('course_id', $courseId)
+                                    ->orWhereIn('course_phase_id', $coursePhaseIds);
+                            })
                             ->pluck('name', 'id');
                         return $alreadySelected->union($allSubjects)->all();
                     })
@@ -1353,7 +1378,9 @@ class StudentClassEnrollmentResource extends Resource
 
     public static function canAccess(): bool
     {
-        return true;
+        $user = auth()->user();
+
+        return ($user?->can('ViewAny:StudentClassEnrollment') || $user?->can('ViewAny:Student')) ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool

@@ -9,6 +9,7 @@ use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
+use Filament\Facades\Filament;
 use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\Grid;
@@ -18,10 +19,13 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Tables\Filters\SelectFilter;
+use Illuminate\Database\Eloquent\Builder;
 
 class CandidateTransferHistoryResource extends Resource
 {
     protected static ?string $model = CandidateTransferHistory::class;
+
+    protected static bool $isScopedToTenant = false;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowPath;
 
@@ -35,9 +39,31 @@ class CandidateTransferHistoryResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'candidate_name';
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->can('ViewAny:CandidateTransferHistory') ?? false;
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([]);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->when(Filament::getCurrentPanel()?->getId() === 'escola' && Filament::getTenant()?->id, function (Builder $query): Builder {
+                return $query->where(function (Builder $query): void {
+                    $query
+                        ->where('from_institution_id', Filament::getTenant()->id)
+                        ->orWhere('to_institution_id', Filament::getTenant()->id);
+                });
+            });
     }
 
     public static function infolist(Schema $schema): Schema

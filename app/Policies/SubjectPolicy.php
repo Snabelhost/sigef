@@ -12,35 +12,7 @@ class SubjectPolicy
 {
     use HandlesAuthorization;
 
-    /**
-     * Grant all permissions when in the Escola panel.
-     */
-    public function before(AuthUser $user, string $ability): ?bool
-    {
-        // Check direct URL
-        if (request()?->is('escola/*') || request()?->is('*/escola/*')) {
-            return true;
-        }
-
-        // Check HTTP referer for Livewire requests (/livewire/update)
-        $referer = request()?->headers?->get('referer', '');
-        if (str_contains($referer, '/escola/')) {
-            return true;
-        }
-
-        // Check Filament panel context
-        try {
-            if (\Filament\Facades\Filament::getCurrentPanel()?->getId() === 'escola') {
-                return true;
-            }
-        } catch (\Throwable $e) {
-            // Ignore if panel not resolved yet
-        }
-
-        return null;
-    }
-
-    public function viewAny(AuthUser $authUser): bool
+public function viewAny(AuthUser $authUser): bool
     {
         return $authUser->can('ViewAny:Subject');
     }

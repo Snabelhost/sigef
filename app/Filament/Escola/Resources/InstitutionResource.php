@@ -10,7 +10,7 @@ use Filament\Tables;
 
 class InstitutionResource extends Resource
 {
-    protected static bool $shouldSkipAuthorization = true;
+    protected static bool $shouldSkipAuthorization = false;
 
     protected static ?string $model = Institution::class;
 
@@ -74,7 +74,7 @@ class InstitutionResource extends Resource
 
     public static function canAccess(): bool
     {
-        return true;
+        return auth()->user()?->can('ViewAny:Institution') ?? false;
     }
 
     public static function canCreate(): bool

@@ -4,7 +4,9 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\CardTemplateResource\Pages;
 use App\Models\CardTemplate;
+use App\Models\Institution;
 use Filament\Actions;
+use Filament\Facades\Filament;
 use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
@@ -19,6 +21,8 @@ use Illuminate\Database\Eloquent\Builder;
 class CardTemplateResource extends Resource
 {
     protected static ?string $model = CardTemplate::class;
+
+    protected static bool $isScopedToTenant = false;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-identification';
 
@@ -37,9 +41,17 @@ class CardTemplateResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
+            ->when(Filament::getCurrentPanel()?->getId() === 'escola', function (Builder $query): Builder {
+                $tenantId = Filament::getTenant()?->id;
+
+                return filled($tenantId)
+                    ? $query->where('institution_id', $tenantId)
+                    : $query->whereRaw('1 = 0');
+            })
             ->orderBy('card_type')
             ->orderByDesc('is_default')
-            ->orderBy('name');
+            ->orderBy('name')
+            ->with('institution');
     }
 
     public static function form(Schema $form): Schema
@@ -54,6 +66,17 @@ class CardTemplateResource extends Resource
             Section::make('Identificação')
                 ->columns(3)
                 ->schema([
+                    Forms\Components\Select::make('institution_id')
+                        ->label('Instituição')
+                        ->options(fn (): array => Institution::query()
+                            ->orderBy('name')
+                            ->pluck('name', 'id')
+                            ->all())
+                        ->searchable()
+                        ->preload()
+                        ->nullable()
+                        ->helperText('Deixe vazio para criar um modelo global.')
+                        ->visible(fn (): bool => Filament::getCurrentPanel()?->getId() !== 'escola'),
                     Forms\Components\TextInput::make('name')
                         ->label('Nome do modelo')
                         ->required()
@@ -274,6 +297,12 @@ class CardTemplateResource extends Resource
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
+                Tables\Columns\TextColumn::make('institution.name')
+                    ->label('Instituição')
+                    ->placeholder('Global')
+                    ->searchable()
+                    ->sortable()
+                    ->visible(fn (): bool => Filament::getCurrentPanel()?->getId() !== 'escola'),
                 Tables\Columns\TextColumn::make('card_type_label')
                     ->label('Tipo')
                     ->badge()
@@ -304,6 +333,12 @@ class CardTemplateResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                Tables\Filters\SelectFilter::make('institution_id')
+                    ->label('Instituição')
+                    ->relationship('institution', 'name')
+                    ->searchable()
+                    ->preload()
+                    ->visible(fn (): bool => Filament::getCurrentPanel()?->getId() !== 'escola'),
                 Tables\Filters\SelectFilter::make('card_type')
                     ->label('Tipo de cartão')
                     ->options(CardTemplate::cardTypeOptions()),

@@ -154,10 +154,14 @@ class AppServiceProvider extends ServiceProvider
         return $action
             ->extraModalWindowAttributes(['class' => 'sigef-delete-modal'], merge: true)
             ->modalIconColor('primary')
-            ->modalCancelAction(fn (Action $modalAction): Action => $modalAction
+            ->modalSubmitActionLabel('Excluir')
+            ->modalCancelActionLabel('Cancelar')
+            ->modalCancelAction(fn (Action $action): Action => $action
+                ->label('Cancelar')
                 ->icon('heroicon-o-x-mark')
-                ->color('gray'))
-            ->modalSubmitAction(fn (Action $modalAction): Action => $modalAction
+                ->color('primary'))
+            ->modalSubmitAction(fn (Action $action): Action => $action
+                ->label('Excluir')
                 ->icon('heroicon-o-trash')
                 ->color('danger'));
     }

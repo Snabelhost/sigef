@@ -15,7 +15,7 @@ use Filament\Facades\Filament;
 
 class CoursePhaseResource extends Resource
 {
-    protected static bool $shouldSkipAuthorization = true;
+    protected static bool $shouldSkipAuthorization = false;
 
     protected static ?string $model = CoursePhase::class;
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-bars-3-bottom-left';
@@ -131,7 +131,7 @@ class CoursePhaseResource extends Resource
 
     public static function canAccess(): bool
     {
-        return true;
+        return auth()->user()?->can('ViewAny:CoursePhase') ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool

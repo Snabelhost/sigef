@@ -17,6 +17,8 @@ class RankResource extends Resource
 {
     protected static ?string $model = Rank::class;
 
+    protected static bool $isScopedToTenant = false;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-star';
     protected static string|\UnitEnum|null $navigationGroup = 'Configurações';
     protected static ?int $navigationSort = 4;

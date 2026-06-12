@@ -20,7 +20,8 @@ class TrainerCardService
             'classAssignments.studentClass',
         ]);
 
-        $template = CardTemplate::resolveForType(CardTemplate::TYPE_PROFESSOR)
+        $institution = $trainer->institution;
+        $template = CardTemplate::resolveForType(CardTemplate::TYPE_PROFESSOR, null, $institution?->id)
             ?? $this->fallbackTemplate();
 
         $primaryDocument = $trainer->trainer_type === 'Civil' ? $trainer->bilhete : $trainer->nip;
@@ -32,7 +33,6 @@ class TrainerCardService
 
         $documentLabel = $trainer->trainer_type === 'Civil' ? 'BI' : 'NIP';
         $verificationUrl = url('/admin/trainers').'?tableSearch='.rawurlencode($documentNumber);
-        $institution = $trainer->institution;
         $templateBrandName = trim((string) $template->brand_name);
         $templateSubtitle = trim((string) $template->subtitle);
         $institutionName = trim((string) $institution?->name);

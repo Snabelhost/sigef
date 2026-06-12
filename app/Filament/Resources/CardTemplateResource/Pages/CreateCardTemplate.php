@@ -3,12 +3,22 @@
 namespace App\Filament\Resources\CardTemplateResource\Pages;
 
 use App\Filament\Resources\CardTemplateResource;
+use Filament\Facades\Filament;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateCardTemplate extends CreateRecord
 {
     protected static string $resource = CardTemplateResource::class;
+
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        if (Filament::getCurrentPanel()?->getId() === 'escola') {
+            $data['institution_id'] = Filament::getTenant()?->id;
+        }
+
+        return $data;
+    }
 
     protected function getCreateFormAction(): Action
     {

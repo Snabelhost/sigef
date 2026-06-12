@@ -1537,9 +1537,8 @@ button[wire\\:click*="another"]:hover svg {
     stroke: #ffffff !important;
 }
 
-/* Botao cancelar vermelho */
-.fi-modal button.fi-color-danger,
-.fi-modal button[x-on\\:click*="close"] {
+/* Botao de acao destrutiva */
+.fi-modal button.fi-color-danger {
     background-color: #e31212 !important;
     border-color: #e31212 !important;
 }
@@ -1591,6 +1590,36 @@ button[wire\\:click*="another"]:hover svg {
     background-color: #e31212 !important;
     border-color: #e31212 !important;
     color: #ffffff !important;
+}
+
+.sigef-delete-modal .fi-ac-btn-action.fi-color-primary,
+.sigef-delete-modal .fi-modal-footer .fi-color-primary,
+.sigef-delete-modal .fi-modal-footer-actions .fi-color-primary {
+    background-color: #1a48ab !important;
+    border-color: #1a48ab !important;
+    color: #ffffff !important;
+}
+
+.sigef-delete-modal .fi-ac-btn-action.fi-color-primary svg,
+.sigef-delete-modal .fi-modal-footer .fi-color-primary svg,
+.sigef-delete-modal .fi-modal-footer-actions .fi-color-primary svg {
+    color: #ffffff !important;
+    stroke: #ffffff !important;
+}
+
+.sigef-delete-modal .fi-ac-btn-action.fi-color-danger,
+.sigef-delete-modal .fi-modal-footer .fi-color-danger,
+.sigef-delete-modal .fi-modal-footer-actions .fi-color-danger {
+    background-color: #e31212 !important;
+    border-color: #e31212 !important;
+    color: #ffffff !important;
+}
+
+.sigef-delete-modal .fi-ac-btn-action.fi-color-danger svg,
+.sigef-delete-modal .fi-modal-footer .fi-color-danger svg,
+.sigef-delete-modal .fi-modal-footer-actions .fi-color-danger svg {
+    color: #ffffff !important;
+    stroke: #ffffff !important;
 }
 
 /* Icone do Salvar e criar outro - branco */

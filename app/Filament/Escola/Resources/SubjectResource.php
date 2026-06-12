@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 class SubjectResource extends Resource
 {
-    protected static bool $shouldSkipAuthorization = true;
+    protected static bool $shouldSkipAuthorization = false;
 
     protected static ?string $model = Subject::class;
 
@@ -29,7 +29,7 @@ class SubjectResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['phase', 'phase.course']);
+        return parent::getEloquentQuery()->with(['course', 'phase', 'phase.course']);
     }
 
     public static function form(Schema $form): Schema
@@ -45,14 +45,14 @@ class SubjectResource extends Resource
                     ->label('Carga Horária')
                     ->numeric()
                     ->suffix('horas'),
-                Forms\Components\Select::make('course_id_helper')
+                Forms\Components\Select::make('course_id')
                     ->label('Curso')
                     ->options(\App\Models\Course::orderBy('name')->pluck('name', 'id'))
                     ->required()
                     ->searchable()
                     ->preload()
                     ->afterStateHydrated(function (Forms\Components\Select $component, $record) {
-                        if ($record && $record->phase) {
+                        if ($record && blank($component->getState()) && $record->phase) {
                             $component->state($record->phase->course_id);
                         }
                     }),
@@ -63,7 +63,8 @@ class SubjectResource extends Resource
                         '2ª Fase' => '2ª Fase',
                     ])
                     ->columns(2)
-                    ->required(),
+                    ->default([])
+                    ->helperText('Deixe vazio quando a disciplina nao tiver fase.'),
                 Forms\Components\Textarea::make('description')
                     ->label('Descrição')
                     ->rows(2)
@@ -73,11 +74,17 @@ class SubjectResource extends Resource
 
     protected static function handlePhaseData(array &$data): void
     {
-        $courseId = $data['course_id_helper'] ?? null;
-        unset($data['course_id_helper']);
+        $courseId = $data['course_id'] ?? null;
+        $phases = collect($data['phases'] ?? [])
+            ->filter(fn ($phase): bool => filled($phase))
+            ->values()
+            ->all();
 
-        if ($courseId) {
-            $firstPhase = $data['phases'][0] ?? null;
+        $data['phases'] = $phases;
+        $data['course_phase_id'] = null;
+
+        if ($courseId && $phases !== []) {
+            $firstPhase = $phases[0] ?? null;
             if ($firstPhase) {
                 $phase = \App\Models\CoursePhase::firstOrCreate(
                     ['course_id' => $courseId, 'name' => $firstPhase],
@@ -102,14 +109,15 @@ class SubjectResource extends Resource
                     ->label('Carga H.')
                     ->suffix('h')
                     ->sortable(),
-                Tables\Columns\TextColumn::make('phase.course.name')
+                Tables\Columns\TextColumn::make('course.name')
                     ->label('Curso')
+                    ->formatStateUsing(fn ($state, Subject $record): string => $state ?: ($record->phase?->course?->name ?: '-'))
                     ->sortable(),
                 Tables\Columns\TextColumn::make('phases')
                     ->label('Fases')
                     ->badge()
-                    ->color('primary')
-                    ->getStateUsing(fn($record) => $record->phases ?? []),
+                    ->color(fn (string $state): string => $state === 'Sem fase' ? 'gray' : 'primary')
+                    ->getStateUsing(fn(Subject $record): array => $record->phases ?: ['Sem fase']),
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Criado em')
                     ->dateTime()
@@ -117,21 +125,33 @@ class SubjectResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('course')
+                Tables\Filters\SelectFilter::make('course_id')
                     ->label('Curso')
-                    ->relationship('phase.course', 'name')
+                    ->relationship('course', 'name')
                     ->searchable()
                     ->preload(),
                 Tables\Filters\SelectFilter::make('phases')
                     ->label('Fase')
                     ->options([
+                        '__sem_fase' => 'Sem fase',
                         '1ª Fase' => '1ª Fase',
                         '2ª Fase' => '2ª Fase',
                     ])
                     ->query(function (Builder $query, array $data): Builder {
-                        if ($data['value']) {
-                            return $query->whereJsonContains('phases', $data['value']);
+                        $value = $data['value'] ?? null;
+
+                        if ($value === '__sem_fase') {
+                            return $query->where(function (Builder $blankQuery): void {
+                                $blankQuery
+                                    ->whereNull('phases')
+                                    ->orWhereJsonLength('phases', 0);
+                            });
                         }
+
+                        if ($value) {
+                            return $query->whereJsonContains('phases', $value);
+                        }
+
                         return $query;
                     }),
             ])
@@ -181,7 +201,7 @@ class SubjectResource extends Resource
 
     public static function canAccess(): bool
     {
-        return true;
+        return auth()->user()?->can('ViewAny:Subject') ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool

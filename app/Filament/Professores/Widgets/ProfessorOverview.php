@@ -22,6 +22,11 @@ class ProfessorOverview extends BaseWidget
         'xl' => 4,
     ];
 
+    public static function canView(): bool
+    {
+        return auth()->user()?->can('View:ProfessorOverview') ?? false;
+    }
+
     protected function getStats(): array
     {
         $user = auth()->user();

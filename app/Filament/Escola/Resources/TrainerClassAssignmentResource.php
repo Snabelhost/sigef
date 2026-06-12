@@ -17,7 +17,7 @@ use Filament\Facades\Filament;
 
 class TrainerClassAssignmentResource extends Resource
 {
-    protected static bool $shouldSkipAuthorization = true;
+    protected static bool $shouldSkipAuthorization = false;
 
     protected static ?string $model = TrainerSubjectAuthorization::class;
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-link';
@@ -138,7 +138,7 @@ class TrainerClassAssignmentResource extends Resource
 
     public static function canAccess(): bool
     {
-        return true;
+        return auth()->user()?->can('ViewAny:TrainerClassAssignment') ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool

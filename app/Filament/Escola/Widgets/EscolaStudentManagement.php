@@ -14,6 +14,11 @@ class EscolaStudentManagement extends BaseWidget
     protected int | string | array $columnSpan = 'full';
     protected static ?string $heading = 'Últimos Formandos';
 
+    public static function canView(): bool
+    {
+        return auth()->user()?->can('View:EscolaStudentManagement') ?? false;
+    }
+
     public function getColumnSpan(): int | string | array
     {
         return 'full';

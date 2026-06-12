@@ -17,6 +17,11 @@ class ProfessorAssignments extends Widget
 
     protected static bool $isLazy = false;
 
+    public static function canView(): bool
+    {
+        return auth()->user()?->can('View:ProfessorAssignments') ?? false;
+    }
+
     protected function getViewData(): array
     {
         $user = auth()->user();

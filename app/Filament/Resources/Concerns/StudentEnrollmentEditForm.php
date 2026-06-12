@@ -845,13 +845,18 @@ trait StudentEnrollmentEditForm
             $planSubjectIds = $coursePlan->subjects()
                 ->when($phaseName !== '' || $coursePhaseId, function (Builder $query) use ($phaseName, $coursePhaseId): void {
                     $query->where(function (Builder $subjectQuery) use ($phaseName, $coursePhaseId): void {
+                        $subjectQuery->where(function (Builder $blankPhaseQuery): void {
+                            $blankPhaseQuery
+                                ->whereNull('subjects.phases')
+                                ->orWhereJsonLength('subjects.phases', 0);
+                        });
+
                         if ($phaseName !== '') {
-                            $subjectQuery->whereJsonContains('subjects.phases', $phaseName);
+                            $subjectQuery->orWhereJsonContains('subjects.phases', $phaseName);
                         }
 
                         if ($coursePhaseId) {
-                            $method = $phaseName !== '' ? 'orWhere' : 'where';
-                            $subjectQuery->{$method}('subjects.course_phase_id', $coursePhaseId);
+                            $subjectQuery->orWhere('subjects.course_phase_id', $coursePhaseId);
                         }
                     });
                 })
@@ -877,16 +882,25 @@ trait StudentEnrollmentEditForm
             ->pluck('id');
 
         return Subject::query()
-            ->whereIn('course_phase_id', $coursePhaseIds)
+            ->where(function (Builder $query) use ($courseId, $coursePhaseIds): void {
+                $query
+                    ->where('course_id', $courseId)
+                    ->orWhereIn('course_phase_id', $coursePhaseIds);
+            })
             ->when($phaseName !== '' || $coursePhaseId, function (Builder $query) use ($phaseName, $coursePhaseId): void {
                 $query->where(function (Builder $subjectQuery) use ($phaseName, $coursePhaseId): void {
+                    $subjectQuery->where(function (Builder $blankPhaseQuery): void {
+                        $blankPhaseQuery
+                            ->whereNull('phases')
+                            ->orWhereJsonLength('phases', 0);
+                    });
+
                     if ($phaseName !== '') {
-                        $subjectQuery->whereJsonContains('phases', $phaseName);
+                        $subjectQuery->orWhereJsonContains('phases', $phaseName);
                     }
 
                     if ($coursePhaseId) {
-                        $method = $phaseName !== '' ? 'orWhere' : 'where';
-                        $subjectQuery->{$method}('course_phase_id', $coursePhaseId);
+                        $subjectQuery->orWhere('course_phase_id', $coursePhaseId);
                     }
                 });
             })

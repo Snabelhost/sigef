@@ -18,7 +18,7 @@ use Closure;
 
 class TrainerResource extends Resource
 {
-    protected static bool $shouldSkipAuthorization = true;
+    protected static bool $shouldSkipAuthorization = false;
 
     protected static ?string $model = Trainer::class;
 
@@ -731,7 +731,7 @@ class TrainerResource extends Resource
 
     public static function canAccess(): bool
     {
-        return true;
+        return auth()->user()?->can('ViewAny:Trainer') ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool

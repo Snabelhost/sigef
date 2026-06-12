@@ -130,7 +130,7 @@ return [
              *
              * For more check https://www.php.net/manual/zip.constants.php and confirm it's supported by your system.
              */
-            'compression_method' => class_exists(ZipArchive::class) ? ZipArchive::CM_DEFAULT : 0,
+            'compression_method' => class_exists('ZipArchive') ? \ZipArchive::CM_DEFAULT : 0,
 
             /*
              * The compression level corresponding to the used algorithm; an integer between 0 and 9.

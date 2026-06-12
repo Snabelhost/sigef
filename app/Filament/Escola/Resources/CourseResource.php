@@ -12,7 +12,7 @@ use Filament\Tables\Table;
 
 class CourseResource extends Resource
 {
-    protected static bool $shouldSkipAuthorization = true;
+    protected static bool $shouldSkipAuthorization = false;
 
     protected static ?string $model = Course::class;
 
@@ -134,7 +134,7 @@ class CourseResource extends Resource
 
     public static function canAccess(): bool
     {
-        return true;
+        return auth()->user()?->can('ViewAny:Course') ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool

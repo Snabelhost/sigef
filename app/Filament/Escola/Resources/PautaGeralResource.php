@@ -8,7 +8,7 @@ use Filament\Resources\Resource;
 
 class PautaGeralResource extends Resource
 {
-    protected static bool $shouldSkipAuthorization = true;
+    protected static bool $shouldSkipAuthorization = false;
     protected static bool $isScopedToTenant = false;
 
     protected static ?string $model = StudentClass::class;
@@ -30,7 +30,7 @@ class PautaGeralResource extends Resource
 
     public static function canAccess(): bool
     {
-        return true;
+        return auth()->user()?->can('ViewAny:Pauta') ?? false;
     }
 
     public static function shouldRegisterNavigation(): bool

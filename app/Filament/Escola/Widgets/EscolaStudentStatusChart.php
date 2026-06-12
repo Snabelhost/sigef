@@ -14,7 +14,12 @@ class EscolaStudentStatusChart extends ChartWidget
     protected ?string $heading = 'Formandos Aprovados e Reprovados';
     protected static ?int $sort = 4;
     protected ?string $pollingInterval = null;
-    protected static bool $isLazy = true;
+    protected static bool $isLazy = false;
+
+    public static function canView(): bool
+    {
+        return auth()->user()?->can('View:EscolaStudentStatusChart') ?? false;
+    }
 
     protected function getData(): array
     {
