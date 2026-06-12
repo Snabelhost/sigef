@@ -7,6 +7,7 @@ use App\Models\Student;
 use App\Filament\Widgets\Concerns\UsesDashboardChartCache;
 use App\Services\GradeCalculator;
 use App\Services\SigaDashboardStatsService;
+use App\Support\ChartColors;
 use Filament\Widgets\ChartWidget;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Illuminate\Support\Facades\DB;
@@ -139,18 +140,12 @@ class StudentStatusChart extends ChartWidget
         $colors = [];
 
         $categories = [
-            ['label' => 'Aprovados (Pauta)', 'value' => $aprovados, 'color' => 'rgba(16, 185, 129, 0.9)'],
-            ['label' => 'Pendentes', 'value' => $pendentes, 'color' => 'rgba(59, 130, 246, 0.9)'],
-            ['label' => 'Reprovados por Notas', 'value' => $reprovadosNotas, 'color' => 'rgba(234, 179, 8, 0.9)'],
-            ['label' => 'Reprovados por Faltas', 'value' => $reprovadosFaltas, 'color' => 'rgba(249, 115, 22, 0.9)'],
-            ['label' => 'Reprovados/Desistências', 'value' => $reprovadosDesistencia, 'color' => 'rgba(239, 68, 68, 0.9)'],
-            ['label' => 'Baixa de curso', 'value' => $baixaCurso, 'color' => 'rgba(107, 114, 128, 0.9)'],
-        ];
-
-        $sigaColors = [
-            'Aprovados API SIGA' => 'rgba(34, 197, 94, 0.9)',
-            'Pendentes API SIGA' => 'rgba(96, 165, 250, 0.9)',
-            'Reprovados API SIGA' => 'rgba(248, 113, 113, 0.9)',
+            ['label' => 'Aprovados (Pauta)', 'value' => $aprovados, 'color' => ChartColors::forLabel('Aprovados (Pauta)', 0.9)],
+            ['label' => 'Pendentes', 'value' => $pendentes, 'color' => ChartColors::forLabel('Pendentes', 0.9)],
+            ['label' => 'Reprovados por Notas', 'value' => $reprovadosNotas, 'color' => ChartColors::forLabel('Reprovados por Notas', 0.9)],
+            ['label' => 'Reprovados por Faltas', 'value' => $reprovadosFaltas, 'color' => ChartColors::forLabel('Reprovados por Faltas', 0.9)],
+            ['label' => 'Reprovados/Desistências', 'value' => $reprovadosDesistencia, 'color' => ChartColors::forLabel('Reprovados/Desistências', 0.9)],
+            ['label' => 'Baixa de curso', 'value' => $baixaCurso, 'color' => ChartColors::forLabel('Baixa de curso', 0.9)],
         ];
 
         foreach (app(SigaDashboardStatsService::class)->studentResults($filters) as $row) {
@@ -164,7 +159,7 @@ class StudentStatusChart extends ChartWidget
             $categories[] = [
                 'label' => $label,
                 'value' => $count,
-                'color' => $sigaColors[$label] ?? 'rgba(99, 102, 241, 0.9)',
+                'color' => ChartColors::forLabel($label, 0.9),
             ];
         }
 
@@ -179,7 +174,7 @@ class StudentStatusChart extends ChartWidget
         if (empty($values)) {
             $labels = ['Sem dados'];
             $values = [1];
-            $colors = ['rgba(156, 163, 175, 0.8)'];
+            $colors = [ChartColors::forLabel('Sem dados', 0.8)];
         }
 
         return [

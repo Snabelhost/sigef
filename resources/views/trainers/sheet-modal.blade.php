@@ -9,7 +9,10 @@
     );
 @endphp
 
-<div class="document-preview-modal-wrapper"
+<div @class([
+        'document-preview-modal-wrapper',
+        'document-preview-modal-wrapper--certificate' => $documentType === 'certificado',
+    ])
      id="{{ $viewerId }}"
      x-bind:class="'dpv-orientation-' + orientation"
      x-data="{
@@ -291,6 +294,21 @@
             border: 0;
             display: block;
             background: #fff;
+        }
+
+        :where(.fi-modal-window:has(.document-preview-modal-wrapper--certificate)) {
+            width: 98vw !important;
+            max-width: 98vw !important;
+        }
+
+        .document-preview-modal-wrapper--certificate .dpv-stage {
+            padding: 12px;
+        }
+
+        .document-preview-modal-wrapper--certificate .dpv-frame-shell,
+        .document-preview-modal-wrapper--certificate .dpv-frame-shell iframe {
+            height: 78vh;
+            min-height: 78vh;
         }
 
         .dpv-loading {

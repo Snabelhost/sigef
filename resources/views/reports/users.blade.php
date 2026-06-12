@@ -1,36 +1,45 @@
 @extends('reports.layout')
-@section('title', 'Relatório de Utilizadores')
+
+@section('title', 'USUARIOS POR PERFIL')
+@section('subtitle', 'Utilizadores agrupados por perfil de acesso. Total de atribuicoes: '.$summary['assignments'].' | Total de usuarios unicos: '.$summary['unique'])
+
 @section('filters')
-@if($dateFrom || $dateTo)
-<strong>Período:</strong> {{ $dateFrom ? \Carbon\Carbon::parse($dateFrom)->format('d/m/Y') : 'Início' }} a {{ $dateTo ? \Carbon\Carbon::parse($dateTo)->format('d/m/Y') : 'Hoje' }}
-@endif
+    @if($dateFrom || $dateTo)
+        <strong>Periodo:</strong> {{ $dateFrom ? \Carbon\Carbon::parse($dateFrom)->format('d/m/Y') : 'Inicio' }} a {{ $dateTo ? \Carbon\Carbon::parse($dateTo)->format('d/m/Y') : 'Hoje' }}
+    @else
+        <strong>Periodo:</strong> Todos os registos
+    @endif
 @endsection
-@section('summary')
-<span>Total de Utilizadores: {{ $records->count() }}</span>
-@endsection
+
 @section('content')
-@if($records->count())
-<table>
-    <thead>
-        <tr>
-            <th>#</th>
-            <th>Nome</th>
-            <th>Email</th>
-            <th>Perfil</th>
-            <th>Data Criação</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach($records as $i => $r)
-        <tr>
-            <td>{{ $i+1 }}</td>
-            <td>{{ $r->name }}</td>
-            <td>{{ $r->email }}</td>
-            <td>{{ $r->getRoleNames()->implode(', ') ?: '-' }}</td>
-            <td>{{ $r->created_at?->format('d/m/Y') }}</td>
-        </tr>
-        @endforeach
-    </tbody>
-</table>
-@else <p class="no-data">Sem registos encontrados.</p> @endif
+    @if($records->count())
+        <table>
+            <thead>
+                <tr>
+                    <th class="text-left">Perfil</th>
+                    <th style="width: 16%;">Total</th>
+                    <th style="width: 16%;">Activos</th>
+                    <th style="width: 16%;">Inactivos</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($records as $record)
+                    <tr>
+                        <td>{{ $record['profile'] }}</td>
+                        <td class="text-center">{{ $record['total'] }}</td>
+                        <td class="text-center">{{ $record['active'] }}</td>
+                        <td class="text-center">{{ $record['inactive'] }}</td>
+                    </tr>
+                @endforeach
+                <tr class="group-row">
+                    <td>TOTAL GERAL</td>
+                    <td class="text-center">{{ $summary['unique'] }}</td>
+                    <td class="text-center">{{ $summary['active'] }}</td>
+                    <td class="text-center">{{ $summary['inactive'] }}</td>
+                </tr>
+            </tbody>
+        </table>
+    @else
+        <p class="no-data">Sem registos encontrados.</p>
+    @endif
 @endsection

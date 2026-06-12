@@ -48,6 +48,9 @@ Route::middleware(['auth'])->prefix('reports')->name('reports.')->group(function
     Route::get('/subjects', [ReportController::class, 'subjects'])->name('subjects');
     // Gestão Escolar
     Route::get('/trainers', [ReportController::class, 'trainers'])->name('trainers');
+    Route::get('/trainer-subjects', [ReportController::class, 'trainerSubjects'])->name('trainer-subjects');
+    Route::get('/effectives', [ReportController::class, 'effectives'])->name('effectives');
+    Route::get('/students-by-provenance', [ReportController::class, 'studentsByProvenance'])->name('students-by-provenance');
     Route::get('/student-types', [ReportController::class, 'studentsByType'])->name('student-types');
     Route::get('/alistados', [ReportController::class, 'alistados'])->name('alistados');
     Route::get('/enrollments', [ReportController::class, 'enrollments'])->name('enrollments');

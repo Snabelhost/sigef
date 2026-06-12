@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Filament\Widgets\Concerns\UsesDashboardChartCache;
 use App\Services\DashboardCourseStatsService;
+use App\Support\ChartColors;
 use Filament\Support\RawJs;
 use Filament\Widgets\ChartWidget;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
@@ -55,11 +56,10 @@ class StudentsByCourseChart extends ChartWidget
             $apiValues = [0];
         }
 
-        $barCount = count($labels);
-        $systemBackgroundColors = $this->chartPalette($barCount, 0.86);
-        $systemBorderColors = $this->chartPalette($barCount, 1);
-        $apiBackgroundColors = $this->chartPalette($barCount, 0.38);
-        $apiBorderColors = $this->chartPalette($barCount, 0.95);
+        $systemBackgroundColors = ChartColors::forLabels($labels, 0.86);
+        $systemBorderColors = ChartColors::forLabels($labels, 1);
+        $apiBackgroundColors = ChartColors::forLabels($labels, 0.38);
+        $apiBorderColors = ChartColors::forLabels($labels, 0.95);
 
         return [
             'datasets' => [
@@ -145,28 +145,4 @@ class StudentsByCourseChart extends ChartWidget
 JS);
     }
 
-    private function chartPalette(int $count, float $alpha, int $offset = 0): array
-    {
-        $palette = [
-            [37, 99, 235],
-            [16, 185, 129],
-            [245, 158, 11],
-            [239, 68, 68],
-            [139, 92, 246],
-            [14, 165, 233],
-            [236, 72, 153],
-            [34, 197, 94],
-            [249, 115, 22],
-            [100, 116, 139],
-        ];
-
-        $colors = [];
-
-        for ($index = 0; $index < $count; $index++) {
-            [$red, $green, $blue] = $palette[($index + $offset) % count($palette)];
-            $colors[] = "rgba({$red}, {$green}, {$blue}, {$alpha})";
-        }
-
-        return $colors;
-    }
 }

@@ -998,7 +998,7 @@ class StudentClassEnrollmentResource extends Resource
             ->visible(fn (Student $record): bool => static::canPrintCertificate($record))
             ->modalHeading('Pre-visualizacao do Certificado')
             ->modalDescription(null)
-            ->modalWidth(\Filament\Support\Enums\Width::SixExtraLarge)
+            ->modalWidth(\Filament\Support\Enums\Width::Screen)
             ->modalSubmitAction(false)
             ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action
                 ->icon('heroicon-o-x-mark')

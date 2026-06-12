@@ -3,9 +3,11 @@
 namespace App\Livewire;
 
 use App\Models\Candidate;
+use App\Models\CourseMap;
 use App\Models\Student;
 use App\Models\Trainer;
 use App\Models\Institution;
+use App\Support\ChartColors;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 use Livewire\Attributes\On;
@@ -19,7 +21,7 @@ class StatsDetailModal extends Component
     public array $summaryStats = [];
 
     #[On('openStatDetail')]
-    public function openModal(string $type, ?int $institutionId = null): void
+    public function openModal(string $type, ?int $institutionId = null, ?int $courseId = null): void
     {
         $this->modalType = $type;
         $this->chartData = [];
@@ -27,6 +29,11 @@ class StatsDetailModal extends Component
 
         match ($type) {
             'alunos' => $this->loadAlunosData($institutionId),
+            'alistados' => $this->loadAlistadosData($institutionId),
+            'recrutas_instruendos' => $this->loadRecrutasInstruendosData($institutionId),
+            'em_formacao_concluidos' => $this->loadEmFormacaoConcluidosData($institutionId),
+            'cursos_ano_lectivo' => $this->loadCursosPorAnoLectivoData($institutionId, $courseId),
+            'disciplinas_curso' => $this->loadDisciplinasPorCursoData($institutionId, $courseId),
             'formandos' => $this->loadFormandosData($institutionId),
             'formadores' => $this->loadFormadoresData($institutionId),
             'escolas' => $this->loadEscolasData(),
@@ -103,30 +110,290 @@ class StatsDetailModal extends Component
             'stacked_bar' => [
                 'labels' => $labels,
                 'datasets' => [
-                    ['label' => 'Alistados', 'values' => $alistadosValues, 'color' => 'rgba(245, 158, 11, 0.85)'],
-                    ['label' => 'Recrutas', 'values' => $recrutasValues, 'color' => 'rgba(59, 130, 246, 0.85)'],
-                    ['label' => 'Instruendos', 'values' => $instruendosValues, 'color' => 'rgba(16, 185, 129, 0.85)'],
+                    ['label' => 'Alistados', 'values' => $alistadosValues, 'color' => ChartColors::forLabel('Alistados')],
+                    ['label' => 'Recrutas', 'values' => $recrutasValues, 'color' => ChartColors::forLabel('Recrutas')],
+                    ['label' => 'Instruendos', 'values' => $instruendosValues, 'color' => ChartColors::forLabel('Instruendos')],
                 ],
                 'title' => 'Distribuição por Instituição',
             ],
             'doughnut' => [
                 'labels' => ['Alistados', 'Recrutas', 'Instruendos'],
                 'values' => [$totalAlistados, $totalRecritas, $totalInstruendos],
-                'colors' => [
-                    'rgba(245, 158, 11, 0.85)',
-                    'rgba(59, 130, 246, 0.85)',
-                    'rgba(16, 185, 129, 0.85)',
-                ],
+                'colors' => ChartColors::forLabels(['Alistados', 'Recrutas', 'Instruendos']),
                 'title' => 'Transição de Estado',
+            ],
+        ];
+    }
+
+    protected function loadRecrutasInstruendosData(?int $institutionId): void
+    {
+        $this->modalTitle = 'Recrutas e Instruendos por Instituição';
+
+        $institutions = Institution::query()
+            ->when($institutionId, fn ($query) => $query->whereKey($institutionId))
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $labels = [];
+        $recrutasValues = [];
+        $instruendosValues = [];
+
+        foreach ($institutions as $institution) {
+            $baseQuery = Student::query()
+                ->where('institution_id', $institution->id);
+
+            $recrutas = (clone $baseQuery)
+                ->where(function ($query) {
+                    $query->where('student_type', 'like', '%Recruta%')
+                        ->orWhere('student_type', 'like', '%1% Fase%');
+                })
+                ->count();
+
+            $instruendos = (clone $baseQuery)
+                ->where(function ($query) {
+                    $query->where('student_type', 'like', '%Instruendo%')
+                        ->orWhere('student_type', 'like', '%cadete%')
+                        ->orWhere('student_type', 'like', '%praca%')
+                        ->orWhere('student_type', 'like', '%praça%')
+                        ->orWhere('student_type', 'like', '%2% Fase%');
+                })
+                ->count();
+
+            if ($recrutas <= 0 && $instruendos <= 0) {
+                continue;
+            }
+
+            $labels[] = $institution->name;
+            $recrutasValues[] = $recrutas;
+            $instruendosValues[] = $instruendos;
+        }
+
+        if (empty($labels)) {
+            $labels = ['Sem dados'];
+            $recrutasValues = [0];
+            $instruendosValues = [0];
+        }
+
+        $this->summaryStats = [];
+        $this->chartData = [
+            'stacked_bar' => [
+                'labels' => $labels,
+                'datasets' => [
+                    ['label' => 'Recrutas', 'values' => $recrutasValues, 'color' => ChartColors::forLabel('Recrutas')],
+                    ['label' => 'Instruendos', 'values' => $instruendosValues, 'color' => ChartColors::forLabel('Instruendos')],
+                ],
+                'title' => 'Total de Recrutas e Instruendos por Instituição',
+            ],
+        ];
+    }
+
+    protected function loadEmFormacaoConcluidosData(?int $institutionId): void
+    {
+        $this->modalTitle = 'Em formação e Formando Concluído por Instituição';
+
+        $institutions = Institution::query()
+            ->when($institutionId, fn ($query) => $query->whereKey($institutionId))
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $labels = [];
+        $emFormacaoValues = [];
+        $concluidosValues = [];
+
+        foreach ($institutions as $institution) {
+            $baseQuery = Student::query()
+                ->where('institution_id', $institution->id);
+
+            $emFormacao = (clone $baseQuery)
+                ->where('student_type', 'like', '%Em Forma%')
+                ->count();
+
+            $concluidos = (clone $baseQuery)
+                ->where(function ($query) {
+                    $query->where('student_type', 'like', '%Formando Conclu%')
+                        ->orWhere('student_type', 'like', '%Conclu%');
+                })
+                ->count();
+
+            if ($emFormacao <= 0 && $concluidos <= 0) {
+                continue;
+            }
+
+            $labels[] = $institution->name;
+            $emFormacaoValues[] = $emFormacao;
+            $concluidosValues[] = $concluidos;
+        }
+
+        if (empty($labels)) {
+            $labels = ['Sem dados'];
+            $emFormacaoValues = [0];
+            $concluidosValues = [0];
+        }
+
+        $totalEmFormacao = array_sum($emFormacaoValues);
+        $totalConcluidos = array_sum($concluidosValues);
+
+        $this->summaryStats = [];
+
+        if (($totalEmFormacao > 0 && $totalConcluidos <= 0) || ($totalConcluidos > 0 && $totalEmFormacao <= 0)) {
+            $this->chartData = [
+                'bar' => [
+                    'labels' => $labels,
+                    'values' => $totalEmFormacao > 0 ? $emFormacaoValues : $concluidosValues,
+                    'colors' => ChartColors::forLabels($labels),
+                    'title' => $totalEmFormacao > 0
+                        ? 'Em formação por Instituição'
+                        : 'Formando Concluído por Instituição',
+                ],
+            ];
+
+            return;
+        }
+
+        $this->chartData = [
+            'stacked_bar' => [
+                'labels' => $labels,
+                'stacked' => false,
+                'datasets' => [
+                    ['label' => 'Em formação', 'values' => $emFormacaoValues, 'color' => ChartColors::forLabel('Em formação')],
+                    ['label' => 'Formando Concluído', 'values' => $concluidosValues, 'color' => ChartColors::forLabel('Formando Concluído')],
+                ],
+                'title' => 'Em formação e Formando Concluído por Instituição',
+            ],
+        ];
+    }
+
+    protected function loadCursosPorAnoLectivoData(?int $institutionId, ?int $courseId = null): void
+    {
+        $this->modalTitle = 'Cursos por Ano Lectivo';
+
+        $rows = CourseMap::query()
+            ->leftJoin('academic_years', 'academic_years.id', '=', 'course_maps.academic_year_id')
+            ->when($institutionId, fn ($query) => $query->where('course_maps.institution_id', $institutionId))
+            ->when($courseId, fn ($query) => $query->where('course_maps.course_id', $courseId))
+            ->selectRaw("COALESCE(NULLIF(academic_years.year, ''), NULLIF(academic_years.name, ''), 'Sem Ano Lectivo') as academic_year_label")
+            ->selectRaw('COUNT(DISTINCT course_maps.course_id) as total')
+            ->groupByRaw("COALESCE(NULLIF(academic_years.year, ''), NULLIF(academic_years.name, ''), 'Sem Ano Lectivo')")
+            ->orderBy('academic_year_label')
+            ->get();
+
+        $labels = $rows->pluck('academic_year_label')->map(fn ($label) => (string) $label)->all();
+        $values = $rows->pluck('total')->map(fn ($total) => (int) $total)->all();
+
+        if (empty($labels)) {
+            $labels = ['Sem dados'];
+            $values = [0];
+        }
+
+        $this->summaryStats = [];
+        $this->chartData = [
+            'bar' => [
+                'labels' => $labels,
+                'values' => $values,
+                'colors' => ChartColors::forLabels($labels),
+                'title' => 'Total de Cursos por Ano Lectivo',
+            ],
+        ];
+    }
+
+    protected function loadDisciplinasPorCursoData(?int $institutionId, ?int $courseId = null): void
+    {
+        $this->modalTitle = 'Disciplinas por Curso';
+
+        $rows = DB::table('subjects')
+            ->join('course_phases', 'course_phases.id', '=', 'subjects.course_phase_id')
+            ->join('courses', 'courses.id', '=', 'course_phases.course_id')
+            ->when($institutionId, fn ($query) => $query->where('subjects.institution_id', $institutionId))
+            ->when($courseId, fn ($query) => $query->where('courses.id', $courseId))
+            ->selectRaw("COALESCE(NULLIF(courses.name, ''), 'Sem Curso') as course_name")
+            ->selectRaw('COUNT(DISTINCT subjects.id) as total')
+            ->groupByRaw("COALESCE(NULLIF(courses.name, ''), 'Sem Curso')")
+            ->orderBy('course_name')
+            ->get();
+
+        $labels = $rows->pluck('course_name')->map(fn ($label) => (string) $label)->all();
+        $values = $rows->pluck('total')->map(fn ($total) => (int) $total)->all();
+
+        if (empty($labels)) {
+            $labels = ['Sem dados'];
+            $values = [0];
+        }
+
+        $this->summaryStats = [];
+        $this->chartData = [
+            'bar' => [
+                'labels' => $labels,
+                'values' => $values,
+                'colors' => ChartColors::forLabels($labels),
+                'title' => 'Total de Disciplinas por Curso',
+            ],
+        ];
+    }
+
+    protected function loadAlistadosData(?int $institutionId): void
+    {
+        $this->modalTitle = 'Alistados por Província';
+
+        $rows = Candidate::query()
+            ->leftJoin('provinces', 'provinces.id', '=', 'candidates.province_id')
+            ->where('candidates.student_type', 'Alistado')
+            ->when($institutionId, fn ($query) => $query->where('candidates.institution_id', $institutionId))
+            ->selectRaw("COALESCE(NULLIF(provinces.name, ''), NULLIF(candidates.province, ''), 'Sem Província') as province_name, COUNT(*) as total")
+            ->groupByRaw("COALESCE(NULLIF(provinces.name, ''), NULLIF(candidates.province, ''), 'Sem Província')")
+            ->orderByDesc('total')
+            ->get();
+
+        $labels = $rows->pluck('province_name')->map(fn ($label) => (string) $label)->all();
+        $values = $rows->pluck('total')->map(fn ($total) => (int) $total)->all();
+
+        if (empty($labels)) {
+            $labels = ['Sem dados'];
+            $values = [0];
+        }
+
+        $this->summaryStats = [];
+        $this->chartData = [
+            'bar' => [
+                'labels' => $labels,
+                'values' => $values,
+                'colors' => ChartColors::forLabels($labels),
+                'title' => 'Total de Alistados por Província',
             ],
         ];
     }
 
     protected function loadFormandosData(?int $institutionId): void
     {
-        $this->modalTitle = 'Detalhes - Formandos';
+        $this->modalTitle = 'Formandos por Província';
 
-        $approvedRecruitmentStatuses = ['Apurado', 'approved', 'aprovado', 'admitted', 'apto'];
+        $rows = Candidate::query()
+            ->leftJoin('provinces', 'provinces.id', '=', 'candidates.province_id')
+            ->where('candidates.student_type', 'Formando')
+            ->when($institutionId, fn ($query) => $query->where('candidates.institution_id', $institutionId))
+            ->selectRaw("COALESCE(NULLIF(provinces.name, ''), NULLIF(candidates.province, ''), 'Sem Província') as province_name, COUNT(*) as total")
+            ->groupByRaw("COALESCE(NULLIF(provinces.name, ''), NULLIF(candidates.province, ''), 'Sem Província')")
+            ->orderByDesc('total')
+            ->get();
+
+        $labels = $rows->pluck('province_name')->map(fn ($label) => (string) $label)->all();
+        $values = $rows->pluck('total')->map(fn ($total) => (int) $total)->all();
+
+        if (empty($labels)) {
+            $labels = ['Sem dados'];
+            $values = [0];
+        }
+
+        $this->summaryStats = [];
+        $this->chartData = [
+            'bar' => [
+                'labels' => $labels,
+                'values' => $values,
+                'colors' => ChartColors::forLabels($labels),
+                'title' => 'Total de Formandos por Província',
+            ],
+        ];
+
+        return;
 
         $records = Candidate::query()
             ->with('institution:id,name')
@@ -160,14 +427,7 @@ class StatsDetailModal extends Component
             ->map(fn ($statusRecords) => $statusRecords->count())
             ->all();
 
-        $statusColors = [
-            'rgba(59, 130, 246, 0.85)',
-            'rgba(16, 185, 129, 0.85)',
-            'rgba(245, 158, 11, 0.85)',
-            'rgba(239, 68, 68, 0.85)',
-            'rgba(139, 92, 246, 0.85)',
-            'rgba(107, 114, 128, 0.85)',
-        ];
+        $statusColors = ChartColors::forLabels(array_keys($mappedStatuses));
 
         $this->summaryStats = [
             ['label' => 'Total Geral', 'value' => $totalGeral, 'color' => 'primary'],
@@ -180,8 +440,8 @@ class StatsDetailModal extends Component
             'stacked_bar' => [
                 'labels' => $labels,
                 'datasets' => [
-                    ['label' => 'Alistados', 'values' => $alistadosValues, 'color' => 'rgba(245, 158, 11, 0.85)'],
-                    ['label' => 'Formandos', 'values' => $formandosValues, 'color' => 'rgba(59, 130, 246, 0.85)'],
+                    ['label' => 'Alistados', 'values' => $alistadosValues, 'color' => ChartColors::forLabel('Alistados')],
+                    ['label' => 'Formandos', 'values' => $formandosValues, 'color' => ChartColors::forLabel('Formandos')],
                 ],
                 'title' => 'Formandos por Instituição',
             ],
@@ -285,7 +545,56 @@ class StatsDetailModal extends Component
 
     protected function loadFormadoresData(?int $institutionId): void
     {
-        $this->modalTitle = 'Detalhes - Formadores';
+        $this->modalTitle = 'Formadores por Instituição';
+
+        $institutions = Institution::query()
+            ->when($institutionId, fn ($query) => $query->whereKey($institutionId))
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $labels = [];
+        $values = [];
+
+        foreach ($institutions as $inst) {
+            $total = Trainer::query()
+                ->where('institution_id', $inst->id)
+                ->count();
+
+            if ($total <= 0) {
+                continue;
+            }
+
+            $labels[] = $inst->name;
+            $values[] = $total;
+        }
+
+        if (! $institutionId) {
+            $semInstituicao = Trainer::query()
+                ->whereNull('institution_id')
+                ->count();
+
+            if ($semInstituicao > 0) {
+                $labels[] = 'Sem Instituição Atribuída';
+                $values[] = $semInstituicao;
+            }
+        }
+
+        if (empty($labels)) {
+            $labels = ['Sem dados'];
+            $values = [0];
+        }
+
+        $this->summaryStats = [];
+        $this->chartData = [
+            'bar' => [
+                'labels' => $labels,
+                'values' => $values,
+                'colors' => ChartColors::forLabels($labels),
+                'title' => 'Total de Formadores por Instituição',
+            ],
+        ];
+
+        return;
 
         $institutions = Institution::all();
         $labels = [];
@@ -330,15 +639,15 @@ class StatsDetailModal extends Component
             'stacked_bar' => [
                 'labels' => $labels,
                 'datasets' => [
-                    ['label' => 'Activos', 'values' => $activeValues, 'color' => 'rgba(16, 185, 129, 0.85)'],
-                    ['label' => 'Inactivos', 'values' => $inactiveValues, 'color' => 'rgba(239, 68, 68, 0.85)'],
+                    ['label' => 'Activos', 'values' => $activeValues, 'color' => ChartColors::forLabel('Activos')],
+                    ['label' => 'Inactivos', 'values' => $inactiveValues, 'color' => ChartColors::forLabel('Inactivos')],
                 ],
                 'title' => 'Formadores por Instituição',
             ],
             'doughnut' => [
                 'labels' => ['Activos', 'Inactivos'],
                 'values' => [$totalActive, $totalInactive],
-                'colors' => ['rgba(16, 185, 129, 0.85)', 'rgba(239, 68, 68, 0.85)'],
+                'colors' => ChartColors::forLabels(['Activos', 'Inactivos']),
                 'title' => 'Estado dos Formadores',
             ],
         ];
@@ -346,6 +655,46 @@ class StatsDetailModal extends Component
 
     protected function loadEscolasData(): void
     {
+        $this->modalTitle = 'Instituições de Ensino por Alunos';
+
+        $institutions = Institution::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $labels = [];
+        $values = [];
+
+        foreach ($institutions as $institution) {
+            $totalAlunos = Candidate::query()
+                ->where('institution_id', $institution->id)
+                ->where('student_type', 'like', '%Alistado%')
+                ->count();
+
+            $totalAlunos += Student::query()
+                ->where('institution_id', $institution->id)
+                ->count();
+
+            $labels[] = $institution->name;
+            $values[] = $totalAlunos;
+        }
+
+        if (empty($labels)) {
+            $labels = ['Sem dados'];
+            $values = [0];
+        }
+
+        $this->summaryStats = [];
+        $this->chartData = [
+            'bar' => [
+                'labels' => $labels,
+                'values' => $values,
+                'colors' => ChartColors::forLabels($labels),
+                'title' => 'Total de Alunos por Instituição',
+            ],
+        ];
+
+        return;
+
         $this->modalTitle = 'Detalhes — Escolas de Formação';
 
         $institutions = Institution::all();
@@ -380,48 +729,22 @@ class StatsDetailModal extends Component
             ['label' => 'Rácio Aluno/Formador', 'value' => $totalFormadores > 0 ? round($totalAlunos / $totalFormadores) : 0, 'color' => 'warning'],
         ];
 
-        $barColors = [
-            'rgba(59, 130, 246, 0.85)',
-            'rgba(16, 185, 129, 0.85)',
-            'rgba(245, 158, 11, 0.85)',
-            'rgba(139, 92, 246, 0.85)',
-            'rgba(236, 72, 153, 0.85)',
-            'rgba(20, 184, 166, 0.85)',
-            'rgba(99, 102, 241, 0.85)',
-            'rgba(244, 63, 94, 0.85)',
-        ];
-
-        $formadorColors = [
-            'rgba(34, 197, 94, 0.85)',
-            'rgba(6, 182, 212, 0.85)',
-            'rgba(251, 146, 60, 0.85)',
-            'rgba(168, 85, 247, 0.85)',
-            'rgba(249, 115, 22, 0.85)',
-            'rgba(14, 165, 233, 0.85)',
-            'rgba(217, 70, 239, 0.85)',
-            'rgba(234, 88, 12, 0.85)',
-        ];
+        $institutionColors = ChartColors::forLabels($labels);
+        $institutionSecondaryColors = ChartColors::forLabels($labels, 0.55);
 
         $this->chartData = [
             'stacked_bar' => [
                 'labels' => $labels,
                 'datasets' => [
-                    ['label' => 'Alunos/Formandos', 'values' => $alunosValues, 'color' => array_slice($barColors, 0, count($labels))],
-                    ['label' => 'Formadores', 'values' => $formadoresValues, 'color' => array_slice($formadorColors, 0, count($labels))],
+                    ['label' => 'Alunos/Formandos', 'values' => $alunosValues, 'color' => $institutionColors],
+                    ['label' => 'Formadores', 'values' => $formadoresValues, 'color' => $institutionSecondaryColors],
                 ],
                 'title' => 'Recursos por Instituição',
             ],
             'doughnut' => [
                 'labels' => $labels,
                 'values' => $alunosValues,
-                'colors' => [
-                    'rgba(59, 130, 246, 0.85)',
-                    'rgba(16, 185, 129, 0.85)',
-                    'rgba(245, 158, 11, 0.85)',
-                    'rgba(139, 92, 246, 0.85)',
-                    'rgba(236, 72, 153, 0.85)',
-                    'rgba(20, 184, 166, 0.85)',
-                ],
+                'colors' => $institutionColors,
                 'title' => 'Distribuição de Alunos por Escola',
             ],
         ];

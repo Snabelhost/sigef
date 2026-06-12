@@ -32,19 +32,15 @@ class StatsOverview extends BaseWidget
         $startDate = $this->filters['start_date'] ?? null;
         $endDate = $this->filters['end_date'] ?? null;
         $validInstitutionIds = Institution::pluck('id')->toArray();
-        $approvedRecruitmentStatuses = ['Apurado', 'approved', 'aprovado', 'admitted', 'apto'];
-
         $formandos = Candidate::query()
-            ->whereIn('student_type', ['Alistado', 'Formando'])
-            ->whereIn('status', $approvedRecruitmentStatuses)
+            ->where('student_type', 'Formando')
             ->when($institutionId, fn($query) => $query->where('institution_id', $institutionId))
             ->when($courseId, fn($query) => $query->whereRaw('1 = 0'))
             ->when($startDate, fn($query) => $query->whereDate('created_at', '>=', $startDate))
             ->when($endDate, fn($query) => $query->whereDate('created_at', '<=', $endDate))
             ->count();
 
-        $alistadosQuery = Candidate::query()
-            ->whereNotNull('institution_id');
+        $alistadosQuery = Candidate::query();
 
         if ($institutionId) {
             $alistadosQuery->where('institution_id', $institutionId);
@@ -60,7 +56,7 @@ class StatsOverview extends BaseWidget
         }
 
         $alistados = $alistadosQuery
-            ->where('student_type', 'like', '%Alistado%')
+            ->where('student_type', 'Alistado')
             ->count();
 
         $studentsQuery = Student::query()
@@ -142,7 +138,7 @@ class StatsOverview extends BaseWidget
 
         return [
             Stat::make('Total de Formandos', number_format($formandos, 0, ',', '.'))
-                ->description('Registos na listagem de Formandos')
+                ->description('Candidatos do tipo Formando')
                 ->descriptionIcon('heroicon-m-academic-cap')
                 ->color('info')
                 ->chart([5, 6, 7, 8, 9, 10, $formandos > 0 ? $formandos : 1])
@@ -153,14 +149,14 @@ class StatsOverview extends BaseWidget
                 ]),
 
             Stat::make('Total de Alistados', number_format($alistados, 0, ',', '.'))
-                ->description('Candidatos alistados')
+                ->description('Candidatos do tipo Alistado')
                 ->descriptionIcon('heroicon-m-arrow-trending-up')
                 ->color('warning')
                 ->chart([2, 3, 4, 5, 6, 7, $alistados > 0 ? $alistados : 1])
                 ->extraAttributes([
                     'class' => '!cursor-pointer transition-transform hover:scale-[1.02]',
                     'style' => 'cursor: pointer !important;',
-                    'onclick' => "event.stopPropagation(); Livewire.dispatch('openStatDetail', {type: 'alunos', institutionId: " . ($institutionId ?? 'null') . "})",
+                    'onclick' => "event.stopPropagation(); Livewire.dispatch('openStatDetail', {type: 'alistados', institutionId: " . ($institutionId ?? 'null') . "})",
                 ]),
 
             Stat::make('Total de Recrutas e Instruendos', number_format($recrutasInstruendos, 0, ',', '.'))
@@ -171,14 +167,19 @@ class StatsOverview extends BaseWidget
                 ->extraAttributes([
                     'class' => '!cursor-pointer transition-transform hover:scale-[1.02]',
                     'style' => 'cursor: pointer !important;',
-                    'onclick' => "event.stopPropagation(); Livewire.dispatch('openStatDetail', {type: 'alunos', institutionId: " . ($institutionId ?? 'null') . "})",
+                    'onclick' => "event.stopPropagation(); Livewire.dispatch('openStatDetail', {type: 'recrutas_instruendos', institutionId: " . ($institutionId ?? 'null') . "})",
                 ]),
 
             Stat::make('Em formação e Formando Concluído', number_format($emFormacaoConcluidos, 0, ',', '.'))
                 ->description("Em formação: {$emFormacao} | Concluídos: {$formandosConcluidos}")
                 ->descriptionIcon('heroicon-m-check-badge')
                 ->color('primary')
-                ->chart([1, 2, 3, 5, 8, 13, $emFormacaoConcluidos > 0 ? $emFormacaoConcluidos : 1]),
+                ->chart([1, 2, 3, 5, 8, 13, $emFormacaoConcluidos > 0 ? $emFormacaoConcluidos : 1])
+                ->extraAttributes([
+                    'class' => '!cursor-pointer transition-transform hover:scale-[1.02]',
+                    'style' => 'cursor: pointer !important;',
+                    'onclick' => "event.stopPropagation(); Livewire.dispatch('openStatDetail', {type: 'em_formacao_concluidos', institutionId: " . ($institutionId ?? 'null') . "})",
+                ]),
 
             Stat::make('Formadores', number_format($formadores, 0, ',', '.'))
                 ->description('Corpo docente')
@@ -195,13 +196,23 @@ class StatsOverview extends BaseWidget
                 ->description("Mapas/planos: {$courseMaps} | Activos: {$courseMapsActive}")
                 ->descriptionIcon('heroicon-m-book-open')
                 ->color('success')
-                ->chart([2, 3, 4, 5, 6, 7, $courses > 0 ? $courses : 1]),
+                ->chart([2, 3, 4, 5, 6, 7, $courses > 0 ? $courses : 1])
+                ->extraAttributes([
+                    'class' => '!cursor-pointer transition-transform hover:scale-[1.02]',
+                    'style' => 'cursor: pointer !important;',
+                    'onclick' => "event.stopPropagation(); Livewire.dispatch('openStatDetail', {type: 'cursos_ano_lectivo', institutionId: " . ($institutionId ?? 'null') . ", courseId: " . ($courseId ?? 'null') . "})",
+                ]),
 
             Stat::make('Disciplinas', number_format($subjects, 0, ',', '.'))
                 ->description('Disciplinas registadas')
                 ->descriptionIcon('heroicon-m-bookmark')
                 ->color('warning')
-                ->chart([1, 3, 4, 6, 7, 9, $subjects > 0 ? $subjects : 1]),
+                ->chart([1, 3, 4, 6, 7, 9, $subjects > 0 ? $subjects : 1])
+                ->extraAttributes([
+                    'class' => '!cursor-pointer transition-transform hover:scale-[1.02]',
+                    'style' => 'cursor: pointer !important;',
+                    'onclick' => "event.stopPropagation(); Livewire.dispatch('openStatDetail', {type: 'disciplinas_curso', institutionId: " . ($institutionId ?? 'null') . ", courseId: " . ($courseId ?? 'null') . "})",
+                ]),
 
             Stat::make('Instituições de Ensino', number_format($escolas, 0, ',', '.'))
                 ->description($institutionId ? 'Instituicao selecionada' : 'Todas as instituicoes')

@@ -37,17 +37,14 @@ class DashboardApiController extends Controller
         $startDate = $filters['start_date'];
         $endDate = $filters['end_date'];
         $validInstitutionIds = Institution::pluck('id')->toArray();
-        $approvedRecruitmentStatuses = ['Apurado', 'approved', 'aprovado', 'admitted', 'apto'];
-
         $alistadosQuery = Candidate::query()
-            ->whereNotNull('institution_id')
             ->when($institutionId, fn($q) => $q->where('institution_id', $institutionId))
             ->when($courseId, fn($q) => $q->whereRaw('1 = 0'))
             ->when($startDate, fn($q) => $q->whereDate('created_at', '>=', $startDate))
             ->when($endDate, fn($q) => $q->whereDate('created_at', '<=', $endDate));
 
         $alistados = $alistadosQuery
-            ->where('student_type', 'like', '%Alistado%')
+            ->where('student_type', 'Alistado')
             ->count();
 
         $studentsBaseQuery = Student::query()
@@ -89,8 +86,7 @@ class DashboardApiController extends Controller
             ->count();
 
         $formandos = Candidate::query()
-            ->whereIn('student_type', ['Alistado', 'Formando'])
-            ->whereIn('status', $approvedRecruitmentStatuses)
+            ->where('student_type', 'Formando')
             ->when($institutionId, fn($q) => $q->where('institution_id', $institutionId))
             ->when($courseId, fn($q) => $q->whereRaw('1 = 0'))
             ->when($startDate, fn($q) => $q->whereDate('created_at', '>=', $startDate))
@@ -155,11 +151,11 @@ class DashboardApiController extends Controller
         $validInstitutionIds = Institution::pluck('id')->toArray();
 
         // Alistados (Candidates)
-        $alistadosQuery = Candidate::query()->whereNotNull('institution_id');
+        $alistadosQuery = Candidate::query();
         if ($institutionId) {
             $alistadosQuery->where('institution_id', $institutionId);
         }
-        $alistados = $alistadosQuery->where('student_type', 'like', '%Alistado%')->count();
+        $alistados = $alistadosQuery->where('student_type', 'Alistado')->count();
 
         // Recrutas e Instruendos (Students)
         $studentsBaseQuery = Student::query()->whereNotNull('institution_id');
@@ -269,11 +265,10 @@ class DashboardApiController extends Controller
 
         // Alistados (Candidates)
         $alistados = Candidate::query()
-            ->whereNotNull('institution_id')
             ->when($institutionId, fn($q) => $q->where('institution_id', $institutionId))
             ->when($startDate, fn($q) => $q->whereDate('created_at', '>=', $startDate))
             ->when($endDate, fn($q) => $q->whereDate('created_at', '<=', $endDate))
-            ->where('student_type', 'like', '%Alistado%')
+            ->where('student_type', 'Alistado')
             ->count();
 
         // Students counts

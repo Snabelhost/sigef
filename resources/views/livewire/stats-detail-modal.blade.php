@@ -53,8 +53,12 @@
 
                     {{-- Content (usa classe nativa do Filament) --}}
                     <div class="fi-modal-content">
+                        @php
+                            $showOnlyMainChart = in_array($modalType, ['formandos', 'alistados', 'recrutas_instruendos', 'em_formacao_concluidos', 'formadores', 'cursos_ano_lectivo', 'disciplinas_curso', 'escolas'], true);
+                            $hasDoughnutChart = isset($chartData['doughnut']) && ! $showOnlyMainChart;
+                        @endphp
                         {{-- Summary Stats (Filament-style) --}}
-                        @if(count($summaryStats) > 0)
+                        @if(! $showOnlyMainChart && count($summaryStats) > 0)
                         <div style="display: grid; grid-template-columns: repeat({{ count($summaryStats) }}, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
                             @foreach($summaryStats as $stat)
                             @php
@@ -97,21 +101,23 @@
                         @endif
 
                         {{-- Charts Grid --}}
-                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem;"
+                        <div style="display: grid; grid-template-columns: {{ $hasDoughnutChart ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 1fr)' }}; gap: 1.25rem;"
                             x-data="statsCharts(@js($chartData), @js($modalType))"
                             x-init="initCharts()">
                             {{-- Bar / Stacked Bar Chart --}}
-                            <div class="rounded-xl ring-1 ring-gray-950/5 dark:ring-white/10" style="padding: 1.25rem; background: #fff;">
+                            <div @class([
+                                'rounded-xl ring-1 ring-gray-950/5 dark:ring-white/10' => ! $showOnlyMainChart,
+                            ]) style="padding: {{ $showOnlyMainChart ? '0.25rem 0 0' : '1.25rem' }}; background: #fff;">
                                 <h3 style="font-size: 0.8125rem; font-weight: 600; color: #374151; margin: 0 0 1rem 0;">
                                     {{ $chartData['bar']['title'] ?? $chartData['stacked_bar']['title'] ?? 'Distribuição' }}
                                 </h3>
-                                <div style="position: relative; height: 300px;">
+                                <div style="position: relative; height: {{ $showOnlyMainChart ? '420px' : '300px' }};">
                                     <canvas id="barChart"></canvas>
                                 </div>
                             </div>
 
                             {{-- Doughnut Chart --}}
-                            @if(isset($chartData['doughnut']))
+                            @if($hasDoughnutChart)
                             <div class="rounded-xl ring-1 ring-gray-950/5 dark:ring-white/10" style="padding: 1.25rem; background: #fff;">
                                 <h3 style="font-size: 0.8125rem; font-weight: 600; color: #374151; margin: 0 0 1rem 0;">
                                     {{ $chartData['doughnut']['title'] ?? 'Distribuição' }}
@@ -169,6 +175,8 @@
                 const fontFamily = "'Inter', system-ui, sans-serif";
 
                 if (data.stacked_bar) {
+                    const isStacked = data.stacked_bar.stacked ?? true;
+
                     config = {
                         type: 'bar',
                         data: {
@@ -220,7 +228,7 @@
                             },
                             scales: {
                                 x: {
-                                    stacked: true,
+                                    stacked: isStacked,
                                     grid: {
                                         display: false
                                     },
@@ -236,7 +244,7 @@
                                     }
                                 },
                                 y: {
-                                    stacked: true,
+                                    stacked: isStacked,
                                     beginAtZero: true,
                                     grid: {
                                         color: 'rgba(0,0,0,0.04)'

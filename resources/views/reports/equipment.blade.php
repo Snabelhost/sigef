@@ -1,35 +1,55 @@
 @extends('reports.layout')
-@section('title', 'Relatório de Atribuição de Meios')
+
+@section('title', 'ATRIBUICAO DE MEIOS')
+@section('subtitle', 'Equipamentos atribuidos aos formandos')
+
 @section('filters')
-@if($institution) <strong>Escola:</strong> {{ $institution->name }} @endif
-@if($dateFrom || $dateTo) | <strong>Período:</strong> {{ $dateFrom ?? 'Início' }} a {{ $dateTo ?? 'Hoje' }} @endif
+    @if($institution) <strong>Instituicao:</strong> {{ $institution->name }} @endif
+    @if($dateFrom || $dateTo) | <strong>Periodo:</strong> {{ $dateFrom ?? 'Inicio' }} a {{ $dateTo ?? 'Hoje' }} @endif
+    @if(! $institution && ! $dateFrom && ! $dateTo) <strong>Filtros:</strong> Todos os registos @endif
 @endsection
-@section('summary') <span>Total: {{ $records->count() }}</span> @endsection
+
 @section('content')
-@if($records->count())
-<table>
-    <thead>
-        <tr>
-            <th>#</th>
-            <th>Formando</th>
-            <th>Equipamento</th>
-            <th>Quantidade</th>
-            <th>Data Atrib.</th>
-            <th>Estado</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach($records as $i => $r)
-        <tr>
-            <td>{{ $i+1 }}</td>
-            <td>{{ $r->student?->candidate?->full_name ?? '-' }}</td>
-            <td>{{ $r->equipment_name ?? $r->description ?? '-' }}</td>
-            <td>{{ $r->quantity ?? 1 }}</td>
-            <td>{{ $r->assigned_at ? \Carbon\Carbon::parse($r->assigned_at)->format('d/m/Y') : ($r->created_at?->format('d/m/Y') ?? '-') }}</td>
-            <td><span class="badge {{ ($r->status ?? 'active') == 'active' ? 'badge-success' : 'badge-gray' }}">{{ ucfirst($r->status ?? 'Activo') }}</span></td>
-        </tr>
-        @endforeach
-    </tbody>
-</table>
-@else <p class="no-data">Sem registos encontrados.</p> @endif
+    @if($records->count())
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 4%;">N</th>
+                    <th class="text-left" style="width: 24%;">Nome</th>
+                    <th style="width: 11%;">NIP/NURI</th>
+                    <th class="text-left" style="width: 32%;">Meios / Equipamentos</th>
+                    <th style="width: 7%;">Qtd.</th>
+                    <th style="width: 12%;">Datas</th>
+                    <th style="width: 10%;">Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($records as $index => $record)
+                    <tr>
+                        <td class="text-center">{{ $index + 1 }}</td>
+                        <td>{{ $record['name'] }}</td>
+                        <td class="text-center">{{ $record['number'] }}</td>
+                        <td>
+                            @forelse($record['equipment'] as $item)
+                                <div>{{ $item['name'] }} ({{ $item['quantity'] }})</div>
+                            @empty
+                                -
+                            @endforelse
+                        </td>
+                        <td class="text-center">{{ $record['quantity'] }}</td>
+                        <td class="text-center">
+                            @forelse($record['dates'] as $date)
+                                <div>{{ $date }}</div>
+                            @empty
+                                -
+                            @endforelse
+                        </td>
+                        <td class="text-center">{{ $record['status'] }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @else
+        <p class="no-data">Sem registos encontrados.</p>
+    @endif
 @endsection

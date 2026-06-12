@@ -1,29 +1,35 @@
 @extends('reports.layout')
-@section('title', 'Relatório de Cursos')
-@section('summary') <span>Total: {{ $records->count() }}</span> @endsection
+
+@section('title', 'CURSOS')
+@section('subtitle', 'Lista de cursos disponiveis')
+
 @section('content')
-@if($records->count())
-<table>
-    <thead>
-        <tr>
-            <th>#</th>
-            <th>Nome</th>
-            <th>Escola</th>
-            <th>Duração (Meses)</th>
-            <th>Fases</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach($records as $i => $r)
-        <tr>
-            <td>{{ $i+1 }}</td>
-            <td>{{ $r->name }}</td>
-            <td>{{ $r->institution?->acronym ?? '-' }}</td>
-            <td>{{ $r->duration_months ?? '-' }}</td>
-            <td><span class="badge {{ $r->has_phases ? 'badge-info' : 'badge-gray' }}">{{ $r->has_phases ? 'Sim' : 'Não' }}</span></td>
-        </tr>
-        @endforeach
-    </tbody>
-</table>
-@else <p class="no-data">Sem registos encontrados.</p> @endif
+    @if($records->count())
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 12%;">Codigo</th>
+                    <th class="text-left" style="width: 31%;">Curso</th>
+                    <th style="width: 14%;">Grau</th>
+                    <th style="width: 12%;">Duracao</th>
+                    <th class="text-left" style="width: 23%;">Faculdade/Escola</th>
+                    <th style="width: 8%;">Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($records as $record)
+                    <tr>
+                        <td class="text-center">CUR-{{ str_pad((string) $record->id, 6, '0', STR_PAD_LEFT) }}</td>
+                        <td>{{ $record->name }}</td>
+                        <td class="text-center">{{ $record->degree ?? $record->level ?? '-' }}</td>
+                        <td class="text-center">{{ $record->duration_months ? $record->duration_months.' meses' : '-' }}</td>
+                        <td>{{ $record->institution?->name ?? '-' }}</td>
+                        <td class="text-center">{{ $record->has_phases ? 'Activo' : 'Activo' }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @else
+        <p class="no-data">Sem registos encontrados.</p>
+    @endif
 @endsection

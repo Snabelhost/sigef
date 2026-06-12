@@ -1,10 +1,10 @@
 @extends('reports.layout')
-@section('title', 'Pauta Geral')
+@section('title', 'PAUTA GERAL DE CLASSIFICACAO')
+@section('subtitle', 'Mapa geral de avaliacoes por disciplina')
 @section('filters')
 @if(isset($institution)) <strong>Escola:</strong> {{ $institution->name }} @endif
 @if($class) <strong>Turma:</strong> {{ $class->name }} @endif
 @endsection
-@section('summary') <span>Total de Formandos: {{ $records->count() }} | Disciplinas: {{ $subjects->count() }}</span> @endsection
 @section('content')
 @if($records->count())
 <table>
@@ -77,7 +77,7 @@
         @endphp
         <tr>
             <td>{{ $i+1 }}</td>
-            <td>{{ $r->candidate?->full_name ?? '-' }}</td>
+            <td>{{ $r->candidate?->full_name ?? $r->full_name ?? '-' }}</td>
             @foreach($grades as $g) <td class="text-center">{{ $g !== null ? number_format($g, 0) : '-' }}</td> @endforeach
             <td class="text-center text-bold">{{ $generalAvg !== null ? number_format($generalAvg, 1) : '-' }}</td>
             <td class="text-center"><span class="badge {{ $badgeClass }}">{{ $resultado }}</span></td>

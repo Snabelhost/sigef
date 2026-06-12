@@ -9,12 +9,30 @@
         $autoPrint = $autoPrint ?? false;
         $reportInstitution = $reportInstitution ?? [];
         $reportConfig = $reportInstitution['config'] ?? \App\Models\SystemSetting::getReportInstitutionConfig($instituicao ?? null);
+        $reportInstitutionNameForHeader = $reportConfig['name'] ?? ($instituicao->name ?? 'SIGEF');
+        $reportInstitutionAcronymForHeader = $reportConfig['acronym'] ?? ($instituicao->acronym ?? 'SIGEF');
+        $normalizeReportLine = fn (mixed $value): string => \Illuminate\Support\Str::of((string) $value)
+            ->ascii()
+            ->lower()
+            ->squish()
+            ->toString();
+        $hiddenReportHeaderLines = array_filter([
+            $reportInstitutionNameForHeader,
+            $reportInstitutionAcronymForHeader,
+            $instituicao?->name ?? null,
+            $instituicao?->acronym ?? null,
+        ], fn ($line) => filled($line));
         $reportHeaderLines = $reportInstitution['headerLines'] ?? array_values(array_filter([
             $reportConfig['republic_line'] ?? null,
             $reportConfig['ministry_line'] ?? null,
             $reportConfig['organ_line'] ?? null,
             $reportConfig['department_line'] ?? null,
         ], fn ($line) => filled($line)));
+        $reportHeaderLines = array_values(array_filter($reportHeaderLines, fn ($line) => ! in_array(
+            $normalizeReportLine($line),
+            array_map($normalizeReportLine, $hiddenReportHeaderLines),
+            true
+        )));
         $resolveReportAsset = function (mixed $path, string $fallback) use (&$resolveReportAsset): string {
             if (is_array($path)) {
                 $path = reset($path) ?: null;

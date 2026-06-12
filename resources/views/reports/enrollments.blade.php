@@ -1,40 +1,57 @@
 @extends('reports.layout')
-@section('title', 'Relatório de Gestão de Formandos')
+
+@section('title', 'LISTAS NOMINAIS DAS TURMAS')
+@section('subtitle', 'Relacao nominal dos formandos por turma')
+
 @section('filters')
-@if($class) <strong>Turma:</strong> {{ $class->name }} @endif
+    @if($class) <strong>Turma:</strong> {{ $class->name }} @else <strong>Turma:</strong> Todas @endif
+    @if($institution) | <strong>Escola:</strong> {{ $institution->name }} @endif
 @endsection
-@section('summary') <span>Total: {{ $records->count() }}</span> @endsection
+
 @section('content')
-@if($records->count())
-<table>
-    <thead>
-        <tr>
-            <th>#</th>
-            <th>Nome</th>
-            <th>Escola</th>
-            <th>Curso</th>
-            <th>Estado Actual</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach($records as $i => $r)
-        @php
-        $type = $r->student_type ?? '-';
-        $badgeClass = 'badge-gray';
-        if (str_contains(strtolower($type), 'recruta')) $badgeClass = 'badge-warning';
-        elseif (str_contains(strtolower($type), 'instruendo')) $badgeClass = 'badge-info';
-        elseif (str_contains(strtolower($type), 'formação')) $badgeClass = 'badge-success';
-        elseif (str_contains(strtolower($type), 'formando')) $badgeClass = 'badge-success';
-        @endphp
-        <tr>
-            <td>{{ $i+1 }}</td>
-            <td>{{ $r->candidate?->full_name ?? '-' }}</td>
-            <td>{{ $r->institution?->acronym ?? '-' }}</td>
-            <td>{{ $r->courseMap?->course?->name ?? '-' }}</td>
-            <td><span class="badge {{ $badgeClass }}">{{ $type }}</span></td>
-        </tr>
-        @endforeach
-    </tbody>
-</table>
-@else <p class="no-data">Sem registos encontrados.</p> @endif
+    @if($records->count())
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 4%;">Nº</th>
+                    <th class="text-left" style="width: 32%;">Nome</th>
+                    <th style="width: 12%;">NIP/NURI</th>
+                    <th class="text-left" style="width: 25%;">Curso</th>
+                    <th style="width: 9%;">Turma</th>
+                    <th style="width: 13%;">Ano lectivo</th>
+                    <th style="width: 5%;">Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($records as $index => $record)
+                    @php
+                        $enrollment = $record->classEnrollments->firstWhere('is_active', true)
+                            ?? $record->classEnrollments->sortByDesc('enrolled_at')->first();
+                        $academicYear = $enrollment?->academicYear?->year
+                            ?: $enrollment?->academicYear?->name
+                            ?: $enrollment?->studentClass?->academicYear?->year
+                            ?: $enrollment?->studentClass?->academicYear?->name
+                            ?: $enrollment?->studentClass?->courseMap?->academicYear?->year
+                            ?: $enrollment?->studentClass?->courseMap?->academicYear?->name
+                            ?: $record->courseMap?->academicYear?->year
+                            ?: $record->courseMap?->academicYear?->name
+                            ?: $record->candidate?->academicYear?->year
+                            ?: $record->candidate?->academicYear?->name
+                            ?: '-';
+                    @endphp
+                    <tr>
+                        <td class="text-center">{{ $index + 1 }}</td>
+                        <td>{{ $record->candidate?->full_name ?? $record->full_name ?? '-' }}</td>
+                        <td class="text-center">{{ $record->nuri ?: $record->student_number ?: '-' }}</td>
+                        <td>{{ $enrollment?->studentClass?->courseMap?->course?->name ?: $record->courseMap?->course?->name ?: '-' }}</td>
+                        <td class="text-center">{{ $enrollment?->studentClass?->name ?? '-' }}</td>
+                        <td class="text-center">{{ $academicYear }}</td>
+                        <td class="text-center">{{ $record->student_type ?: $record->status ?: '-' }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @else
+        <p class="no-data">Sem registos encontrados.</p>
+    @endif
 @endsection

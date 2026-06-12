@@ -1,10 +1,10 @@
 @extends('reports.layout')
-@section('title', 'Mini Pauta')
+@section('title', 'MINI PAUTA PROFESSOR')
+@section('subtitle', 'Mapa de classificacao por formando')
 @section('filters')
 @if(isset($institution)) <strong>Escola:</strong> {{ $institution->name }} @endif
 @if($class) <strong>Turma:</strong> {{ $class->name }} @endif
 @endsection
-@section('summary') <span>Total de Formandos: {{ $records->count() }}</span> @endsection
 @section('content')
 @if($records->count())
 <table>
@@ -65,7 +65,7 @@
         @endphp
         <tr>
             <td>{{ $i+1 }}</td>
-            <td>{{ $r->candidate?->full_name ?? '-' }}</td>
+            <td>{{ $r->candidate?->full_name ?? $r->full_name ?? '-' }}</td>
             <td class="text-bold">{{ $generalAvg !== null ? number_format($generalAvg, 1) : '-' }}</td>
             <td><span class="badge {{ $badgeClass }}">{{ $resultado }}</span></td>
         </tr>

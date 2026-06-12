@@ -20,10 +20,10 @@ class SystemSetting extends Model
     ];
 
     private const REPORT_INSTITUTION_DEFAULTS = [
-        'republic_line' => 'República de Angola',
-        'ministry_line' => 'Ministério do Interior',
-        'organ_line' => 'Polícia Nacional de Angola',
-        'department_line' => 'Sistema Integrado de Gestão Escolar e Formação',
+        'republic_line' => 'Republica de Angola',
+        'ministry_line' => 'Ministerio do Interior',
+        'organ_line' => 'Policia Nacional de Angola',
+        'department_line' => 'Sistema Integrado de Gestao Escolar e Formacao',
         'name' => 'SIGEF',
         'acronym' => 'SIGEF',
         'director_name' => '',
@@ -37,6 +37,12 @@ class SystemSetting extends Model
         'municipality' => '',
         'address' => '',
         'logo_path' => '',
+        'watermark_path' => '',
+        'certificate_school_name' => '',
+        'certificate_left_signature_title' => 'O Director Adj. P/ Instrução e Ensino',
+        'certificate_left_signature_subtitle' => '*Subcomissário*',
+        'certificate_right_signature_title' => 'O Director da Escola',
+        'certificate_right_signature_subtitle' => '**Comissário**',
         'footer_text' => '',
     ];
 
@@ -50,6 +56,7 @@ class SystemSetting extends Model
         'municipality' => 'municipality',
         'address' => 'address',
         'logo_path' => 'logo',
+        'certificate_school_name' => 'name',
     ];
 
     /**
@@ -167,6 +174,10 @@ class SystemSetting extends Model
             if (static::where('key', $scopedKey)->exists()) {
                 $scopedValue = static::get($scopedKey, null);
 
+                if (static::isReportInstitutionFilePath($key)) {
+                    return static::normalizeReportInstitutionValue($key, $scopedValue);
+                }
+
                 if (filled($scopedValue) || ! array_key_exists($key, self::REPORT_INSTITUTION_MODEL_FIELDS)) {
                     return static::normalizeReportInstitutionValue($key, $scopedValue);
                 }
@@ -188,7 +199,7 @@ class SystemSetting extends Model
 
     private static function normalizeReportInstitutionValue(string $key, mixed $value): mixed
     {
-        if ($key !== 'logo_path') {
+        if (! static::isReportInstitutionFilePath($key)) {
             return $value;
         }
 
@@ -221,6 +232,11 @@ class SystemSetting extends Model
         }
 
         return $value;
+    }
+
+    private static function isReportInstitutionFilePath(string $key): bool
+    {
+        return in_array($key, ['logo_path', 'watermark_path'], true);
     }
 
     private static function resolveReportInstitution(Institution|int|null $institution = null): ?Institution

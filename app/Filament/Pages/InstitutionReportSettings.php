@@ -44,6 +44,12 @@ class InstitutionReportSettings extends Page
     public ?string $report_institution_municipality = '';
     public ?string $report_institution_address = '';
     public array $report_institution_logo_path = [];
+    public array $report_institution_watermark_path = [];
+    public ?string $report_institution_certificate_school_name = '';
+    public ?string $report_institution_certificate_left_signature_title = '';
+    public ?string $report_institution_certificate_left_signature_subtitle = '';
+    public ?string $report_institution_certificate_right_signature_title = '';
+    public ?string $report_institution_certificate_right_signature_subtitle = '';
     public ?string $report_institution_footer_text = '';
 
     public function mount(): void
@@ -90,7 +96,16 @@ class InstitutionReportSettings extends Page
                             ->directory('report-institution')
                             ->imageEditor()
                             ->maxFiles(1)
-                            ->columnSpanFull(),
+                            ->columnSpan(1),
+                        Forms\Components\FileUpload::make('report_institution_watermark_path')
+                            ->label('Marca de água')
+                            ->image()
+                            ->disk('public')
+                            ->directory('report-institution/watermarks')
+                            ->imageEditor()
+                            ->maxFiles(1)
+                            ->helperText('Se não for informada, será usada a mesma imagem do logótipo.')
+                            ->columnSpan(1),
                         Forms\Components\TextInput::make('report_institution_republic_line')
                             ->label('Linha 1')
                             ->maxLength(191),
@@ -157,6 +172,22 @@ class InstitutionReportSettings extends Page
                     ->description('Texto exibido no rodapé das fichas e relatórios.')
                     ->icon('heroicon-o-bars-3-bottom-left')
                     ->schema([
+                        Forms\Components\TextInput::make('report_institution_certificate_school_name')
+                            ->label('Escola no cabeçalho do certificado')
+                            ->helperText('Use este campo quando o texto do certificado deve mostrar uma escola diferente do nome administrativo da instituição.')
+                            ->maxLength(191),
+                        Forms\Components\TextInput::make('report_institution_certificate_left_signature_title')
+                            ->label('Certificado - assinatura esquerda / cargo')
+                            ->maxLength(191),
+                        Forms\Components\TextInput::make('report_institution_certificate_left_signature_subtitle')
+                            ->label('Certificado - assinatura esquerda / patente')
+                            ->maxLength(191),
+                        Forms\Components\TextInput::make('report_institution_certificate_right_signature_title')
+                            ->label('Certificado - assinatura direita / cargo')
+                            ->maxLength(191),
+                        Forms\Components\TextInput::make('report_institution_certificate_right_signature_subtitle')
+                            ->label('Certificado - assinatura direita / patente')
+                            ->maxLength(191),
                         Forms\Components\Textarea::make('report_institution_footer_text')
                             ->label('Texto do rodapé')
                             ->rows(3)
@@ -250,7 +281,7 @@ class InstitutionReportSettings extends Page
 
     private function normalizeValueForForm(string $key, mixed $value): mixed
     {
-        if ($key === 'logo_path') {
+        if (in_array($key, ['logo_path', 'watermark_path'], true)) {
             $path = $this->normalizeStoredFilePath($value);
 
             return $path ? [$path] : [];

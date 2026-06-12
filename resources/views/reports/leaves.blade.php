@@ -1,39 +1,54 @@
 @extends('reports.layout')
-@section('title', 'Relatório de Dispensas e Faltas')
+
+@section('title', 'DISPENSAS E FALTAS')
+@section('subtitle', 'Registo de ocorrencias dos formandos')
+
 @section('filters')
-@if($institution) <strong>Escola:</strong> {{ $institution->name }} @endif
-@if($dateFrom || $dateTo) | <strong>Período:</strong> {{ $dateFrom ?? 'Início' }} a {{ $dateTo ?? 'Hoje' }} @endif
+    @if($institution) <strong>Instituicao:</strong> {{ $institution->name }} @endif
+    @if($dateFrom || $dateTo) | <strong>Periodo:</strong> {{ $dateFrom ?? 'Inicio' }} a {{ $dateTo ?? 'Hoje' }} @endif
+    @if(! $institution && ! $dateFrom && ! $dateTo) <strong>Filtros:</strong> Todos os registos @endif
 @endsection
-@section('summary') <span>Total: {{ $records->count() }}</span> @endsection
+
 @section('content')
-@if($records->count())
-<table>
-    <thead>
-        <tr>
-            <th>#</th>
-            <th>Formando</th>
-            <th>Tipo</th>
-            <th>Motivo</th>
-            <th>Data Início</th>
-            <th>Data Fim</th>
-            <th>Dias</th>
-            <th>Estado</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach($records as $i => $r)
-        <tr>
-            <td>{{ $i+1 }}</td>
-            <td>{{ $r->student?->candidate?->full_name ?? '-' }}</td>
-            <td><span class="badge {{ str_contains(strtolower($r->leave_type ?? ''), 'falta') ? 'badge-danger' : 'badge-warning' }}">{{ $r->leave_type ?? '-' }}</span></td>
-            <td>{{ \Illuminate\Support\Str::limit($r->reason ?? '-', 40) }}</td>
-            <td>{{ $r->start_date?->format('d/m/Y') ?? '-' }}</td>
-            <td>{{ $r->end_date?->format('d/m/Y') ?? '-' }}</td>
-            <td>{{ $r->start_date && $r->end_date ? $r->start_date->diffInDays($r->end_date) + 1 : '-' }}</td>
-            <td><span class="badge {{ ($r->status ?? '') == 'approved' ? 'badge-success' : (($r->status ?? '') == 'rejected' ? 'badge-danger' : 'badge-warning') }}">{{ ucfirst($r->status ?? '-') }}</span></td>
-        </tr>
-        @endforeach
-    </tbody>
-</table>
-@else <p class="no-data">Sem registos encontrados.</p> @endif
+    @if($records->count())
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 4%;">N</th>
+                    <th class="text-left" style="width: 21%;">Nome</th>
+                    <th style="width: 10%;">NIP/NURI</th>
+                    <th class="text-left" style="width: 45%;">Ocorrencias</th>
+                    <th style="width: 7%;">Total</th>
+                    <th style="width: 6%;">Dias</th>
+                    <th style="width: 7%;">Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($records as $index => $record)
+                    <tr>
+                        <td class="text-center">{{ $index + 1 }}</td>
+                        <td>{{ $record['name'] }}</td>
+                        <td class="text-center">{{ $record['number'] }}</td>
+                        <td>
+                            @forelse($record['occurrences'] as $occurrence)
+                                <div>
+                                    <strong>{{ $occurrence['type'] }}</strong>
+                                    | {{ $occurrence['period'] }}
+                                    | {{ $occurrence['days'] ? $occurrence['days'].' dia'.($occurrence['days'] === 1 ? '' : 's') : '-' }}
+                                    | {{ \Illuminate\Support\Str::limit($occurrence['reason'], 80) }}
+                                </div>
+                            @empty
+                                -
+                            @endforelse
+                        </td>
+                        <td class="text-center">{{ $record['occurrence_count'] }}</td>
+                        <td class="text-center">{{ $record['total_days'] ?: '-' }}</td>
+                        <td class="text-center">{{ $record['statuses'] }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+    @else
+        <p class="no-data">Sem registos encontrados.</p>
+    @endif
 @endsection

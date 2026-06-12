@@ -1,17 +1,14 @@
 @extends('reports.layout')
 
-@section('title', 'Relatório de '.$reportLabel)
+@section('title', strtoupper($reportLabel))
+@section('subtitle', 'Lista de formandos por filtros seleccionados')
 
 @section('filters')
     <strong>Tipo:</strong> {{ $studentType }}
     @if($institution) | <strong>Escola:</strong> {{ $institution->name }} @endif
     @if($class) | <strong>Turma:</strong> {{ $class->name }} @endif
     @if($academicYear) | <strong>Ano Lectivo:</strong> {{ $academicYear->name }} @endif
-    @if($dateFrom || $dateTo) | <strong>Período:</strong> {{ $dateFrom ?? 'Início' }} a {{ $dateTo ?? 'Hoje' }} @endif
-@endsection
-
-@section('summary')
-    <span>Total: {{ $records->count() }}</span>
+    @if($dateFrom || $dateTo) | <strong>Periodo:</strong> {{ $dateFrom ?? 'Inicio' }} a {{ $dateTo ?? 'Hoje' }} @endif
 @endsection
 
 @section('content')
@@ -19,50 +16,31 @@
         <table>
             <thead>
                 <tr>
-                    <th>#</th>
-                    <th>Nome</th>
-                    <th>NIP/NURI</th>
-                    <th>BI</th>
-                    <th>Escola</th>
-                    <th>Curso</th>
-                    <th>Turma</th>
-                    <th>CIA</th>
-                    <th>Pelotão</th>
-                    <th>Secção</th>
-                    <th>Estado/Tipo</th>
-                    <th>Origem</th>
-                    <th>Data</th>
+                    <th style="width: 4%;">Nº</th>
+                    <th class="text-left" style="width: 25%;">Nome</th>
+                    <th style="width: 10%;">NIP/NURI</th>
+                    <th style="width: 11%;">BI</th>
+                    <th class="text-left" style="width: 18%;">Curso</th>
+                    <th style="width: 8%;">Turma</th>
+                    <th style="width: 6%;">CIA</th>
+                    <th style="width: 7%;">Pelotao</th>
+                    <th style="width: 7%;">Seccao</th>
+                    <th style="width: 4%;">Estado</th>
                 </tr>
             </thead>
             <tbody>
-                @foreach($records as $i => $record)
-                    @php
-                        $type = $record['type'] ?: $studentType;
-                        $normalizedType = mb_strtolower(\Illuminate\Support\Str::ascii($type));
-                        $badgeClass = 'badge-gray';
-
-                        if (str_contains($normalizedType, 'recruta')) {
-                            $badgeClass = 'badge-warning';
-                        } elseif (str_contains($normalizedType, 'instruendo')) {
-                            $badgeClass = 'badge-info';
-                        } elseif (str_contains($normalizedType, 'formacao') || str_contains($normalizedType, 'formando') || str_contains($normalizedType, 'conclu')) {
-                            $badgeClass = 'badge-success';
-                        }
-                    @endphp
+                @foreach($records as $index => $record)
                     <tr>
-                        <td>{{ $i + 1 }}</td>
+                        <td class="text-center">{{ $index + 1 }}</td>
                         <td>{{ $record['name'] ?: '-' }}</td>
-                        <td>{{ $record['number'] ?: '-' }}</td>
-                        <td>{{ $record['bi'] ?: '-' }}</td>
-                        <td>{{ $record['institution'] ?: '-' }}</td>
+                        <td class="text-center">{{ $record['number'] ?: '-' }}</td>
+                        <td class="text-center">{{ $record['bi'] ?: '-' }}</td>
                         <td>{{ $record['course'] ?: '-' }}</td>
-                        <td>{{ $record['class'] ?: '-' }}</td>
-                        <td>{{ $record['cia'] ?: '-' }}</td>
-                        <td>{{ $record['platoon'] ?: '-' }}</td>
-                        <td>{{ $record['section'] ?: '-' }}</td>
-                        <td><span class="badge {{ $badgeClass }}">{{ $type ?: '-' }}</span></td>
-                        <td>{{ $record['origin'] ?: '-' }}</td>
-                        <td>{{ $record['date'] ? $record['date']->format('d/m/Y') : '-' }}</td>
+                        <td class="text-center">{{ $record['class'] ?: '-' }}</td>
+                        <td class="text-center">{{ $record['cia'] ?: '-' }}</td>
+                        <td class="text-center">{{ $record['platoon'] ?: '-' }}</td>
+                        <td class="text-center">{{ $record['section'] ?: '-' }}</td>
+                        <td class="text-center">{{ $record['type'] ?: $studentType }}</td>
                     </tr>
                 @endforeach
             </tbody>

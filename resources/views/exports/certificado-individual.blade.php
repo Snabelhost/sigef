@@ -1,6 +1,19 @@
 @php
     $autoPrint = $autoPrint ?? false;
     $embeddedMode = $embeddedMode ?? false;
+    $certificate = $certificate ?? [];
+    $certificateHeaderLines = array_values(array_filter($certificate['header_lines'] ?? []));
+    $certificateLogoUrl = $certificate['logo_url'] ?? null;
+    $certificateWatermarkUrl = $certificate['watermark_url'] ?? null;
+    $certificateInstitutionName = $certificate['name'] ?? ($aluno['instituicao'] ?? 'Escola de Formação de Polícia');
+    $certificateDirectorTitle = $certificate['director_title'] ?? ($aluno['director'] ?? 'O Director');
+    $certificateDirectorName = $certificate['director_name'] ?? '';
+    $certificateDirectorLabel = trim($certificateDirectorTitle . ($certificateDirectorName ? ', ' . $certificateDirectorName : ''));
+    $certificateLocation = $certificate['location'] ?? ($aluno['cidade'] ?? 'Luanda');
+    $certificateLeftSignatureTitle = $certificate['left_signature_title'] ?? 'O Director Adj. P/ Instrução e Ensino';
+    $certificateLeftSignatureSubtitle = $certificate['left_signature_subtitle'] ?? '*Subcomissário*';
+    $certificateRightSignatureTitle = $certificate['right_signature_title'] ?? 'O Director da Escola';
+    $certificateRightSignatureSubtitle = $certificate['right_signature_subtitle'] ?? '**Comissário**';
 @endphp
 <!DOCTYPE html>
 <html lang="pt">
@@ -74,7 +87,9 @@
             width: 280px;
             height: 280px;
             opacity: 0.06;
-            background: url('/images/logo-pna.png') center/contain no-repeat;
+            background-position: center;
+            background-size: contain;
+            background-repeat: no-repeat;
             z-index: 1;
         }
 
@@ -333,7 +348,9 @@
         <div class="borda-externa"></div>
         <div class="borda-dourada"></div>
         <div class="borda-interna"></div>
-        <div class="watermark"></div>
+        @if($certificateWatermarkUrl)
+            <div class="watermark" style="background-image: url('{{ $certificateWatermarkUrl }}');"></div>
+        @endif
 
         <div class="numero-certificado">
             Nº {{ $aluno['numero_registo'] ?? $aluno['numero'] }}/CBFARFT/{{ date('Y') }}
@@ -341,12 +358,21 @@
 
         <div class="conteudo">
             <div class="header">
-                <img src="/images/logo-pna.png" alt="Logo PNA" class="logo-pna">
+                @if($certificateLogoUrl)
+                    <img src="{{ $certificateLogoUrl }}" alt="Logotipo" class="logo-pna">
+                @endif
                 <div class="header-text">
+                    @foreach($certificateHeaderLines as $line)
+                        <p class="{{ $loop->first ? 'republica' : ($loop->last ? 'escola' : 'policia') }}">
+                            {{ mb_strtoupper((string) $line, 'UTF-8') }}
+                        </p>
+                    @endforeach
+                    @if(false)
                     <p class="republica">República de Angola</p>
                     <p class="ministerio">Ministério do Interior</p>
                     <p class="policia">Polícia Nacional de Angola</p>
                     <p class="escola">{{ strtoupper($aluno['instituicao'] ?? 'Escola de Formação de Polícia') }}</p>
+                    @endif
                 </div>
             </div>
 
@@ -389,20 +415,20 @@
 
                 <div class="rodape">
                     <div class="local-data">
-                        <strong>{{ $aluno['instituicao'] ?? 'Escola de Formação de Polícia' }}</strong> em {{ $aluno['cidade'] ?? 'Luanda' }},
+                        <strong>{{ $certificateInstitutionName }}</strong> em {{ $certificateLocation }},
                         aos ______ de __________________ de {{ date('Y') }}.
                     </div>
 
                     <div class="assinaturas">
                         <div class="assinatura">
                             <div class="assinatura-linha"></div>
-                            <div class="assinatura-cargo">O Director Adj. P/ Instrução e Ensino</div>
-                            <div class="assinatura-patente">*Subcomissário*</div>
+                            <div class="assinatura-cargo">{{ $certificateLeftSignatureTitle }}</div>
+                            <div class="assinatura-patente">{{ $certificateLeftSignatureSubtitle }}</div>
                         </div>
                         <div class="assinatura">
                             <div class="assinatura-linha"></div>
-                            <div class="assinatura-cargo">O Director da Escola</div>
-                            <div class="assinatura-patente">**Comissário**</div>
+                            <div class="assinatura-cargo">{{ $certificateRightSignatureTitle }}</div>
+                            <div class="assinatura-patente">{{ $certificateRightSignatureSubtitle }}</div>
                         </div>
                     </div>
                 </div>

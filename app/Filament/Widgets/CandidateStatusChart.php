@@ -6,6 +6,7 @@ use App\Models\Student;
 use App\Models\Candidate;
 use App\Filament\Widgets\Concerns\UsesDashboardChartCache;
 use App\Services\SigaDashboardStatsService;
+use App\Support\ChartColors;
 use Filament\Widgets\ChartWidget;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Illuminate\Support\Carbon;
@@ -47,29 +48,29 @@ class CandidateStatusChart extends ChartWidget
         // Definir os estados que queremos mostrar com cores fixas
         $estados = [
             'Alistado' => [
-                'color' => 'rgba(59, 130, 246, 0.9)',   // Azul
+                'color' => ChartColors::forLabel('Alistado', 0.9),
                 'count' => 0,
             ],
             'Recruta' => [
-                'color' => 'rgba(16, 185, 129, 0.9)',    // Verde
+                'color' => ChartColors::forLabel('Recruta', 0.9),
                 'count' => 0,
             ],
             'Instruendo' => [
-                'color' => 'rgba(245, 158, 11, 0.9)',    // Amarelo
+                'color' => ChartColors::forLabel('Instruendo', 0.9),
                 'count' => 0,
             ],
             'Formando Superior' => [
-                'color' => 'rgba(139, 92, 246, 0.9)',    // Roxo
+                'color' => ChartColors::forLabel('Formando Superior', 0.9),
                 'count' => 0,
             ],
             'Em Formação' => [
-                'color' => 'rgba(236, 72, 153, 0.9)',    // Rosa
+                'color' => ChartColors::forLabel('Em Formação', 0.9),
                 'count' => 0,
             ],
         ];
         
         // Contar Alistados (de Candidates)
-        $alistadosQuery = Candidate::query()->whereNotNull('institution_id');
+        $alistadosQuery = Candidate::query();
         if ($institutionId) {
             $alistadosQuery->where('institution_id', $institutionId);
         }
@@ -82,7 +83,7 @@ class CandidateStatusChart extends ChartWidget
         if ($endDate) {
             $alistadosQuery->whereDate('created_at', '<=', $endDate);
         }
-        $estados['Alistado']['count'] = (clone $alistadosQuery)->where('student_type', 'like', '%Alistado%')->count();
+        $estados['Alistado']['count'] = (clone $alistadosQuery)->where('student_type', 'Alistado')->count();
         
         // Contar os outros estados (de Students)
         $studentsQuery = Student::query()->whereNotNull('institution_id');
@@ -120,11 +121,6 @@ class CandidateStatusChart extends ChartWidget
             ->whereNot('student_type', 'like', '%Superior%')
             ->count();
         
-        $sigaColors = [
-            'Cadetes API SIGA' => 'rgba(14, 165, 233, 0.9)',
-            "P\u{00F3}s-Laboral API SIGA" => 'rgba(20, 184, 166, 0.9)',
-        ];
-
         foreach (app(SigaDashboardStatsService::class)->studentTrainingTypes($filters) as $row) {
             $label = (string) ($row['label'] ?? '');
             $count = (int) ($row['total_alunos'] ?? 0);
@@ -134,7 +130,7 @@ class CandidateStatusChart extends ChartWidget
             }
 
             $estados[$label] = [
-                'color' => $sigaColors[$label] ?? 'rgba(99, 102, 241, 0.9)',
+                'color' => ChartColors::forLabel($label, 0.9),
                 'count' => $count,
             ];
         }
@@ -156,7 +152,7 @@ class CandidateStatusChart extends ChartWidget
         if (empty($values)) {
             $labels = ['Sem dados'];
             $values = [1];
-            $colors = ['rgba(156, 163, 175, 0.8)'];
+            $colors = [ChartColors::forLabel('Sem dados', 0.8)];
         }
 
         return [

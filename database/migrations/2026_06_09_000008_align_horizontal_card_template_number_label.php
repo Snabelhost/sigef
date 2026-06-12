@@ -23,7 +23,7 @@ return new class extends Migration
                     ->orWhere('number_label', 'BI');
             })
             ->update([
-                'number_label' => 'N.º MECANOGRAFICO',
+                'number_label' => 'NIP/NURI',
                 'updated_at' => now(),
             ]);
     }
@@ -36,7 +36,7 @@ return new class extends Migration
 
         DB::table('card_templates')
             ->whereIn('card_type', [CardTemplate::TYPE_PROFESSOR, CardTemplate::TYPE_STAFF])
-            ->where('number_label', 'N.º MECANOGRAFICO')
+            ->where('number_label', 'NIP/NURI')
             ->update([
                 'number_label' => null,
                 'updated_at' => now(),

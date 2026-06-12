@@ -218,12 +218,27 @@ class PautaController extends Controller
     private function reportInstitutionPayload(?Institution $institution): array
     {
         $config = SystemSetting::getReportInstitutionConfig($institution);
+        $normalizeHeaderLine = fn (mixed $value): string => Str::of((string) $value)
+            ->ascii()
+            ->lower()
+            ->squish()
+            ->toString();
+        $hiddenHeaderLines = array_filter([
+            $config['name'] ?? null,
+            $config['acronym'] ?? null,
+            $institution?->name,
+            $institution?->acronym,
+        ], fn ($line) => filled($line));
         $headerLines = array_values(array_filter([
             $config['republic_line'] ?? null,
             $config['ministry_line'] ?? null,
             $config['organ_line'] ?? null,
             $config['department_line'] ?? null,
-        ], fn($line) => filled($line)));
+        ], fn ($line) => filled($line) && ! in_array(
+            $normalizeHeaderLine($line),
+            array_map($normalizeHeaderLine, $hiddenHeaderLines),
+            true
+        )));
 
         return [
             'config' => $config,

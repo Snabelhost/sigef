@@ -4,6 +4,7 @@ namespace App\Filament\Escola\Widgets;
 
 use App\Models\Student;
 use App\Models\Candidate;
+use App\Support\ChartColors;
 use Filament\Facades\Filament;
 use Filament\Widgets\ChartWidget;
 
@@ -21,23 +22,23 @@ class EscolaCandidateStatusChart extends ChartWidget
 
         $estados = [
             'Alistado' => [
-                'color' => 'rgba(59, 130, 246, 0.9)',
+                'color' => ChartColors::forLabel('Alistado', 0.9),
                 'count' => 0,
             ],
             'Recruta' => [
-                'color' => 'rgba(16, 185, 129, 0.9)',
+                'color' => ChartColors::forLabel('Recruta', 0.9),
                 'count' => 0,
             ],
             'Instruendo' => [
-                'color' => 'rgba(245, 158, 11, 0.9)',
+                'color' => ChartColors::forLabel('Instruendo', 0.9),
                 'count' => 0,
             ],
             'Formando Superior' => [
-                'color' => 'rgba(139, 92, 246, 0.9)',
+                'color' => ChartColors::forLabel('Formando Superior', 0.9),
                 'count' => 0,
             ],
             'Em Formação' => [
-                'color' => 'rgba(236, 72, 153, 0.9)',
+                'color' => ChartColors::forLabel('Em Formação', 0.9),
                 'count' => 0,
             ],
         ];
@@ -82,7 +83,7 @@ class EscolaCandidateStatusChart extends ChartWidget
         if (empty($values)) {
             $labels = ['Sem dados'];
             $values = [1];
-            $colors = ['rgba(156, 163, 175, 0.8)'];
+            $colors = [ChartColors::forLabel('Sem dados', 0.8)];
         }
 
         return [

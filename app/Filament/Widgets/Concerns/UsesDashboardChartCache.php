@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets\Concerns;
 
+use App\Support\ChartColors;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -11,7 +12,7 @@ trait UsesDashboardChartCache
     protected function rememberDashboardChart(string $name, array $filters, callable $callback, array $fallback): array
     {
         $cacheKey = 'dashboard.chart.' . $name . '.' . md5(json_encode([
-            'version' => 2,
+            'version' => 3,
             'filters' => $this->normalizeDashboardChartFilters($filters),
             'siga_base_url' => config('services.siga.base_url'),
             'siga_auth' => md5((string) config('services.siga.api_key') . '|' . (string) config('services.siga.token')),
@@ -58,16 +59,16 @@ trait UsesDashboardChartCache
                 [
                     'label' => 'Sistema',
                     'data' => [0],
-                    'backgroundColor' => ['rgba(37, 99, 235, 0.28)'],
-                    'borderColor' => ['rgba(37, 99, 235, 0.7)'],
+                    'backgroundColor' => [ChartColors::forLabel('Sistema', 0.28)],
+                    'borderColor' => [ChartColors::forLabel('Sistema', 0.7)],
                     'borderWidth' => 1,
                     'borderRadius' => 8,
                 ],
                 [
                     'label' => 'API SIGA',
                     'data' => [0],
-                    'backgroundColor' => ['rgba(16, 185, 129, 0.2)'],
-                    'borderColor' => ['rgba(16, 185, 129, 0.65)'],
+                    'backgroundColor' => [ChartColors::forLabel('API SIGA', 0.2)],
+                    'borderColor' => [ChartColors::forLabel('API SIGA', 0.65)],
                     'borderWidth' => 1,
                     'borderRadius' => 8,
                 ],
@@ -83,7 +84,7 @@ trait UsesDashboardChartCache
                 [
                     'label' => $label,
                     'data' => [1],
-                    'backgroundColor' => ['rgba(156, 163, 175, 0.8)'],
+                    'backgroundColor' => [ChartColors::forLabel('Sem dados', 0.8)],
                     'borderWidth' => 0,
                 ],
             ],

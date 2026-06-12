@@ -268,6 +268,51 @@
             <a class="btn-pdf" onclick="openReport('trainers', this)" href="javascript:void(0)">{!! $iconDownload !!} Pr&eacute; Visualizar</a>
         </div>
         <div class="report-card">
+            <h3><x-heroicon-o-book-open /> Formadores por Disciplina</h3>
+            <p class="desc">Mapa dos docentes por disciplina leccionada</p>
+            <div class="filters">
+                <select id="trainer_subjects_institution">
+                    <option value="">Todas as Escolas</option>
+                    @foreach($institutions as $id => $name)
+                    <option value="{{ $id }}">{{ $name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <a class="btn-pdf" onclick="openReport('trainer-subjects', this)" href="javascript:void(0)">{!! $iconDownload !!} Pr&eacute; Visualizar</a>
+        </div>
+        <div class="report-card">
+            <h3><x-heroicon-o-user-circle /> Efectivos</h3>
+            <p class="desc">Rela&ccedil;&atilde;o geral dos funcion&aacute;rios e efectivos</p>
+            <div class="filters">
+                <select id="effectives_institution">
+                    <option value="">Todas as Escolas</option>
+                    @foreach($institutions as $id => $name)
+                    <option value="{{ $id }}">{{ $name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <a class="btn-pdf" onclick="openReport('effectives', this)" href="javascript:void(0)">{!! $iconDownload !!} Pr&eacute; Visualizar</a>
+        </div>
+        <div class="report-card">
+            <h3><x-heroicon-o-building-office-2 /> Lista por &Oacute;rg&atilde;o de Proveni&ecirc;ncia</h3>
+            <p class="desc">Formandos agrupados por prov&iacute;ncia e &oacute;rg&atilde;o de proveni&ecirc;ncia</p>
+            <div class="filters">
+                <select id="students_by_provenance_institution">
+                    <option value="">Todas as Escolas</option>
+                    @foreach($institutions as $id => $name)
+                    <option value="{{ $id }}">{{ $name }}</option>
+                    @endforeach
+                </select>
+                <select id="students_by_provenance_class">
+                    <option value="">Todas as Turmas</option>
+                    @foreach($classes as $id => $name)
+                    <option value="{{ $id }}">{{ $name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <a class="btn-pdf" onclick="openReport('students-by-provenance', this)" href="javascript:void(0)">{!! $iconDownload !!} Pr&eacute; Visualizar</a>
+        </div>
+        <div class="report-card">
             <h3><x-heroicon-o-user-plus /> Alistados</h3>
             <p class="desc">Lista de candidatos alistados</p>
             <div class="filters">
@@ -554,6 +599,9 @@
                 'accesses': ['accesses_user', 'accesses_action', 'accesses_date_from', 'accesses_date_to'],
                 'audit': ['audit_user', 'audit_event', 'audit_model', 'audit_date_from', 'audit_date_to'],
                 'trainers': ['trainers_institution'],
+                'trainer-subjects': ['trainer_subjects_institution'],
+                'effectives': ['effectives_institution'],
+                'students-by-provenance': ['students_by_provenance_institution', 'students_by_provenance_class'],
                 'alistados': ['alistados_year', 'alistados_date_from', 'alistados_date_to'],
                 'enrollments': ['enrollments_class'],
                 'equipment': ['equipment_institution', 'equipment_date_from', 'equipment_date_to'],
