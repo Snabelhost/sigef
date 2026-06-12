@@ -44,6 +44,7 @@ class RoleResource extends BaseRoleResource
     protected static ?array $permissionGroupsCache = null;
 
     protected const PERMISSION_TYPES = [
+        'panels' => 'Painéis',
         'resources' => 'Recursos',
         'pages' => 'Páginas',
         'reports' => 'Relatórios',
@@ -164,6 +165,9 @@ class RoleResource extends BaseRoleResource
     protected static function permissionTabs(): array
     {
         return [
+            Tab::make('Painéis')
+                ->badge(static::permissionTabBadge('panels'))
+                ->schema(static::permissionGroupSections('panels')),
             Tab::make('Recursos')
                 ->badge(static::permissionTabBadge('resources'))
                 ->schema(static::permissionGroupSections('resources')),
@@ -383,6 +387,10 @@ class RoleResource extends BaseRoleResource
     {
         $haystack = static::normalizePermissionSearch($permissionName . ' ' . $subject);
 
+        if (static::isPanelAccessSubject($permissionName, $subject)) {
+            return 'panels';
+        }
+
         if (static::isReportSubject($subject, $haystack)) {
             return 'reports';
         }
@@ -400,6 +408,14 @@ class RoleResource extends BaseRoleResource
         }
 
         return 'legacy';
+    }
+
+    protected static function isPanelAccessSubject(string $permissionName, string $subject): bool
+    {
+        return str_starts_with($permissionName, 'AccessPanel:')
+            || $subject === 'Admin'
+            || $subject === 'Escola'
+            || $subject === 'Professores';
     }
 
     protected static function isResourceAction(string $action): bool
@@ -469,6 +485,7 @@ class RoleResource extends BaseRoleResource
     {
         $labels = [
             'AcademicYear' => 'Anos Lectivos',
+            'Admin' => 'Painel Admin',
             'AttendanceManagement' => 'Posto / Presenças',
             'BackupSettings' => 'Cópias de Segurança',
             'Candidate' => 'Alistados',
@@ -480,6 +497,7 @@ class RoleResource extends BaseRoleResource
             'Dashboard' => 'Painel de Controlo',
             'Document' => 'Documentos',
             'EquipmentAssignment' => 'Atribuição de Meios',
+            'Escola' => 'Painel da Escola',
             'Evaluation' => 'Avaliações',
             'Institution' => 'Instituições',
             'InstitutionType' => 'Tipos de Instituição',
@@ -487,6 +505,7 @@ class RoleResource extends BaseRoleResource
             'Pauta' => 'Mini Pauta',
             'PautaGeral' => 'Pauta Geral',
             'Provenance' => 'Órgãos de Proveniência',
+            'Professores' => 'Painel do Professor',
             'Rank' => 'Patentes',
             'RecruitmentType' => 'Tipos de Recrutamento',
             'Relatorios' => 'Relatórios',
@@ -516,6 +535,7 @@ class RoleResource extends BaseRoleResource
     protected static function subjectDescription(string $subject, string $type): string
     {
         return match ($type) {
+            'panels' => 'Permite entrar neste painel após o login',
             'pages' => 'Página do painel administrativo',
             'reports' => 'Relatórios e mapas do sistema',
             'dashboard' => 'Cartões e gráficos do Painel de Controlo',
@@ -541,6 +561,7 @@ class RoleResource extends BaseRoleResource
             'Reorder' => 'Reordenar',
             'Export' => 'Exportar',
             'Import' => 'Importar',
+            'AccessPanel' => 'Permitir acesso',
             'Acesso' => 'Acesso',
         ];
 

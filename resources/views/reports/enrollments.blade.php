@@ -25,6 +25,7 @@
             <tbody>
                 @foreach($records as $index => $record)
                     @php
+                        $studentName = trim((string) ($record->candidate?->full_name ?: $record->full_name ?: ''));
                         $enrollment = $record->classEnrollments->firstWhere('is_active', true)
                             ?? $record->classEnrollments->sortByDesc('enrolled_at')->first();
                         $academicYear = $enrollment?->academicYear?->year
@@ -39,9 +40,10 @@
                             ?: $record->candidate?->academicYear?->name
                             ?: '-';
                     @endphp
+                    @continue($studentName === '' || $studentName === '-')
                     <tr>
                         <td class="text-center">{{ $index + 1 }}</td>
-                        <td>{{ $record->candidate?->full_name ?? $record->full_name ?? '-' }}</td>
+                        <td>{{ $studentName }}</td>
                         <td class="text-center">{{ $record->nuri ?: $record->student_number ?: '-' }}</td>
                         <td>{{ $enrollment?->studentClass?->courseMap?->course?->name ?: $record->courseMap?->course?->name ?: '-' }}</td>
                         <td class="text-center">{{ $enrollment?->studentClass?->name ?? '-' }}</td>

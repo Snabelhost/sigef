@@ -98,56 +98,9 @@ class UnifiedLoginController extends Controller
      */
     protected function getAccessiblePanels($user): array
     {
-        $accessiblePanels = [];
-
-        $panels = [
-            'admin' => ['name' => 'Administração', 'icon' => 'heroicon-o-cog-6-tooth', 'url' => '/admin'],
-            'escola' => ['name' => 'Escola', 'icon' => 'heroicon-o-academic-cap', 'url' => $user->institution_id ? '/escola/' . $user->institution_id : '/escola'],
-            'professores' => ['name' => 'Professores', 'icon' => 'heroicon-o-user-group', 'url' => '/professores'],
-        ];
-
-        foreach ($panels as $panelId => $panelInfo) {
-            try {
-                $panel = \Filament\Facades\Filament::getPanel($panelId);
-
-                // Verificar se o utilizador tem acesso explícito a este painel
-                $hasExplicitAccess = false;
-
-                // Admin panel - super_admin ou admin ou panel_user
-                if ($panelId === 'admin') {
-                    if ($user->hasRole('super_admin') || $user->hasRole('admin') || $user->hasRole('panel_user') || $user->hasRole('admin_admin')) {
-                        $hasExplicitAccess = true;
-                    }
-                }
-
-                // Escola panel - precisa role E institution_id (escola é específica)
-                if ($panelId === 'escola') {
-                    if (($user->hasRole('escola_admin') || $user->hasRole('escola_user')) && $user->institution_id) {
-                        $hasExplicitAccess = true;
-                    }
-                }
-
-                // Professores panel
-                if ($panelId === 'professores') {
-                    if ($user->hasRole('professores_admin') || $user->hasRole('professores_user')) {
-                        $hasExplicitAccess = true;
-                    }
-                }
-
-                if ($hasExplicitAccess) {
-                    $accessiblePanels[$panelId] = $panelInfo;
-                }
-            } catch (\Exception $e) {
-                continue;
-            }
-        }
-
-        // Se super_admin não tem nenhum painel específico, dar acesso ao admin
-        if ($user->hasRole('super_admin') && empty($accessiblePanels)) {
-            $accessiblePanels['admin'] = $panels['admin'];
-        }
-
-        return $accessiblePanels;
+        return method_exists($user, 'accessiblePanels')
+            ? $user->accessiblePanels()
+            : [];
     }
 
     /**

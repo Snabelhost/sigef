@@ -16,6 +16,7 @@ use Filament\Panel;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Support\Collection;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 
 class User extends Authenticatable implements FilamentUser, HasTenants, Auditable
 {
@@ -26,6 +27,26 @@ class User extends Authenticatable implements FilamentUser, HasTenants, Auditabl
         hasAnyPermission as traitHasAnyPermission;
         hasAllPermissions as traitHasAllPermissions;
     }
+
+    public const PANEL_ACCESS_PERMISSIONS = [
+        'admin' => [
+            'name' => 'Administração',
+            'icon' => 'heroicon-o-cog-6-tooth',
+            'url' => '/admin',
+            'permission' => 'AccessPanel:Admin',
+        ],
+        'escola' => [
+            'name' => 'Escola',
+            'icon' => 'heroicon-o-academic-cap',
+            'permission' => 'AccessPanel:Escola',
+        ],
+        'professores' => [
+            'name' => 'Professores',
+            'icon' => 'heroicon-o-user-group',
+            'url' => '/professores',
+            'permission' => 'AccessPanel:Professores',
+        ],
+    ];
 
     // ============================================================
     // SUPER ADMIN BYPASS - Solução definitiva para permissões
@@ -82,38 +103,76 @@ class User extends Authenticatable implements FilamentUser, HasTenants, Auditabl
         return parent::can($abilities, $arguments);
     }
 
+    public function accessiblePanels(): array
+    {
+        if ($this->is_active === false) {
+            return [];
+        }
+
+        $panels = [];
+
+        if (
+            $this->hasPanelAccessPermission('admin')
+            || $this->hasRole('super_admin')
+            || $this->hasRole('admin')
+            || $this->hasRole('panel_user')
+            || $this->hasRole('admin_admin')
+        ) {
+            $panels['admin'] = [
+                ...self::PANEL_ACCESS_PERMISSIONS['admin'],
+            ];
+        }
+
+        if (
+            filled($this->institution_id)
+            && (
+                $this->hasPanelAccessPermission('escola')
+                || $this->hasRole('escola_admin')
+                || $this->hasRole('escola_user')
+            )
+        ) {
+            $panels['escola'] = [
+                ...self::PANEL_ACCESS_PERMISSIONS['escola'],
+                'url' => '/escola/' . $this->institution_id,
+            ];
+        }
+
+        if (
+            $this->hasPanelAccessPermission('professores')
+            || $this->hasRole('professores_admin')
+            || $this->hasRole('professores_user')
+        ) {
+            $panels['professores'] = [
+                ...self::PANEL_ACCESS_PERMISSIONS['professores'],
+            ];
+        }
+
+        return $panels;
+    }
+
+    public function accessiblePanelIds(): array
+    {
+        return array_keys($this->accessiblePanels());
+    }
+
     public function canAccessPanel(Panel $panel): bool
     {
-        $panelId = $panel->getId();
-        
-        // Super admin pode aceder a qualquer painel
-        if ($this->hasRole('super_admin')) {
-            return true;
-        }
-        
-        // Acesso baseado em roles específicos do painel
-        if ($this->hasRole($panelId . '_admin') || $this->hasRole($panelId . '_user')) {
-            return true;
+        return array_key_exists($panel->getId(), $this->accessiblePanels());
+    }
+
+    protected function hasPanelAccessPermission(string $panelId): bool
+    {
+        $permission = self::PANEL_ACCESS_PERMISSIONS[$panelId]['permission'] ?? null;
+
+        if (! $permission) {
+            return false;
         }
 
-        // Painel Admin - acesso para admin e panel_user
-        if ($panelId === 'admin' && ($this->hasRole('admin') || $this->hasRole('panel_user'))) {
-            return true;
+        try {
+            return $this->hasPermissionTo($permission);
+        } catch (PermissionDoesNotExist) {
+            return false;
         }
-
-        // Painel Escola - precisa de institution_id e role adequado
-        if ($panelId === 'escola') {
-            if ($this->hasRole('escola_admin') || $this->hasRole('panel_user')) {
-                return $this->institution_id !== null;
-            }
-        }
-
-        // Painel dos Professores
-        if ($panelId === 'professores') {
-            return $this->hasRole('professores_admin') || $this->hasRole('professores_user');
-        }
-        
-        return false;
     }
 
     public function getTenants(Panel $panel): Collection

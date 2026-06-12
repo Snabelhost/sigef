@@ -567,7 +567,7 @@ class ReportController extends Controller
     {
         $this->checkAccess();
         $query = Student::with([
-            'candidate',
+            'candidate' => fn ($query) => $query->withTrashed(),
             'institution',
             'courseMap.course',
             'courseMap.academicYear',
@@ -589,7 +589,10 @@ class ReportController extends Controller
             $query->whereHas('classEnrollments', fn($q) => $q->where('class_id', $request->class));
             $class = StudentClass::find($request->class);
         }
-        $records = $query->orderBy('student_number')->get();
+        $records = $query->orderBy('student_number')
+            ->get()
+            ->filter(fn (Student $student): bool => $this->hasReportPersonName($this->studentReportName($student)))
+            ->values();
 
         return $this->renderReport($request, 'reports.enrollments', [
             'records' => $records,

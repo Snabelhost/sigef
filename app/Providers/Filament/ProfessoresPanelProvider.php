@@ -70,6 +70,11 @@ class ProfessoresPanelProvider extends PanelProvider
             ->pages([
                 \App\Filament\Professores\Pages\Dashboard::class,
             ])
+            ->discoverWidgets(in: app_path('Filament/Professores/Widgets'), for: 'App\\Filament\\Professores\\Widgets')
+            ->widgets([
+                \App\Filament\Professores\Widgets\ProfessorOverview::class,
+                \App\Filament\Professores\Widgets\ProfessorAssignments::class,
+            ])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
