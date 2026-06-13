@@ -95,14 +95,12 @@
 
             const url = new URL(@js($printUrl), window.location.origin);
             url.searchParams.delete('face');
-            url.searchParams.set('embedded', '1');
+            url.searchParams.delete('embedded');
             url.searchParams.set('autoprint', '0');
             url.searchParams.set('print_scale', 'large');
 
             const printUrl = url.toString();
             const frame = document.createElement('iframe');
-            const printFrameWidth = Math.ceil(this.cardWidth * 1.65);
-            const printFrameHeight = Math.ceil(this.cardHeight * 1.65);
             const waitForPrintAssets = () => {
                 let doc = frame.contentDocument;
 
@@ -124,7 +122,7 @@
                 ]).then(() => new Promise((resolve) => setTimeout(resolve, 180)));
             };
 
-            frame.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:' + printFrameWidth + 'px;height:' + printFrameHeight + 'px;opacity:0;border:0;pointer-events:none;';
+            frame.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;opacity:0;border:0;pointer-events:none;z-index:-9999;';
             frame.src = printUrl;
             document.body.appendChild(frame);
 
@@ -137,10 +135,24 @@
                         window.open(printUrl, '_blank');
                     }
 
-                    setTimeout(() => {
+                    const cleanup = () => {
                         frame.remove();
                         this.isPrinting = false;
-                    }, 1000);
+                    };
+
+                    if (window.matchMedia) {
+                        const afterPrint = () => {
+                            window.removeEventListener('afterprint', afterPrint);
+                            setTimeout(cleanup, 300);
+                        };
+                        window.addEventListener('afterprint', afterPrint);
+                        setTimeout(() => {
+                            window.removeEventListener('afterprint', afterPrint);
+                            cleanup();
+                        }, 60000);
+                    } else {
+                        setTimeout(cleanup, 3000);
+                    }
                 });
             });
         }

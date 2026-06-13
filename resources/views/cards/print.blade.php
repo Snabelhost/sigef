@@ -9,23 +9,29 @@
     $orientation = $forceHorizontalAccess ? CardTemplate::ORIENTATION_HORIZONTAL : ($usesAccessVertical ? CardTemplate::ORIENTATION_VERTICAL : $orientation);
     $isHorizontal = $orientation !== CardTemplate::ORIENTATION_VERTICAL;
     $printScaleMode = $printScaleMode ?? request()->query('print_scale');
-    $printOutputScale = $printScaleMode === 'large' ? 1.65 : 1.0;
+    $largePrintMode = $printScaleMode === 'large';
+    $printOutputScale = $largePrintMode ? 1.65 : 1.0;
     $cardWidthMmValue = $isHorizontal ? 85.60 : 53.98;
     $cardHeightMmValue = $isHorizontal ? 53.98 : 85.60;
-    $printWidthMmValue = $printScaleMode === 'large'
-        ? ($cardWidthMmValue * $printOutputScale) + 4.4
+    $printWidthMmValue = $largePrintMode
+        ? ($isHorizontal ? 297.0 : 210.0)
         : ($isHorizontal ? 90.0 : 58.0);
-    $printHeightMmValue = $printScaleMode === 'large'
-        ? ($cardHeightMmValue * $printOutputScale) + 4.4
+    $printHeightMmValue = $largePrintMode
+        ? ($isHorizontal ? 210.0 : 297.0)
         : ($isHorizontal ? 58.0 : 90.0);
     $formatSheetMm = fn (float $value): string => rtrim(rtrim(number_format($value, 2, '.', ''), '0'), '.').'mm';
     $printWidthMm = $formatSheetMm($printWidthMmValue);
     $printHeightMm = $formatSheetMm($printHeightMmValue);
     $baseCardWidthPx = $isHorizontal ? 506 : 306;
     $baseCardHeightPx = $isHorizontal ? 320 : 485;
-    $printWidthPx = $isHorizontal ? 323.53 : 204.02;
-    $printHeightPx = $isHorizontal ? 204.02 : 323.53;
-    $printScale = min($printWidthPx / $baseCardWidthPx, $printHeightPx / $baseCardHeightPx) * $printOutputScale;
+    $pageInsetMmValue = $largePrintMode ? 8.0 : 0.0;
+    $availablePrintWidthPx = max(1, (($printWidthMmValue - $pageInsetMmValue) / 25.4) * 96);
+    $availablePrintHeightPx = max(1, (($printHeightMmValue - $pageInsetMmValue) / 25.4) * 96);
+    $physicalCardWidthPx = ($cardWidthMmValue / 25.4) * 96;
+    $physicalCardHeightPx = ($cardHeightMmValue / 25.4) * 96;
+    $printWidthPx = $largePrintMode ? $availablePrintWidthPx : $physicalCardWidthPx;
+    $printHeightPx = $largePrintMode ? $availablePrintHeightPx : $physicalCardHeightPx;
+    $printScale = min($printWidthPx / $baseCardWidthPx, $printHeightPx / $baseCardHeightPx) * ($largePrintMode ? 1.0 : $printOutputScale);
     $faces = match ($showFace ?? null) {
         'front' => ['front'],
         'back' => ['back'],
