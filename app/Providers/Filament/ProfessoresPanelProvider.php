@@ -69,6 +69,7 @@ class ProfessoresPanelProvider extends PanelProvider
             )
             ->pages([
                 \App\Filament\Professores\Pages\Dashboard::class,
+                \App\Filament\Professores\Pages\AttendanceManagement::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Professores/Widgets'), for: 'App\\Filament\\Professores\\Widgets')
             ->widgets([

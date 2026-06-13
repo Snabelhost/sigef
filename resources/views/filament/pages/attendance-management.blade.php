@@ -1048,7 +1048,7 @@
             'effectives' => 'Nº/NAS',
             default => 'NIP/NURI',
         };
-        $needsInstitution = ! \Filament\Facades\Filament::getTenant();
+        $needsInstitution = $this->needsInstitutionFilter();
         $contextSuffix = '';
         $toSelectOptions = fn ($options) => collect($options)
             ->map(fn ($label, $value) => [
@@ -1105,12 +1105,14 @@
                         </svg>
                         Professores
                     </button>
-                    <button type="button" wire:click="setActiveTab('effectives')" @class(['attendance-tab', 'is-active' => $activeTab === 'effectives'])>
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 14.15v4.25a2.1 2.1 0 0 1-2.1 2.1H5.85a2.1 2.1 0 0 1-2.1-2.1v-4.25M16.5 6.75V5.4a1.9 1.9 0 0 0-1.9-1.9H9.4a1.9 1.9 0 0 0-1.9 1.9v1.35M3.75 8.85h16.5v5.3H3.75v-5.3Z" />
-                        </svg>
-                        Efectivos
-                    </button>
+                    @if($this->attendanceTabIsVisible('effectives'))
+                        <button type="button" wire:click="setActiveTab('effectives')" @class(['attendance-tab', 'is-active' => $activeTab === 'effectives'])>
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 14.15v4.25a2.1 2.1 0 0 1-2.1 2.1H5.85a2.1 2.1 0 0 1-2.1-2.1v-4.25M16.5 6.75V5.4a1.9 1.9 0 0 0-1.9-1.9H9.4a1.9 1.9 0 0 0-1.9 1.9v1.35M3.75 8.85h16.5v5.3H3.75v-5.3Z" />
+                            </svg>
+                            Efectivos
+                        </button>
+                    @endif
                 </div>
 
                 @if($needsInstitution || in_array($activeTab, ['students', 'trainers', 'effectives'], true))

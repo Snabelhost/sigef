@@ -129,7 +129,7 @@
     }
 </style>
 
-<div class="sigef-full-header {{ request()->is('admin') || request()->is('admin/') || preg_match('#^escola/[^/]+/?$#', request()->path()) || request()->is('admin/attendance-management') || request()->is('escola/*/attendance-management') || request()->is('admin/shield/roles/create') || request()->is('admin/shield/roles/*') ? 'sigef-dashboard-header-hidden' : '' }}">
+<div class="sigef-full-header {{ request()->is('admin') || request()->is('admin/') || preg_match('#^escola/[^/]+/?$#', request()->path()) || request()->is('admin/attendance-management') || request()->is('escola/*/attendance-management') || request()->is('professores/attendance-management') || request()->is('admin/shield/roles/create') || request()->is('admin/shield/roles/*') ? 'sigef-dashboard-header-hidden' : '' }}">
     {{-- Lado Esquerdo: Ícone + Texto (dinâmico por página) --}}
     <div class="sigef-header-left">
         {{-- Container para o ícone --}}
@@ -167,7 +167,7 @@
             const currentPath = window.location.pathname;
             const isAdminDashboard = currentPath === '/admin' || currentPath === '/admin/' || currentPath.endsWith('/admin');
             const isAccessForm = currentPath === '/admin/shield/roles/create' || /^\/admin\/shield\/roles\/[^/]+(?:\/edit)?$/.test(currentPath);
-            const isAttendanceManagement = currentPath === '/admin/attendance-management' || /^\/escola\/\d+\/attendance-management\/?$/.test(currentPath);
+            const isAttendanceManagement = currentPath === '/admin/attendance-management' || currentPath === '/professores/attendance-management' || /^\/escola\/\d+\/attendance-management\/?$/.test(currentPath);
             const isDashboard = currentPath === '/admin' || currentPath === '/admin/' || currentPath.endsWith('/admin') || /^\/escola\/\d+\/?$/.test(currentPath);
 
             if (headerEl) {
@@ -376,6 +376,7 @@
 
         function isAttendanceManagement(path) {
             return normalizePath(path) === '/admin/attendance-management'
+                || normalizePath(path) === '/professores/attendance-management'
                 || /^\/escola\/\d+\/attendance-management\/?$/.test(path);
         }
 

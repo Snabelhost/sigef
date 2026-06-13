@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Escola\Pages;
+namespace App\Filament\Professores\Pages;
 
 class AttendanceManagement extends \App\Filament\Pages\AttendanceManagement
 {
@@ -9,5 +9,10 @@ class AttendanceManagement extends \App\Filament\Pages\AttendanceManagement
     protected function attendanceTabs(): array
     {
         return ['students', 'trainers'];
+    }
+
+    protected function usesAuthenticatedInstitutionOnly(): bool
+    {
+        return true;
     }
 }

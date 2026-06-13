@@ -1355,7 +1355,7 @@ HTML);
                 ->schema([
                     Forms\Components\Repeater::make('classAssignments')
                         ->label('Disciplinas, turmas e tempos')
-                        ->relationship()
+                        ->relationship('classAssignments')
                         ->schema([
                             Forms\Components\Select::make('academic_year_id')
                                 ->label('Ano Lectivo')
@@ -1371,7 +1371,7 @@ HTML);
                                 }),
                             Forms\Components\Select::make('course_id_helper')
                                 ->label('Curso')
-                                ->options(fn (): array => Course::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                                ->options(fn (): array => static::courseOptionsForAssignment())
                                 ->searchable()
                                 ->preload()
                                 ->live()
@@ -1380,15 +1380,9 @@ HTML);
                                     $component->state($record?->studentClass?->courseMap?->course_id);
                                 })
                                 ->afterStateUpdated(function (\Filament\Schemas\Components\Utilities\Set $set): void {
-                                    $set('frequency_year', null);
                                     $set('class_id', null);
                                     $set('subject_id', null);
                                 }),
-                            Forms\Components\Select::make('frequency_year')
-                                ->label('Ano Frequência')
-                                ->options(fn (\Filament\Schemas\Components\Utilities\Get $get): array => static::phaseOptionsForCourse($get('course_id_helper')))
-                                ->searchable()
-                                ->preload(),
                             Forms\Components\Select::make('shift')
                                 ->label('Turno')
                                 ->options([
@@ -1454,6 +1448,13 @@ HTML);
                         ->columns(3)
                         ->columnSpanFull()
                         ->addActionLabel('Adicionar disciplina/turma')
+                        ->addAction(fn (\Filament\Actions\Action $action): \Filament\Actions\Action => $action
+                            ->button()
+                            ->icon('heroicon-o-plus')
+                            ->color('primary')
+                            ->extraAttributes([
+                                'style' => 'font-weight:700;',
+                            ], true))
                         ->reorderable(false)
                         ->collapsible()
                         ->deleteAction(fn (\Filament\Actions\Action $action): \Filament\Actions\Action => $action
@@ -1490,9 +1491,31 @@ HTML);
         $data['assigned_at'] ??= now();
         $data['assigned_by'] ??= auth()->id();
 
+        unset($data['subject_ids']);
         unset($data['course_id_helper']);
 
         return $data;
+    }
+
+    protected static function courseOptionsForAssignment(): array
+    {
+        $tenantInstitutionId = static::tenantInstitutionId();
+
+        return Course::query()
+            ->when($tenantInstitutionId, function (Builder $query, int $institutionId): Builder {
+                $mappedCourseIds = CourseMap::query()
+                    ->where('institution_id', $institutionId)
+                    ->select('course_id');
+
+                return $query->where(function (Builder $courseQuery) use ($institutionId, $mappedCourseIds): void {
+                    $courseQuery
+                        ->where('institution_id', $institutionId)
+                        ->orWhereIn('id', $mappedCourseIds);
+                });
+            })
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->toArray();
     }
 
     protected static function phaseOptionsForCourse(mixed $courseId): array
@@ -1511,24 +1534,40 @@ HTML);
 
     protected static function classOptionsForAssignment(mixed $academicYearId, mixed $courseId): array
     {
+        $tenantInstitutionId = static::tenantInstitutionId();
+
         return StudentClass::query()
-            ->with(['institution', 'courseMap.course'])
+            ->when($tenantInstitutionId, fn (Builder $query, int $institutionId): Builder => $query
+                ->where(function (Builder $classQuery) use ($institutionId): void {
+                    $classQuery
+                        ->where('institution_id', $institutionId)
+                        ->orWhereHas('courseMap', fn (Builder $courseMapQuery): Builder => $courseMapQuery->where('institution_id', $institutionId));
+                }))
             ->when($academicYearId, fn (Builder $query): Builder => $query->where('academic_year_id', $academicYearId))
             ->when($courseId, fn (Builder $query): Builder => $query->whereHas('courseMap', fn (Builder $courseMapQuery): Builder => $courseMapQuery->where('course_id', $courseId)))
             ->orderBy('name')
             ->get()
             ->mapWithKeys(fn (StudentClass $class): array => [
-                $class->id => $class->name
-                    . ($class->courseMap?->course?->name ? ' - ' . $class->courseMap->course->name : '')
-                    . ($class->institution?->name ? ' (' . $class->institution->name . ')' : ''),
+                $class->id => (string) $class->name,
             ])
             ->toArray();
     }
 
     protected static function subjectOptionsForCourse(mixed $courseId): array
     {
+        $tenantInstitutionId = static::tenantInstitutionId();
+
         if (blank($courseId)) {
-            return Subject::query()->orderBy('name')->pluck('name', 'id')->toArray();
+            return Subject::query()
+                ->when($tenantInstitutionId, fn (Builder $query, int $institutionId): Builder => $query
+                    ->where(function (Builder $subjectQuery) use ($institutionId): void {
+                        $subjectQuery
+                            ->whereNull('institution_id')
+                            ->orWhere('institution_id', $institutionId);
+                    }))
+                ->orderBy('name')
+                ->pluck('name', 'id')
+                ->toArray();
         }
 
         $courseMapSubjects = Subject::query()
@@ -1537,11 +1576,26 @@ HTML);
                     ->where('course_id', $courseId)
                     ->orWhereHas('phase', fn (Builder $phaseQuery): Builder => $phaseQuery->where('course_id', $courseId));
             })
+            ->when($tenantInstitutionId, fn (Builder $query, int $institutionId): Builder => $query
+                ->where(function (Builder $subjectQuery) use ($institutionId): void {
+                    $subjectQuery
+                        ->whereNull('institution_id')
+                        ->orWhere('institution_id', $institutionId);
+                }))
             ->orderBy('name')
             ->pluck('name', 'id')
             ->toArray();
 
-        return $courseMapSubjects ?: Subject::query()->orderBy('name')->pluck('name', 'id')->toArray();
+        return $courseMapSubjects ?: Subject::query()
+            ->when($tenantInstitutionId, fn (Builder $query, int $institutionId): Builder => $query
+                ->where(function (Builder $subjectQuery) use ($institutionId): void {
+                    $subjectQuery
+                        ->whereNull('institution_id')
+                        ->orWhere('institution_id', $institutionId);
+                }))
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->toArray();
     }
 
     protected static function teachingLoadSummary(?Trainer $record): HtmlString|string
@@ -2300,6 +2354,7 @@ HTML);
                         }),
                     static::printCardAction(),
                     static::assignLoginPasswordAction(),
+                    static::addClassAssignmentAction(),
                     \Filament\Actions\EditAction::make()
                         ->icon('heroicon-o-pencil-square')
                         ->modalWidth(Width::ScreenExtraLarge)
@@ -2381,6 +2436,162 @@ HTML);
                     ->success()
                     ->send();
             });
+    }
+
+    protected static function addClassAssignmentAction(): \Filament\Actions\Action
+    {
+        return \Filament\Actions\Action::make('add_class_assignment')
+            ->label('Adicionar disciplina/turma')
+            ->icon('heroicon-o-academic-cap')
+            ->color('success')
+            ->modalHeading(fn (Trainer $record): string => 'Adicionar disciplina/turma - '.($record->full_name ?: 'Formador'))
+            ->modalWidth(Width::FiveExtraLarge)
+            ->form([
+                \Filament\Schemas\Components\Grid::make(2)
+                    ->schema([
+                        Forms\Components\Select::make('academic_year_id')
+                            ->label('Ano Lectivo')
+                            ->options(fn (): array => AcademicYear::query()
+                                ->orderByDesc('year')
+                                ->pluck('year', 'id')
+                                ->toArray())
+                            ->searchable()
+                            ->preload()
+                            ->live()
+                            ->afterStateUpdated(function (\Filament\Schemas\Components\Utilities\Set $set): void {
+                                $set('class_id', null);
+                            }),
+                        Forms\Components\Select::make('course_id_helper')
+                            ->label('Curso')
+                            ->options(fn (): array => static::courseOptionsForAssignment())
+                            ->searchable()
+                            ->preload()
+                            ->required()
+                            ->live()
+                            ->dehydrated(false)
+                            ->afterStateUpdated(function (\Filament\Schemas\Components\Utilities\Set $set): void {
+                                $set('class_id', null);
+                                $set('subject_ids', []);
+                            }),
+                        Forms\Components\Select::make('shift')
+                            ->label('Turno')
+                            ->options([
+                                'Manhã' => 'Manhã',
+                                'Tarde' => 'Tarde',
+                                'Noite' => 'Noite',
+                                'Integral' => 'Integral',
+                            ])
+                            ->searchable()
+                            ->preload(),
+                        Forms\Components\Select::make('class_id')
+                            ->label('Turma')
+                            ->options(fn (\Filament\Schemas\Components\Utilities\Get $get): array => static::classOptionsForAssignment(
+                                $get('academic_year_id'),
+                                $get('course_id_helper'),
+                            ))
+                            ->getOptionLabelUsing(fn ($value): ?string => StudentClass::with(['institution', 'courseMap.course'])->find($value)?->name)
+                            ->required()
+                            ->searchable()
+                            ->preload(),
+                        Forms\Components\Select::make('subject_ids')
+                            ->label('Disciplinas')
+                            ->options(fn (\Filament\Schemas\Components\Utilities\Get $get): array => static::subjectOptionsForCourse($get('course_id_helper')))
+                            ->getOptionLabelsUsing(fn (array $values): array => Subject::query()
+                                ->whereIn('id', $values)
+                                ->pluck('name', 'id')
+                                ->toArray())
+                            ->multiple()
+                            ->required()
+                            ->searchable()
+                            ->preload(),
+                        Forms\Components\Select::make('day_of_week')
+                            ->label('Dia da Semana')
+                            ->options(static::weekDayOptions())
+                            ->required()
+                            ->searchable()
+                            ->preload(),
+                        Forms\Components\TimePicker::make('start_time')
+                            ->label('Hora Início')
+                            ->required(),
+                        Forms\Components\TimePicker::make('end_time')
+                            ->label('Hora Fim')
+                            ->required(),
+                        Forms\Components\Select::make('lesson_type')
+                            ->label('Tipo de Aula')
+                            ->options([
+                                'Teórica' => 'Teórica',
+                                'Prática' => 'Prática',
+                                'Teórico-prática' => 'Teórico-prática',
+                            ])
+                            ->default('Teórica')
+                            ->required()
+                            ->searchable()
+                            ->preload(),
+                        Forms\Components\Select::make('is_active')
+                            ->label('Estado')
+                            ->options([
+                                1 => 'Activo',
+                                0 => 'Inactivo',
+                            ])
+                            ->default(1)
+                            ->required()
+                            ->dehydrateStateUsing(fn ($state): bool => (bool) $state),
+                    ]),
+            ])
+            ->modalSubmitAction(fn (\Filament\Actions\Action $action) => $action
+                ->icon('heroicon-o-check')
+                ->label('Adicionar')
+                ->color('primary'))
+            ->modalCancelAction(fn (\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger'))
+            ->action(function (Trainer $record, array $data): void {
+                $result = static::storeClassAssignmentsFromAction($record, $data);
+                $created = $result['created'];
+                $duplicates = $result['duplicates'];
+
+                $notification = Notification::make()
+                    ->title($created > 0 ? 'Disciplina/turma adicionada' : 'Dados duplicados')
+                    ->body(match (true) {
+                        $created > 0 && $duplicates > 0 => "{$created} disciplina(s) atribuída(s) ao professor. {$duplicates} duplicada(s) foram ignorada(s).",
+                        $created > 0 => "{$created} disciplina(s) atribuída(s) ao professor.",
+                        default => 'Esta turma/disciplina já está atribuída a este formador.',
+                    });
+
+                ($created > 0 ? $notification->success() : $notification->warning())->send();
+            });
+    }
+
+    protected static function storeClassAssignmentsFromAction(Trainer $record, array $data): array
+    {
+        $subjectIds = collect($data['subject_ids'] ?? [])->filter()->unique()->values();
+        $created = 0;
+        $duplicates = 0;
+
+        foreach ($subjectIds as $subjectId) {
+            $exists = TrainerClassAssignment::query()
+                ->where('trainer_id', $record->getKey())
+                ->where('class_id', $data['class_id'])
+                ->where('subject_id', $subjectId)
+                ->exists();
+
+            if ($exists) {
+                $duplicates++;
+
+                continue;
+            }
+
+            TrainerClassAssignment::create(static::prepareAssignmentData([
+                ...$data,
+                'trainer_id' => $record->getKey(),
+                'subject_id' => $subjectId,
+            ]));
+
+            $created++;
+        }
+
+        return [
+            'created' => $created,
+            'duplicates' => $duplicates,
+        ];
     }
 
     protected static function printCardAction(): \Filament\Actions\Action

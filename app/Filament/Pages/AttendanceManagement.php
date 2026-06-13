@@ -52,6 +52,12 @@ class AttendanceManagement extends Page
 
         if ($tenant = Filament::getTenant()) {
             $this->selectedInstitutionId = (int) $tenant->getKey();
+        } elseif ($this->usesAuthenticatedInstitutionOnly()) {
+            $this->selectedInstitutionId = $this->authenticatedInstitutionId();
+        }
+
+        if (! $this->attendanceTabIsVisible($this->activeTab)) {
+            $this->activeTab = $this->attendanceTabs()[0] ?? 'students';
         }
     }
 
@@ -141,7 +147,7 @@ class AttendanceManagement extends Page
 
     public function setActiveTab(string $tab): void
     {
-        if (! in_array($tab, ['students', 'trainers', 'effectives'], true)) {
+        if (! $this->attendanceTabIsVisible($tab)) {
             return;
         }
 
@@ -153,7 +159,17 @@ class AttendanceManagement extends Page
     #[Computed]
     public function institutions()
     {
-        return Institution::orderBy('name')->pluck('name', 'id');
+        $query = Institution::query();
+
+        if ($this->usesAuthenticatedInstitutionOnly()) {
+            $institutionId = $this->authenticatedInstitutionId();
+
+            if ($institutionId > 0) {
+                $query->whereKey($institutionId);
+            }
+        }
+
+        return $query->orderBy('name')->pluck('name', 'id');
     }
 
     #[Computed]
@@ -854,6 +870,34 @@ class AttendanceManagement extends Page
             'effectives' => 'effective_id',
             default => 'student_id',
         };
+    }
+
+    protected function attendanceTabs(): array
+    {
+        return ['students', 'trainers', 'effectives'];
+    }
+
+    public function attendanceTabIsVisible(string $tab): bool
+    {
+        return in_array($tab, $this->attendanceTabs(), true);
+    }
+
+    protected function usesAuthenticatedInstitutionOnly(): bool
+    {
+        return false;
+    }
+
+    protected function authenticatedInstitutionId(): ?int
+    {
+        $user = Auth::user();
+        $institutionId = (int) ($user?->institution_id ?: $user?->trainer?->institution_id);
+
+        return $institutionId > 0 ? $institutionId : null;
+    }
+
+    public function needsInstitutionFilter(): bool
+    {
+        return ! Filament::getTenant() && ! $this->usesAuthenticatedInstitutionOnly();
     }
 
     protected function attendanceLookup(int $personId): array
