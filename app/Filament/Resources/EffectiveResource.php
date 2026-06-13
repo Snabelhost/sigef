@@ -12,6 +12,7 @@ use App\Models\Municipality;
 use App\Models\Provenance;
 use App\Models\Province;
 use App\Models\Rank;
+use App\Services\StaffLoginAccountService;
 use Filament\Actions;
 use Filament\Facades\Filament;
 use Filament\Forms;
@@ -62,7 +63,7 @@ class EffectiveResource extends Resource
             ->when(Filament::getCurrentPanel()?->getId() === 'escola' && Filament::getTenant()?->id, function (Builder $query): Builder {
                 return $query->where('institution_id', Filament::getTenant()->id);
             })
-            ->with(['institution', 'cardTemplate']);
+            ->with(['institution', 'cardTemplate', 'user']);
     }
 
     public static function form(Schema $form): Schema
@@ -825,6 +826,12 @@ HTML);
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
+                Tables\Columns\TextColumn::make('user.email')
+                    ->label('Login')
+                    ->badge()
+                    ->color(fn (?string $state): string => filled($state) ? 'success' : 'gray')
+                    ->placeholder('Sem login')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('identifier')
                     ->label('NIP/NAS/BI')
                     ->placeholder('-')
@@ -971,6 +978,7 @@ HTML);
                         ->modalCancelAction(fn (Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Fechar')->color('danger')),
                     static::sheetAction(),
                     static::previewCardAction(),
+                    static::assignLoginPasswordAction(),
                     Actions\EditAction::make()
                         ->icon('heroicon-o-pencil-square')
                         ->modalWidth(Width::ScreenExtraLarge)
@@ -985,6 +993,73 @@ HTML);
                     Actions\DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    protected static function assignLoginPasswordAction(): Actions\Action
+    {
+        return Actions\Action::make('assign_login_password')
+            ->label('Atribuir senha de login')
+            ->icon('heroicon-o-key')
+            ->color('success')
+            ->modalHeading(fn (Effective $record): string => 'Atribuir senha - '.($record->full_name ?: 'Efectivo'))
+            ->modalWidth(Width::Large)
+            ->form([
+                Forms\Components\TextInput::make('email')
+                    ->label('E-mail de login')
+                    ->email()
+                    ->required()
+                    ->maxLength(255)
+                    ->default(fn (Effective $record): ?string => $record->user?->email ?: $record->email)
+                    ->helperText('Este e-mail sera usado para entrar no painel da escola.'),
+                Forms\Components\TextInput::make('password')
+                    ->label('Senha')
+                    ->password()
+                    ->revealable()
+                    ->required()
+                    ->minLength(8)
+                    ->maxLength(255),
+                Forms\Components\TextInput::make('password_confirmation')
+                    ->label('Confirmar senha')
+                    ->password()
+                    ->revealable()
+                    ->required()
+                    ->same('password')
+                    ->maxLength(255),
+                Forms\Components\Toggle::make('is_active')
+                    ->label('Conta activa')
+                    ->default(fn (Effective $record): bool => (bool) ($record->user?->is_active ?? true)),
+            ])
+            ->modalSubmitAction(fn (Actions\Action $action) => $action
+                ->icon('heroicon-o-check')
+                ->label('Guardar senha')
+                ->color('primary'))
+            ->modalCancelAction(fn (Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger'))
+            ->action(function (Effective $record, array $data): void {
+                try {
+                    $user = app(StaffLoginAccountService::class)->assignEffectivePassword(
+                        effective: $record,
+                        email: (string) ($data['email'] ?? ''),
+                        password: (string) ($data['password'] ?? ''),
+                        isActive: (bool) ($data['is_active'] ?? true),
+                    );
+                } catch (\Illuminate\Validation\ValidationException $exception) {
+                    throw $exception;
+                } catch (Throwable $exception) {
+                    Notification::make()
+                        ->title('Erro ao atribuir senha')
+                        ->body($exception->getMessage())
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->title('Conta de login vinculada')
+                    ->body('O efectivo ja pode entrar com '.$user->email.'.')
+                    ->success()
+                    ->send();
+            });
     }
 
     protected static function sheetAction(): Actions\Action
@@ -1085,10 +1160,26 @@ HTML);
         if (
             $recordTemplate instanceof CardTemplate
             && (
-                blank($recordTemplate->institution_id)
-                || (int) $recordTemplate->institution_id === (int) $institutionId
+                filled($recordTemplate->institution_id)
+                && (int) $recordTemplate->institution_id === (int) $institutionId
             )
         ) {
+            return $recordTemplate;
+        }
+
+        if ($recordTemplate instanceof CardTemplate && blank($recordTemplate->institution_id) && filled($institutionId)) {
+            $schoolCopy = CardTemplate::query()
+                ->where('source_template_id', $recordTemplate->getKey())
+                ->where('institution_id', $institutionId)
+                ->where('is_active', true)
+                ->orderByDesc('is_default')
+                ->orderByDesc('updated_at')
+                ->first();
+
+            if ($schoolCopy instanceof CardTemplate) {
+                return $schoolCopy;
+            }
+
             return $recordTemplate;
         }
 
@@ -1121,10 +1212,14 @@ HTML);
             : null;
         $templateBrandName = trim((string) $template->brand_name);
         $templateSubtitle = trim((string) $template->subtitle);
+        $templateAddress = trim((string) $template->address_line);
         $institutionName = trim((string) $institution?->name);
         $institutionAcronym = trim((string) $institution?->acronym);
-        $headerName = $institutionName !== '' ? $institutionName : ($templateBrandName !== '' ? $templateBrandName : 'SIGEF');
-        $headerSubtitle = $institutionAcronym !== '' ? $institutionAcronym : ($institutionName === '' && $templateSubtitle !== '' ? $templateSubtitle : '');
+        $headerName = $templateBrandName !== '' ? $templateBrandName : ($institutionName !== '' ? $institutionName : 'SIGEF');
+        $headerSubtitle = $templateSubtitle !== '' ? $templateSubtitle : $institutionAcronym;
+        $institutionLocation = $templateAddress !== ''
+            ? $templateAddress
+            : collect([$institution?->province, $institution?->municipality])->filter()->implode(' / ');
 
         return [
             'name' => $record->full_name ?: 'Efectivo',
@@ -1136,7 +1231,7 @@ HTML);
             'photo_url' => $photoUrl,
             'logo_url' => $template->logo_url ?: ($institution?->logo ? asset('storage/'.$institution->logo) : asset('images/logo-policia.png')),
             'institution_name' => $headerName,
-            'institution_location' => collect([$institution?->province, $institution?->municipality])->filter()->implode(' / '),
+            'institution_location' => $institutionLocation,
             'brand_name' => $headerName,
             'subtitle' => $headerSubtitle,
             'front_title' => $template->front_title ?: 'CARTÃO DO EFECTIVO',

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CardTemplate extends Model
 {
@@ -24,6 +25,7 @@ class CardTemplate extends Model
 
     protected $fillable = [
         'institution_id',
+        'source_template_id',
         'name',
         'card_type',
         'card_variant',
@@ -103,6 +105,16 @@ class CardTemplate extends Model
     public function institution(): BelongsTo
     {
         return $this->belongsTo(Institution::class);
+    }
+
+    public function sourceTemplate(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'source_template_id');
+    }
+
+    public function schoolCopies(): HasMany
+    {
+        return $this->hasMany(self::class, 'source_template_id');
     }
 
     public static function cardTypeOptions(): array

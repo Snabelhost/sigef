@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\CardTemplateResource\Pages;
 
 use App\Filament\Resources\CardTemplateResource;
+use App\Services\SchoolCardTemplateSyncService;
 use Filament\Facades\Filament;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\CreateRecord;
@@ -18,6 +19,15 @@ class CreateCardTemplate extends CreateRecord
         }
 
         return $data;
+    }
+
+    protected function afterCreate(): void
+    {
+        if (Filament::getCurrentPanel()?->getId() === 'escola' || filled($this->record->institution_id)) {
+            return;
+        }
+
+        app(SchoolCardTemplateSyncService::class)->syncTemplateToAllInstitutions($this->record);
     }
 
     protected function getCreateFormAction(): Action

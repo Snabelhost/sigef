@@ -12,6 +12,7 @@ class Effective extends Model
 
     protected $fillable = [
         'institution_id',
+        'user_id',
         'card_template_id',
         'staff_type',
         'full_name',
@@ -82,6 +83,11 @@ class Effective extends Model
     public function institution(): BelongsTo
     {
         return $this->belongsTo(Institution::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
     public function cardTemplate(): BelongsTo

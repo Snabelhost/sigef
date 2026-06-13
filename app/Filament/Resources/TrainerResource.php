@@ -16,6 +16,7 @@ use App\Models\Subject;
 use App\Models\Trainer;
 use App\Models\TrainerClassAssignment;
 use App\Models\TrainerSubjectAuthorization;
+use App\Services\StaffLoginAccountService;
 use App\Services\TrainerCardService;
 use Filament\Forms;
 use Filament\Schemas\Schema;
@@ -48,7 +49,7 @@ class TrainerResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['rank', 'institution'])
+            ->with(['rank', 'institution', 'user'])
             ->withCount([
                 'classAssignments as teaching_times_count',
                 'classAssignments as assigned_subjects_count' => fn (Builder $query) => $query
@@ -2005,6 +2006,12 @@ HTML);
                     ->label('Nome')
                     ->searchable()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('user.email')
+                    ->label('Login')
+                    ->badge()
+                    ->color(fn (?string $state): string => filled($state) ? 'success' : 'gray')
+                    ->placeholder('Sem login')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('effective_number')
                     ->label('Nº Efectivo')
                     ->getStateUsing(fn(Trainer $record): ?string => $record->nip ?: $record->bilhete)
@@ -2282,6 +2289,7 @@ HTML);
                             ]);
                         }),
                     static::printCardAction(),
+                    static::assignLoginPasswordAction(),
                     \Filament\Actions\EditAction::make()
                         ->icon('heroicon-o-pencil-square')
                         ->modalWidth(Width::ScreenExtraLarge)
@@ -2296,6 +2304,73 @@ HTML);
                     \Filament\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    protected static function assignLoginPasswordAction(): \Filament\Actions\Action
+    {
+        return \Filament\Actions\Action::make('assign_login_password')
+            ->label('Atribuir senha de login')
+            ->icon('heroicon-o-key')
+            ->color('success')
+            ->modalHeading(fn (Trainer $record): string => 'Atribuir senha - '.($record->full_name ?: 'Formador'))
+            ->modalWidth(Width::Large)
+            ->form([
+                Forms\Components\TextInput::make('email')
+                    ->label('E-mail de login')
+                    ->email()
+                    ->required()
+                    ->maxLength(255)
+                    ->default(fn (Trainer $record): ?string => $record->user?->email ?: $record->email)
+                    ->helperText('Este e-mail sera usado para entrar no painel dos professores.'),
+                Forms\Components\TextInput::make('password')
+                    ->label('Senha')
+                    ->password()
+                    ->revealable()
+                    ->required()
+                    ->minLength(8)
+                    ->maxLength(255),
+                Forms\Components\TextInput::make('password_confirmation')
+                    ->label('Confirmar senha')
+                    ->password()
+                    ->revealable()
+                    ->required()
+                    ->same('password')
+                    ->maxLength(255),
+                Forms\Components\Toggle::make('is_active')
+                    ->label('Conta activa')
+                    ->default(fn (Trainer $record): bool => (bool) ($record->user?->is_active ?? true)),
+            ])
+            ->modalSubmitAction(fn (\Filament\Actions\Action $action) => $action
+                ->icon('heroicon-o-check')
+                ->label('Guardar senha')
+                ->color('primary'))
+            ->modalCancelAction(fn (\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger'))
+            ->action(function (Trainer $record, array $data): void {
+                try {
+                    $user = app(StaffLoginAccountService::class)->assignTrainerPassword(
+                        trainer: $record,
+                        email: (string) ($data['email'] ?? ''),
+                        password: (string) ($data['password'] ?? ''),
+                        isActive: (bool) ($data['is_active'] ?? true),
+                    );
+                } catch (\Illuminate\Validation\ValidationException $exception) {
+                    throw $exception;
+                } catch (Throwable $exception) {
+                    Notification::make()
+                        ->title('Erro ao atribuir senha')
+                        ->body($exception->getMessage())
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->title('Conta de login vinculada')
+                    ->body('O formador ja pode entrar com '.$user->email.'.')
+                    ->success()
+                    ->send();
+            });
     }
 
     protected static function printCardAction(): \Filament\Actions\Action

@@ -14,6 +14,7 @@ use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasTenants;
 use Filament\Panel;
 use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -232,6 +233,16 @@ class User extends Authenticatable implements FilamentUser, HasTenants, Auditabl
     public function institution()
     {
         return $this->belongsTo(Institution::class);
+    }
+
+    public function trainer(): HasOne
+    {
+        return $this->hasOne(Trainer::class);
+    }
+
+    public function effective(): HasOne
+    {
+        return $this->hasOne(Effective::class);
     }
 
     private function prepareReferencesForDeletion(): void

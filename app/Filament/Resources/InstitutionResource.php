@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\InstitutionResource\Pages;
 use App\Models\Institution;
+use App\Services\SchoolCardTemplateSyncService;
 use Filament\Forms;
 use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
@@ -147,6 +148,9 @@ class InstitutionResource extends Resource
                     ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger'))
                     ->createAnotherAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-plus-circle')->label('Salvar e criar outro'))
                     ->createAnother(true)
+                    ->after(function (Institution $record): void {
+                        app(SchoolCardTemplateSyncService::class)->syncGlobalTemplatesToInstitution($record);
+                    })
                     ->successNotificationTitle('Registo criado com sucesso!')
                     ->label('Nova Instituição'),
             ])

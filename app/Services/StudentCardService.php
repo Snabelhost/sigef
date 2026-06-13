@@ -43,10 +43,14 @@ class StudentCardService
         $verificationUrl = route('cartoes.show', $student);
         $templateBrandName = trim((string) $template->brand_name);
         $templateSubtitle = trim((string) $template->subtitle);
+        $templateAddress = trim((string) $template->address_line);
         $institutionName = trim((string) $institution?->name);
         $institutionAcronym = trim((string) $institution?->acronym);
-        $headerName = $institutionName !== '' ? $institutionName : ($templateBrandName !== '' ? $templateBrandName : 'SIGEF');
-        $headerSubtitle = $institutionAcronym !== '' ? $institutionAcronym : ($institutionName === '' && $templateSubtitle !== '' ? $templateSubtitle : '');
+        $headerName = $templateBrandName !== '' ? $templateBrandName : ($institutionName !== '' ? $institutionName : 'SIGEF');
+        $headerSubtitle = $templateSubtitle !== '' ? $templateSubtitle : $institutionAcronym;
+        $institutionLocation = $templateAddress !== ''
+            ? $templateAddress
+            : collect([$institution?->province, $institution?->municipality])->filter()->implode(' / ');
         $entityTitle = $this->studentCardEntityTitle($student);
 
         $payload = [
@@ -55,7 +59,7 @@ class StudentCardService
             'photo_url' => $this->studentPhotoUrl($student, $template),
             'logo_url' => $template->logo_url ?: ($institution?->logo ? asset('storage/'.$institution->logo) : asset('images/logo-policia.png')),
             'institution_name' => $headerName,
-            'institution_location' => collect([$institution?->province, $institution?->municipality])->filter()->implode(' / '),
+            'institution_location' => $institutionLocation,
             'brand_name' => $headerName,
             'subtitle' => $headerSubtitle,
             'front_title' => $template->front_title ?: 'PASSE DE ACESSO',

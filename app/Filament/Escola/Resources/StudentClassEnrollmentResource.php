@@ -863,8 +863,13 @@ class StudentClassEnrollmentResource extends Resource
             ->modalWidth(\Filament\Support\Enums\Width::SevenExtraLarge)
             ->modalContent(function (Student $record) {
                 $data = app(StudentCardService::class)->build($record);
+                $template = $data['template'];
                 $printUrl = route('cartoes.preview', ['student' => $record]);
-                $cacheBuster = (string) ($record->updated_at?->timestamp ?: time());
+                $cacheBuster = (string) max(
+                    (int) ($record->updated_at?->timestamp ?: 0),
+                    (int) ($template->updated_at?->timestamp ?: 0),
+                    time(),
+                );
                 $embeddedUrl = fn (string $face): string => $printUrl.'?'.http_build_query([
                     'embedded' => 1,
                     'autoprint' => 0,

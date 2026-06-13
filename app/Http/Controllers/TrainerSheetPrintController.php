@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Institution;
+use App\Models\SystemSetting;
 use App\Models\Trainer;
 use App\Models\TrainerClassAssignment;
 use Illuminate\Http\Request;
@@ -44,11 +45,12 @@ class TrainerSheetPrintController extends Controller
      */
     private function institutionProfile(Trainer $trainer): array
     {
-        $institution = $trainer->institution
+        $institutionModel = $trainer->institution
             ?? Institution::query()->where('is_active', true)->orderBy('id')->first()
             ?? Institution::query()->orderBy('id')->first();
 
-        $logoUrl = $this->publicStorageUrl($institution?->logo);
+        $config = SystemSetting::getReportInstitutionConfig($institutionModel);
+        $logoUrl = $this->publicStorageUrl($config['logo_path'] ?? null);
 
         if (! $logoUrl && file_exists(public_path('images/logo-policia.png'))) {
             $logoUrl = asset('images/logo-policia.png');
@@ -58,15 +60,33 @@ class TrainerSheetPrintController extends Controller
             $logoUrl = asset('images/logo-sigef.png');
         }
 
+        $footerContacts = array_filter([
+            $config['address'] ?? null,
+            filled($config['phone'] ?? null) ? 'Tel.: '.$config['phone'] : null,
+            $config['email'] ?? null,
+            $config['website'] ?? null,
+        ]);
+
         return [
             'logo_url' => $logoUrl,
-            'name' => trim((string) ($institution?->name ?: 'Sistema Integrado de Gestao de Formacao')),
-            'subtitle' => trim((string) ($institution?->acronym ?: 'SIGEF')),
+            'header_lines' => array_values(array_filter([
+                $config['republic_line'] ?? null,
+                $config['ministry_line'] ?? null,
+                $config['organ_line'] ?? null,
+                $config['department_line'] ?? null,
+            ])),
+            'name' => trim((string) ($config['name'] ?? $institutionModel?->name ?? 'Sistema Integrado de Gestao de Formacao')),
+            'subtitle' => trim((string) ($config['acronym'] ?? $institutionModel?->acronym ?? 'SIGEF')),
             'report_header' => 'Ficha individual do professor',
-            'address' => trim((string) ($institution?->address ?: '')),
-            'phone' => trim((string) ($institution?->phone ?: '')),
-            'email' => trim((string) ($institution?->email ?: '')),
-            'footer' => trim((string) ($institution?->province ?: '')),
+            'address' => trim((string) ($config['address'] ?? '')),
+            'phone' => trim((string) ($config['phone'] ?? '')),
+            'email' => trim((string) ($config['email'] ?? '')),
+            'director_name' => trim((string) ($config['director_name'] ?? '')),
+            'director_title' => trim((string) ($config['director_title'] ?? 'Responsavel')),
+            'footer' => trim((string) (($config['footer_text'] ?? '') ?: implode(' | ', array_filter([
+                $config['name'] ?? $institutionModel?->name ?? 'SIGEF',
+                ...$footerContacts,
+            ])))),
         ];
     }
 
