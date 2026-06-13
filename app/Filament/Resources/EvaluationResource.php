@@ -10,6 +10,7 @@ use App\Models\StudentSubjectEnrollment;
 use App\Models\Subject;
 use App\Models\TrainerClassAssignment;
 use App\Models\TrainerSubjectAuthorization;
+use Filament\Facades\Filament;
 use Filament\Forms;
 use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
@@ -31,7 +32,12 @@ class EvaluationResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['student.candidate', 'subject', 'trainer', 'coursePhase']);
+        return parent::getEloquentQuery()
+            ->when(
+                Filament::getTenant()?->id,
+                fn (Builder $query, int $institutionId): Builder => $query->where('institution_id', $institutionId),
+            )
+            ->with(['student.candidate', 'subject', 'trainer', 'coursePhase']);
     }
 
     public static function form(Schema $form): Schema
@@ -46,7 +52,7 @@ class EvaluationResource extends Resource
                             ->label('Nome completo')
                             ->options(fn (): array => static::studentOptions())
                             ->getOptionLabelUsing(function ($value): ?string {
-                                $student = Student::with('candidate')->find($value);
+                                $student = static::tenantStudentQuery()->with('candidate')->find($value);
                                 return $student ? static::studentOptionLabel($student) : null;
                             })
                             ->required()
@@ -111,7 +117,8 @@ class EvaluationResource extends Resource
 
     protected static function studentOptions(): array
     {
-        return Student::with('candidate')
+        return static::tenantStudentQuery()
+            ->with('candidate')
             ->where(function (Builder $query): void {
                 foreach (static::studentTypesShownInTrainingManagement() as $type) {
                     $query->orWhere('student_type', 'like', "%{$type}%");
@@ -142,6 +149,15 @@ class EvaluationResource extends Resource
         ];
     }
 
+    protected static function tenantStudentQuery(): Builder
+    {
+        return Student::query()
+            ->when(
+                Filament::getTenant()?->id,
+                fn (Builder $query, int $institutionId): Builder => $query->where('institution_id', $institutionId),
+            );
+    }
+
     protected static function studentOptionLabel(Student $student): ?string
     {
         $name = trim((string) ($student->candidate?->full_name ?: $student->full_name ?: ''));
@@ -160,7 +176,7 @@ class EvaluationResource extends Resource
             return null;
         }
 
-        return Student::query()->whereKey($studentId)->value('institution_id');
+        return static::tenantStudentQuery()->whereKey($studentId)->value('institution_id');
     }
 
     protected static function subjectOptionsForStudent(mixed $studentId): array
@@ -221,7 +237,7 @@ class EvaluationResource extends Resource
             return $enrollment->studentClass->courseMap->course_id;
         }
 
-        return Student::query()
+        return static::tenantStudentQuery()
             ->with('courseMap')
             ->whereKey($studentId)
             ->first()
@@ -255,7 +271,7 @@ class EvaluationResource extends Resource
             }
         }
 
-        $student = blank($studentId) ? null : Student::query()->find($studentId);
+        $student = blank($studentId) ? null : static::tenantStudentQuery()->find($studentId);
         $courseId = static::courseIdForStudentSubject($studentId, $subjectId);
         $institutionId = $student?->institution_id ?? $enrollment?->studentClass?->institution_id;
 
@@ -297,6 +313,10 @@ class EvaluationResource extends Resource
             ->modifyQueryUsing(function ($query) {
                 // Mostrar apenas a última avaliação de cada formando
                 $subquery = \App\Models\Evaluation::selectRaw('MAX(id) as id')
+                    ->when(
+                        Filament::getTenant()?->id,
+                        fn (Builder $query, int $institutionId): Builder => $query->where('institution_id', $institutionId),
+                    )
                     ->groupBy('student_id');
 
                 return $query->whereIn('id', $subquery);
@@ -371,15 +391,15 @@ class EvaluationResource extends Resource
                     }),
                 Tables\Filters\SelectFilter::make('cia')
                     ->label('CIA')
-                    ->options(fn() => \App\Models\Student::whereNotNull('cia')->distinct()->pluck('cia', 'cia')->toArray())
+                    ->options(fn() => static::tenantStudentQuery()->whereNotNull('cia')->distinct()->pluck('cia', 'cia')->toArray())
                     ->query(fn($query, array $data) => $query->when($data['value'], fn($q) => $q->whereHas('student', fn($sq) => $sq->where('cia', $data['value'])))),
                 Tables\Filters\SelectFilter::make('platoon')
                     ->label('Pelotão')
-                    ->options(fn() => \App\Models\Student::whereNotNull('platoon')->distinct()->pluck('platoon', 'platoon')->toArray())
+                    ->options(fn() => static::tenantStudentQuery()->whereNotNull('platoon')->distinct()->pluck('platoon', 'platoon')->toArray())
                     ->query(fn($query, array $data) => $query->when($data['value'], fn($q) => $q->whereHas('student', fn($sq) => $sq->where('platoon', $data['value'])))),
                 Tables\Filters\SelectFilter::make('section')
                     ->label('Secção')
-                    ->options(fn() => \App\Models\Student::whereNotNull('section')->distinct()->pluck('section', 'section')->toArray())
+                    ->options(fn() => static::tenantStudentQuery()->whereNotNull('section')->distinct()->pluck('section', 'section')->toArray())
                     ->query(fn($query, array $data) => $query->when($data['value'], fn($q) => $q->whereHas('student', fn($sq) => $sq->where('section', $data['value'])))),
             ])
             ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContentCollapsible)
@@ -426,6 +446,10 @@ class EvaluationResource extends Resource
         $evaluations = \App\Models\Evaluation::query()
             ->with(['subject', 'phase'])
             ->where('student_id', $record->student_id)
+            ->when(
+                Filament::getTenant()?->id,
+                fn (Builder $query, int $institutionId): Builder => $query->where('institution_id', $institutionId),
+            )
             ->orderByDesc('evaluated_at')
             ->orderByDesc('id')
             ->get();

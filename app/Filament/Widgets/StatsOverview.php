@@ -9,6 +9,7 @@ use App\Models\Institution;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\Trainer;
+use Filament\Facades\Filament;
 use Filament\Widgets\Concerns\InteractsWithPageFilters;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
@@ -27,10 +28,11 @@ class StatsOverview extends BaseWidget
 
     protected function getStats(): array
     {
-        $institutionId = $this->filters['institution_id'] ?? null;
-        $courseId = $this->filters['course_id'] ?? null;
-        $startDate = $this->filters['start_date'] ?? null;
-        $endDate = $this->filters['end_date'] ?? null;
+        $filters = $this->dashboardFilters();
+        $institutionId = $filters['institution_id'];
+        $courseId = $filters['course_id'];
+        $startDate = $filters['start_date'];
+        $endDate = $filters['end_date'];
         $validInstitutionIds = Institution::pluck('id')->toArray();
         $formandos = Candidate::query()
             ->where('student_type', 'Formando')
@@ -225,5 +227,21 @@ class StatsOverview extends BaseWidget
                     'onclick' => "event.stopPropagation(); Livewire.dispatch('openStatDetail', {type: 'escolas', institutionId: " . ($institutionId ?? 'null') . "})",
                 ]),
         ];
+    }
+
+    private function dashboardFilters(): array
+    {
+        $filters = [
+            'institution_id' => $this->filters['institution_id'] ?? null,
+            'course_id' => $this->filters['course_id'] ?? null,
+            'start_date' => $this->filters['start_date'] ?? null,
+            'end_date' => $this->filters['end_date'] ?? null,
+        ];
+
+        if (Filament::getCurrentPanel()?->getId() === 'escola' && ($tenantId = Filament::getTenant()?->id)) {
+            $filters['institution_id'] = $tenantId;
+        }
+
+        return $filters;
     }
 }

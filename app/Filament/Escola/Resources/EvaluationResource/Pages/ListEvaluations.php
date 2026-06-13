@@ -3,22 +3,8 @@
 namespace App\Filament\Escola\Resources\EvaluationResource\Pages;
 
 use App\Filament\Escola\Resources\EvaluationResource;
-use Filament\Actions;
-use Filament\Resources\Pages\ListRecords;
 
-class ListEvaluations extends ListRecords
+class ListEvaluations extends \App\Filament\Resources\EvaluationResource\Pages\ListEvaluations
 {
-    protected function authorizeAccess(): void
-    {
-        // Bypass policy authorization in Escola panel
-    }
-
     protected static string $resource = EvaluationResource::class;
-
-    protected function getHeaderActions(): array
-    {
-        return [
-            Actions\CreateAction::make(),
-        ];
-    }
 }

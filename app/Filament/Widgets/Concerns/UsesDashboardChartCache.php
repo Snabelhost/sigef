@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets\Concerns;
 
 use App\Support\ChartColors;
+use Filament\Facades\Filament;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -44,12 +45,18 @@ trait UsesDashboardChartCache
 
     protected function dashboardChartFilters(): array
     {
-        return [
+        $filters = [
             'institution_id' => $this->filters['institution_id'] ?? null,
             'course_id' => $this->filters['course_id'] ?? null,
             'start_date' => $this->filters['start_date'] ?? null,
             'end_date' => $this->filters['end_date'] ?? null,
         ];
+
+        if (Filament::getCurrentPanel()?->getId() === 'escola' && ($tenantId = Filament::getTenant()?->id)) {
+            $filters['institution_id'] = $tenantId;
+        }
+
+        return $filters;
     }
 
     protected function emptyBarChartData(): array

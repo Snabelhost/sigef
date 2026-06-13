@@ -7,6 +7,7 @@ use App\Filament\Resources\StudentLeaveResource\RelationManagers;
 use App\Models\Candidate;
 use App\Models\StudentLeave;
 use App\Models\Student;
+use Filament\Facades\Filament;
 use Filament\Forms;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
@@ -45,7 +46,8 @@ class StudentLeaveResource extends Resource
                             'Em Formação',
                         ];
 
-                        return Student::with('candidate')
+                        return static::tenantStudentQuery()
+                            ->with('candidate')
                             ->where(function ($q) use ($tiposPermitidos) {
                                 foreach ($tiposPermitidos as $tipo) {
                                     $q->orWhere('student_type', 'like', "%{$tipo}%");
@@ -58,7 +60,7 @@ class StudentLeaveResource extends Resource
                             ->toArray();
                     })
                     ->getOptionLabelUsing(function ($value): ?string {
-                        $student = Student::with('candidate')->find($value);
+                        $student = static::tenantStudentQuery()->with('candidate')->find($value);
                         return $student?->candidate?->full_name ?? 'N/A';
                     })
                     ->required()
@@ -236,15 +238,15 @@ class StudentLeaveResource extends Resource
                     ]),
                 Tables\Filters\SelectFilter::make('cia')
                     ->label('Cia')
-                    ->options(fn() => Student::whereNotNull('cia')->distinct()->pluck('cia', 'cia')->toArray())
+                    ->options(fn() => static::tenantStudentQuery()->whereNotNull('cia')->distinct()->pluck('cia', 'cia')->toArray())
                     ->query(fn($query, array $data) => $query->when($data['value'], fn($q) => $q->whereHas('student', fn($sq) => $sq->where('cia', $data['value'])))),
                 Tables\Filters\SelectFilter::make('platoon')
                     ->label('Pelotão')
-                    ->options(fn() => Student::whereNotNull('platoon')->distinct()->pluck('platoon', 'platoon')->toArray())
+                    ->options(fn() => static::tenantStudentQuery()->whereNotNull('platoon')->distinct()->pluck('platoon', 'platoon')->toArray())
                     ->query(fn($query, array $data) => $query->when($data['value'], fn($q) => $q->whereHas('student', fn($sq) => $sq->where('platoon', $data['value'])))),
                 Tables\Filters\SelectFilter::make('section')
                     ->label('Secção')
-                    ->options(fn() => Student::whereNotNull('section')->distinct()->pluck('section', 'section')->toArray())
+                    ->options(fn() => static::tenantStudentQuery()->whereNotNull('section')->distinct()->pluck('section', 'section')->toArray())
                     ->query(fn($query, array $data) => $query->when($data['value'], fn($q) => $q->whereHas('student', fn($sq) => $sq->where('section', $data['value'])))),
             ])
             ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContentCollapsible)
@@ -491,7 +493,7 @@ class StudentLeaveResource extends Resource
             Forms\Components\Select::make('student_id')
                 ->label('Nome completo')
                 ->options(fn (): array => static::studentOptionsForLeaves())
-                ->getOptionLabelUsing(fn ($value): ?string => static::studentNameLabel(Student::with('candidate')->find($value)))
+                ->getOptionLabelUsing(fn ($value): ?string => static::studentNameLabel(static::tenantStudentQuery()->with('candidate')->find($value)))
                 ->required()
                 ->searchable()
                 ->preload()
@@ -577,7 +579,7 @@ class StudentLeaveResource extends Resource
     protected static function resolveStudentForOccurrence(array $data): Student
     {
         if (! empty($data['student_id'])) {
-            $student = Student::with('candidate')->find($data['student_id']);
+            $student = static::tenantStudentQuery()->with('candidate')->find($data['student_id']);
 
             if ($student) {
                 return $student;
@@ -717,7 +719,7 @@ class StudentLeaveResource extends Resource
     protected static function fillOccurrenceStudentFields($studentId, Set $set): void
     {
         $student = filled($studentId)
-            ? Student::with('candidate')->find($studentId)
+            ? static::tenantStudentQuery()->with('candidate')->find($studentId)
             : null;
 
         $values = [
@@ -757,12 +759,21 @@ class StudentLeaveResource extends Resource
     {
         $types = ['Oficial', 'Agente', 'Recruta', 'Instruendo', 'Em Forma', 'Formando', '1ª Fase', '2ª Fase'];
 
-        return Student::query()
+        return static::tenantStudentQuery()
             ->where(function (Builder $query) use ($types): void {
                 foreach ($types as $type) {
                     $query->orWhere('student_type', 'like', "%{$type}%");
                 }
             });
+    }
+
+    protected static function tenantStudentQuery(): Builder
+    {
+        return Student::query()
+            ->when(
+                Filament::getTenant()?->id,
+                fn (Builder $query, int $institutionId): Builder => $query->where('institution_id', $institutionId),
+            );
     }
 
     protected static function studentNameLabel(?Student $student): ?string

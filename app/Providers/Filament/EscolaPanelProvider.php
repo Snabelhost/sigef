@@ -142,14 +142,14 @@ class EscolaPanelProvider extends PanelProvider
                 \App\Filament\Escola\Pages\AttendanceManagement::class,
                 \App\Filament\Pages\InstitutionReportSettings::class,
                 \App\Filament\Escola\Pages\Relatorios::class,
-                \App\Filament\Pages\TransferHistory::class,
+                \App\Filament\Escola\Pages\TransferHistory::class,
             ])
             ->widgets([
-                \App\Filament\Escola\Widgets\EscolaStatsOverview::class,
-                \App\Filament\Escola\Widgets\EscolaCandidateStatusChart::class,
-                \App\Filament\Escola\Widgets\EscolaStudentStatusChart::class,
-                \App\Filament\Escola\Widgets\EscolaStudentsByCourseChart::class,
-                \App\Filament\Escola\Widgets\EscolaStudentManagement::class,
+                \App\Filament\Widgets\StatsOverview::class,
+                \App\Filament\Widgets\CandidatesByProvinceChart::class,
+                \App\Filament\Widgets\CandidateStatusChart::class,
+                \App\Filament\Widgets\StudentStatusChart::class,
+                \App\Filament\Widgets\StudentsByCourseChart::class,
             ])
             ->middleware([
                 EncryptCookies::class,

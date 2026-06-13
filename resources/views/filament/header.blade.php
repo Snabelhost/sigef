@@ -129,7 +129,7 @@
     }
 </style>
 
-<div class="sigef-full-header {{ request()->is('admin') || request()->is('admin/') || request()->is('admin/attendance-management') || request()->is('escola/*/attendance-management') || request()->is('admin/shield/roles/create') || request()->is('admin/shield/roles/*') ? 'sigef-dashboard-header-hidden' : '' }}">
+<div class="sigef-full-header {{ request()->is('admin') || request()->is('admin/') || preg_match('#^escola/[^/]+/?$#', request()->path()) || request()->is('admin/attendance-management') || request()->is('escola/*/attendance-management') || request()->is('admin/shield/roles/create') || request()->is('admin/shield/roles/*') ? 'sigef-dashboard-header-hidden' : '' }}">
     {{-- Lado Esquerdo: Ícone + Texto (dinâmico por página) --}}
     <div class="sigef-header-left">
         {{-- Container para o ícone --}}
@@ -171,10 +171,10 @@
             const isDashboard = currentPath === '/admin' || currentPath === '/admin/' || currentPath.endsWith('/admin') || /^\/escola\/\d+\/?$/.test(currentPath);
 
             if (headerEl) {
-                headerEl.classList.toggle('sigef-dashboard-header-hidden', isAdminDashboard || isAccessForm || isAttendanceManagement);
+                headerEl.classList.toggle('sigef-dashboard-header-hidden', isDashboard || isAccessForm || isAttendanceManagement);
             }
 
-            if (isAdminDashboard || isAccessForm || isAttendanceManagement) {
+            if (isDashboard || isAccessForm || isAttendanceManagement) {
                 return;
             }
 
@@ -558,7 +558,7 @@
             }
 
             const currentPath = normalizePath(window.location.pathname);
-            const hideHeader = isAdminDashboard(currentPath) || isAccessForm(currentPath) || isAttendanceManagement(currentPath);
+            const hideHeader = isAdminDashboard(currentPath) || isTenantDashboard(currentPath) || isAccessForm(currentPath) || isAttendanceManagement(currentPath);
             headerEl.classList.toggle('sigef-dashboard-header-hidden', hideHeader);
 
             if (hideHeader) {

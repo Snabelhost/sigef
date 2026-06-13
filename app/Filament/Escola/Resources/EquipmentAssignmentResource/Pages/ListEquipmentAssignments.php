@@ -3,7 +3,6 @@
 namespace App\Filament\Escola\Resources\EquipmentAssignmentResource\Pages;
 
 use App\Filament\Escola\Resources\EquipmentAssignmentResource;
-use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 
 class ListEquipmentAssignments extends ListRecords
@@ -18,7 +17,7 @@ class ListEquipmentAssignments extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make(),
+            // CreateAction removido conforme solicitação
         ];
     }
 }
