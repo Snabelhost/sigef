@@ -93,28 +93,55 @@
 
             this.isPrinting = true;
 
-            const url = '{{ $printUrl }}' + '?embedded=1&autoprint=0&print_scale=large';
+            const url = new URL(@js($printUrl), window.location.origin);
+            url.searchParams.delete('face');
+            url.searchParams.set('embedded', '1');
+            url.searchParams.set('autoprint', '0');
+            url.searchParams.set('print_scale', 'large');
+
+            const printUrl = url.toString();
             const frame = document.createElement('iframe');
             const printFrameWidth = Math.ceil(this.cardWidth * 1.65);
             const printFrameHeight = Math.ceil(this.cardHeight * 1.65);
+            const waitForPrintAssets = () => {
+                let doc = frame.contentDocument;
+
+                if (! doc) {
+                    return Promise.resolve();
+                }
+
+                const imagePromises = Array.from(doc.images)
+                    .filter((image) => ! image.complete)
+                    .map((image) => new Promise((resolve) => {
+                        image.addEventListener('load', resolve, { once: true });
+                        image.addEventListener('error', resolve, { once: true });
+                    }));
+                const fontPromise = doc.fonts ? doc.fonts.ready.catch(() => {}) : Promise.resolve();
+
+                return Promise.race([
+                    Promise.all([...imagePromises, fontPromise]),
+                    new Promise((resolve) => setTimeout(resolve, 1800)),
+                ]).then(() => new Promise((resolve) => setTimeout(resolve, 180)));
+            };
 
             frame.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:' + printFrameWidth + 'px;height:' + printFrameHeight + 'px;opacity:0;border:0;pointer-events:none;';
-            frame.src = url;
+            frame.src = printUrl;
             document.body.appendChild(frame);
 
             frame.addEventListener('load', () => {
-                setTimeout(() => {
+                waitForPrintAssets().then(() => {
                     try {
+                        frame.contentWindow.focus();
                         frame.contentWindow.print();
                     } catch (error) {
-                        window.open(url, '_blank');
+                        window.open(printUrl, '_blank');
                     }
 
                     setTimeout(() => {
                         frame.remove();
                         this.isPrinting = false;
                     }, 1000);
-                }, 400);
+                });
             });
         }
     }"

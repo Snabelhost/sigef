@@ -103,6 +103,56 @@
             box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.5);
         }
 
+        .password-field {
+            position: relative;
+        }
+
+        .password-field .form-input {
+            padding-right: 3.25rem;
+        }
+
+        .password-toggle {
+            position: absolute;
+            top: 50%;
+            right: 0.875rem;
+            width: 2rem;
+            height: 2rem;
+            border: none;
+            border-radius: 4px;
+            background: transparent;
+            color: #4b5563;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transform: translateY(-50%);
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+
+        .password-toggle:hover,
+        .password-toggle:focus-visible {
+            background: rgba(4, 28, 79, 0.08);
+            color: #041c4f;
+            outline: none;
+        }
+
+        .password-toggle svg {
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+
+        .password-toggle .icon-eye-off {
+            display: none;
+        }
+
+        .password-toggle.is-visible .icon-eye {
+            display: none;
+        }
+
+        .password-toggle.is-visible .icon-eye-off {
+            display: block;
+        }
+
         .submit-btn {
             width: 100%;
             padding: 1rem;
@@ -266,7 +316,7 @@
                 >
             </div>
 
-            <div class="form-group">
+            <div class="form-group password-field">
                 <input 
                     type="password" 
                     id="password" 
@@ -276,6 +326,25 @@
                     autocomplete="current-password"
                     required
                 >
+                <button
+                    type="button"
+                    class="password-toggle"
+                    id="passwordToggle"
+                    aria-label="Mostrar senha"
+                    aria-pressed="false"
+                    title="Mostrar senha"
+                >
+                    <svg class="icon-eye" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12s-3.75 6.75-9.75 6.75S2.25 12 2.25 12z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" />
+                    </svg>
+                    <svg class="icon-eye-off" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.58 10.58A2 2 0 0 0 12 14a2 2 0 0 0 1.42-.58" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.88 5.52A9.7 9.7 0 0 1 12 5.25c6 0 9.75 6.75 9.75 6.75a17.7 17.7 0 0 1-2.2 2.92" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.23 7.22C3.67 9.08 2.25 12 2.25 12s3.75 6.75 9.75 6.75c1.55 0 2.96-.45 4.2-1.12" />
+                    </svg>
+                </button>
             </div>
 
             <div class="checkbox-group">
@@ -295,6 +364,20 @@
     </div>
 
     <script>
+        const passwordInput = document.getElementById('password');
+        const passwordToggle = document.getElementById('passwordToggle');
+
+        passwordToggle.addEventListener('click', function() {
+            const isVisible = passwordInput.type === 'text';
+
+            passwordInput.type = isVisible ? 'password' : 'text';
+            this.classList.toggle('is-visible', ! isVisible);
+            this.setAttribute('aria-label', isVisible ? 'Mostrar senha' : 'Ocultar senha');
+            this.setAttribute('aria-pressed', String(! isVisible));
+            this.setAttribute('title', isVisible ? 'Mostrar senha' : 'Ocultar senha');
+            passwordInput.focus();
+        });
+
         document.getElementById('loginForm').addEventListener('submit', function(e) {
             const form = this;
             const btn = document.getElementById('submitBtn');

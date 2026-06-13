@@ -115,8 +115,8 @@ class EffectiveDataSheet implements FromArray, WithTitle, WithHeadings, WithStyl
                 ];
 
                 for ($row = 2; $row <= 101; $row++) {
-                    $this->addDropdown($sheet, "A{$row}", $ranges['type'], 'Tipo de Efectivo', 'Selecione Regime Especial ou Regime Geral.');
-                    $this->addDropdown($sheet, "B{$row}", $ranges['institution'], 'Escola', 'Selecione a escola.');
+                    $this->addDropdown($sheet, "A{$row}", $ranges['type'], 'Tipo de Efectivo', 'Selecione Regime Especial ou Regime Geral.', false);
+                    $this->addDropdown($sheet, "B{$row}", $ranges['institution'], 'Escola', 'Selecione a escola.', false);
                     $this->addDropdown($sheet, "F{$row}", $ranges['gender'], 'Sexo', 'Selecione o sexo.');
                     $this->addDropdown($sheet, "G{$row}", $ranges['blood'], 'Grupo Sanguineo', 'Selecione o grupo sanguineo.');
                     $this->addDropdown($sheet, "H{$row}", $ranges['country'], 'Pais de Origem', 'Selecione o pais.');
@@ -139,10 +139,10 @@ class EffectiveDataSheet implements FromArray, WithTitle, WithHeadings, WithStyl
 
                 $sheet->getColumnDimension('Z')->setWidth(56);
                 $sheet->setCellValue('Z1', 'INSTRUCOES:');
-                $sheet->setCellValue('Z2', '1. Nome_Completo e Tipo_Efectivo sao obrigatorios.');
+                $sheet->setCellValue('Z2', '1. Nome_Completo, Tipo_Efectivo e Escola sao obrigatorios.');
                 $sheet->setCellValue('Z3', '2. Para Regime Especial informe o NIP.');
                 $sheet->setCellValue('Z4', '3. Para Regime Geral informe o Bilhete_Identidade.');
-                $sheet->setCellValue('Z5', '4. Use as listas suspensas sempre que existirem.');
+                $sheet->setCellValue('Z5', '4. No Admin, escolha a Escola pela lista suspensa.');
                 $sheet->setCellValue('Z6', '5. Datas podem ser AAAA-MM-DD ou DD/MM/AAAA.');
                 $sheet->setCellValue('Z7', '6. Activo aceita Sim/Nao; vazio fica como Sim.');
                 $sheet->getStyle('Z1')->getFont()->setBold(true);
@@ -180,12 +180,12 @@ class EffectiveDataSheet implements FromArray, WithTitle, WithHeadings, WithStyl
         ];
     }
 
-    protected function addDropdown(Worksheet $sheet, string $cell, string $range, string $title, string $prompt): void
+    protected function addDropdown(Worksheet $sheet, string $cell, string $range, string $title, string $prompt, bool $allowBlank = true): void
     {
         $validation = $sheet->getCell($cell)->getDataValidation();
         $validation->setType(DataValidation::TYPE_LIST);
         $validation->setErrorStyle(DataValidation::STYLE_STOP);
-        $validation->setAllowBlank(true);
+        $validation->setAllowBlank($allowBlank);
         $validation->setShowInputMessage(true);
         $validation->setShowErrorMessage(true);
         $validation->setShowDropDown(true);

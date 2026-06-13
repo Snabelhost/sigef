@@ -15,13 +15,16 @@ use Maatwebsite\Excel\Concerns\SkipsFailures;
 use Maatwebsite\Excel\Concerns\SkipsOnFailure;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 use Maatwebsite\Excel\Concerns\WithValidation;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use Throwable;
 
-class EffectiveImport implements ToModel, WithHeadingRow, WithValidation, SkipsEmptyRows, SkipsOnFailure
+class EffectiveImport implements ToModel, WithHeadingRow, WithMultipleSheets, WithValidation, SkipsEmptyRows, SkipsOnFailure
 {
     use Importable, SkipsFailures;
+
+    public function __construct(protected ?int $forcedInstitutionId = null) {}
 
     protected array $importStats = [
         'imported' => 0,
@@ -29,16 +32,27 @@ class EffectiveImport implements ToModel, WithHeadingRow, WithValidation, SkipsE
         'errors' => [],
     ];
 
+    public function sheets(): array
+    {
+        return [0 => $this];
+    }
+
     public function model(array $row)
     {
+        if ($this->isBlankRow($row)) {
+            return null;
+        }
+
         $name = $this->getColumnValue($row, ['nome_completo', 'nome', 'name', 'full_name']);
         $employeeNumber = $this->normalizeDocument($this->getColumnValue($row, ['nip', 'numero_nip', 'employee_number']));
         $identityDocument = $this->normalizeDocument($this->getColumnValue($row, ['bilhete_identidade', 'bi', 'bilhete', 'identity_document', 'document_number']));
-        $staffType = $this->normalizeStaffType(
-            $this->getColumnValue($row, ['tipo_efectivo', 'tipo_efetivo', 'tipo', 'regime', 'staff_type']),
-            $employeeNumber,
-            $identityDocument,
-        );
+        $institutionValue = $this->getColumnValue($row, ['escola', 'instituicao', 'institution']);
+        $staffTypeInput = $this->getColumnValue($row, ['tipo_efectivo', 'tipo_efetivo', 'tipo', 'regime', 'staff_type']);
+        $staffType = $this->normalizeStaffType($staffTypeInput, $employeeNumber, $identityDocument);
+
+        if (blank($name) && blank($employeeNumber) && blank($identityDocument) && blank($staffTypeInput) && blank($institutionValue)) {
+            return null;
+        }
 
         if (blank($name)) {
             $this->skip('Nome_Completo esta vazio.');
@@ -70,10 +84,20 @@ class EffectiveImport implements ToModel, WithHeadingRow, WithValidation, SkipsE
             return null;
         }
 
+        $institutionId = $this->forcedInstitutionId ?: $this->findInstitutionId($institutionValue);
+
+        if (blank($institutionId)) {
+            $this->skip(blank($institutionValue)
+                ? "Escola e obrigatoria ({$name})."
+                : "Escola '{$institutionValue}' nao encontrada ({$name}).");
+
+            return null;
+        }
+
         $this->importStats['imported']++;
 
         return new Effective([
-            'institution_id' => $this->findInstitutionId($this->getColumnValue($row, ['escola', 'instituicao', 'institution'])),
+            'institution_id' => $institutionId,
             'staff_type' => $staffType,
             'full_name' => $name,
             'employee_number' => $staffType === 'regime_especial' ? $employeeNumber : null,
@@ -157,6 +181,17 @@ class EffectiveImport implements ToModel, WithHeadingRow, WithValidation, SkipsE
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
+    }
+
+    protected function isBlankRow(array $row): bool
+    {
+        foreach ($row as $value) {
+            if ($this->cleanValue($value) !== null) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     protected function normalizeColumnName(string $name): string

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\CardTemplate;
+use App\Models\Institution;
 use App\Models\Trainer;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
@@ -11,16 +12,18 @@ use Throwable;
 
 class TrainerCardService
 {
-    public function build(Trainer $trainer): array
+    public function build(Trainer $trainer, ?int $institutionId = null): array
     {
         $trainer->loadMissing([
             'institution',
+            'institutions',
             'rank',
             'classAssignments.subject',
             'classAssignments.studentClass',
+            'subjectAuthorizations',
         ]);
 
-        $institution = $trainer->institution;
+        $institution = $this->contextInstitution($trainer, $institutionId);
         $template = CardTemplate::resolveForType(CardTemplate::TYPE_PROFESSOR, null, $institution?->id)
             ?? $this->fallbackTemplate();
 
@@ -112,6 +115,41 @@ class TrainerCardService
             'style' => CardTemplate::STYLE_PROFESSOR_VERTICAL,
             'orientation' => CardTemplate::ORIENTATION_HORIZONTAL,
         ]);
+    }
+
+    protected function contextInstitution(Trainer $trainer, ?int $institutionId = null): ?Institution
+    {
+        $institutionId = $this->allowedInstitutionId($trainer, $institutionId)
+            ?: ($trainer->institution_id ?: null);
+
+        if (! $institutionId) {
+            return $trainer->institution;
+        }
+
+        if ((int) $trainer->institution_id === (int) $institutionId) {
+            return $trainer->institution;
+        }
+
+        return Institution::query()->find($institutionId) ?: $trainer->institution;
+    }
+
+    protected function allowedInstitutionId(Trainer $trainer, ?int $institutionId): ?int
+    {
+        if (! $institutionId) {
+            return null;
+        }
+
+        $allowedIds = collect([$trainer->institution_id])
+            ->merge($trainer->institutions->pluck('id'))
+            ->merge($trainer->subjectAuthorizations->pluck('institution_id'))
+            ->filter()
+            ->map(fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->values();
+
+        return $allowedIds->contains((int) $institutionId)
+            ? (int) $institutionId
+            : null;
     }
 
     protected function trainerPhotoUrl(Trainer $trainer, CardTemplate $template): ?string

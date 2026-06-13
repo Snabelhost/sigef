@@ -15,13 +15,16 @@ use Maatwebsite\Excel\Concerns\SkipsFailures;
 use Maatwebsite\Excel\Concerns\SkipsOnFailure;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 use Maatwebsite\Excel\Concerns\WithValidation;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 use Throwable;
 
-class TrainerImport implements ToModel, WithHeadingRow, WithValidation, SkipsEmptyRows, SkipsOnFailure
+class TrainerImport implements ToModel, WithHeadingRow, WithMultipleSheets, WithValidation, SkipsEmptyRows, SkipsOnFailure
 {
     use Importable, SkipsFailures;
+
+    public function __construct(protected ?int $forcedInstitutionId = null) {}
 
     protected array $importStats = [
         'imported' => 0,
@@ -29,12 +32,26 @@ class TrainerImport implements ToModel, WithHeadingRow, WithValidation, SkipsEmp
         'errors' => [],
     ];
 
+    public function sheets(): array
+    {
+        return [0 => $this];
+    }
+
     public function model(array $row)
     {
+        if ($this->isBlankRow($row)) {
+            return null;
+        }
+
         $nome = $this->getColumnValue($row, ['nome_completo', 'nome', 'name', 'full_name']);
         $nip = $this->normalizeDocument($this->getColumnValue($row, ['nip', 'numero_nip']));
         $bilhete = $this->normalizeDocument($this->getColumnValue($row, ['bilhete_identidade', 'bi', 'bilhete', 'id_number']));
         $tipo = $this->getColumnValue($row, ['tipo_formador', 'tipo', 'regime', 'trainer_type']);
+        $institutionValue = $this->getColumnValue($row, ['escola', 'instituicao', 'institution']);
+
+        if (blank($nome) && blank($nip) && blank($bilhete) && blank($tipo) && blank($institutionValue)) {
+            return null;
+        }
 
         $trainerType = $this->normalizeTrainerType($tipo, $nip, $bilhete);
 
@@ -74,7 +91,16 @@ class TrainerImport implements ToModel, WithHeadingRow, WithValidation, SkipsEmp
             return null;
         }
 
-        $institutionId = $this->findInstitutionId($this->getColumnValue($row, ['escola', 'instituicao', 'institution']));
+        $institutionId = $this->forcedInstitutionId ?: $this->findInstitutionId($institutionValue);
+
+        if (blank($institutionId)) {
+            $this->skip(blank($institutionValue)
+                ? "Escola e obrigatoria ({$nome})."
+                : "Escola '{$institutionValue}' nao encontrada ({$nome}).");
+
+            return null;
+        }
+
         $rankId = $trainerType === 'Fardado'
             ? $this->findRankId($this->getColumnValue($row, ['patente', 'rank', 'posto']))
             : null;
@@ -161,6 +187,17 @@ class TrainerImport implements ToModel, WithHeadingRow, WithValidation, SkipsEmp
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
+    }
+
+    protected function isBlankRow(array $row): bool
+    {
+        foreach ($row as $value) {
+            if ($this->cleanValue($value) !== null) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     protected function normalizeColumnName(string $name): string

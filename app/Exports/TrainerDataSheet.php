@@ -113,8 +113,8 @@ class TrainerDataSheet implements FromArray, WithTitle, WithHeadings, WithStyles
                 ];
 
                 for ($row = 2; $row <= 101; $row++) {
-                    $this->addDropdown($sheet, "A{$row}", $ranges['type'], 'Tipo de Formador', 'Selecione Fardado ou Civil.');
-                    $this->addDropdown($sheet, "B{$row}", $ranges['institution'], 'Escola', 'Selecione a escola.');
+                    $this->addDropdown($sheet, "A{$row}", $ranges['type'], 'Tipo de Formador', 'Selecione Fardado ou Civil.', false);
+                    $this->addDropdown($sheet, "B{$row}", $ranges['institution'], 'Escola', 'Selecione a escola.', false);
                     $this->addDropdown($sheet, "F{$row}", $ranges['gender'], 'Sexo', 'Selecione o sexo.');
                     $this->addDropdown($sheet, "G{$row}", $ranges['country'], 'Pais de Origem', 'Selecione o pais.');
                     $this->addDropdown($sheet, "H{$row}", $ranges['province'], 'Provincia', 'Selecione a provincia.');
@@ -136,10 +136,10 @@ class TrainerDataSheet implements FromArray, WithTitle, WithHeadings, WithStyles
 
                 $sheet->getColumnDimension('Y')->setWidth(54);
                 $sheet->setCellValue('Y1', 'INSTRUCOES:');
-                $sheet->setCellValue('Y2', '1. Nome_Completo e Tipo_Formador sao obrigatorios.');
+                $sheet->setCellValue('Y2', '1. Nome_Completo, Tipo_Formador e Escola sao obrigatorios.');
                 $sheet->setCellValue('Y3', '2. Para Regime Especial/Fardado informe o NIP.');
                 $sheet->setCellValue('Y4', '3. Para Regime Geral/Civil informe o Bilhete_Identidade.');
-                $sheet->setCellValue('Y5', '4. Use as listas suspensas sempre que existirem.');
+                $sheet->setCellValue('Y5', '4. No Admin, escolha a Escola pela lista suspensa.');
                 $sheet->setCellValue('Y6', '5. Datas podem ser AAAA-MM-DD ou DD/MM/AAAA.');
                 $sheet->setCellValue('Y7', '6. Activo aceita Sim/Nao; vazio fica como Sim.');
                 $sheet->getStyle('Y1')->getFont()->setBold(true);
@@ -176,12 +176,12 @@ class TrainerDataSheet implements FromArray, WithTitle, WithHeadings, WithStyles
         ];
     }
 
-    protected function addDropdown(Worksheet $sheet, string $cell, string $range, string $title, string $prompt): void
+    protected function addDropdown(Worksheet $sheet, string $cell, string $range, string $title, string $prompt, bool $allowBlank = true): void
     {
         $validation = $sheet->getCell($cell)->getDataValidation();
         $validation->setType(DataValidation::TYPE_LIST);
         $validation->setErrorStyle(DataValidation::STYLE_STOP);
-        $validation->setAllowBlank(true);
+        $validation->setAllowBlank($allowBlank);
         $validation->setShowInputMessage(true);
         $validation->setShowErrorMessage(true);
         $validation->setShowDropDown(true);

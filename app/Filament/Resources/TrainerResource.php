@@ -18,6 +18,7 @@ use App\Models\TrainerClassAssignment;
 use App\Models\TrainerSubjectAuthorization;
 use App\Services\StaffLoginAccountService;
 use App\Services\TrainerCardService;
+use Filament\Facades\Filament;
 use Filament\Forms;
 use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
@@ -282,6 +283,10 @@ class TrainerResource extends Resource
                             Forms\Components\Select::make('institution_id')
                                 ->label('Escola')
                                 ->options(fn (): array => Institution::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                                ->default(fn (): ?int => static::tenantInstitutionId())
+                                ->hidden(fn (): bool => filled(static::tenantInstitutionId()))
+                                ->dehydrated()
+                                ->required(fn (): bool => blank(static::tenantInstitutionId()))
                                 ->searchable()
                                 ->preload(),
                             Forms\Components\TextInput::make('email')
@@ -1289,6 +1294,10 @@ HTML);
                             Forms\Components\Select::make('institution_id')
                                 ->label('Escola')
                                 ->options(fn (): array => Institution::query()->orderBy('name')->pluck('name', 'id')->toArray())
+                                ->default(fn (): ?int => static::tenantInstitutionId())
+                                ->hidden(fn (): bool => filled(static::tenantInstitutionId()))
+                                ->dehydrated()
+                                ->required(fn (): bool => blank(static::tenantInstitutionId()))
                                 ->searchable()
                                 ->preload(),
                             Forms\Components\TextInput::make('phone')
@@ -2006,12 +2015,6 @@ HTML);
                     ->label('Nome')
                     ->searchable()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('user.email')
-                    ->label('Login')
-                    ->badge()
-                    ->color(fn (?string $state): string => filled($state) ? 'success' : 'gray')
-                    ->placeholder('Sem login')
-                    ->toggleable(),
                 Tables\Columns\TextColumn::make('effective_number')
                     ->label('Nº Efectivo')
                     ->getStateUsing(fn(Trainer $record): ?string => $record->nip ?: $record->bilhete)
@@ -2184,7 +2187,7 @@ HTML);
                         }
 
                         try {
-                            $import = new \App\Imports\TrainerImport();
+                            $import = new \App\Imports\TrainerImport(static::tenantInstitutionId());
                             \Maatwebsite\Excel\Facades\Excel::import($import, $filePath);
 
                             $stats = $import->getImportStats();
@@ -2203,7 +2206,7 @@ HTML);
                             if ($stats['skipped'] > 0) {
                                 \Filament\Notifications\Notification::make()
                                     ->title('Registros Ignorados')
-                                    ->body("{$stats['skipped']} já existiam.")
+                                    ->body("{$stats['skipped']} ja existiam ou estavam incompletos.")
                                     ->warning()
                                     ->send();
                             }
@@ -2236,6 +2239,13 @@ HTML);
                 \Filament\Actions\CreateAction::make()
                     ->icon('heroicon-o-plus')
                     ->modalWidth(Width::ScreenExtraLarge)
+                    ->mutateFormDataUsing(function (array $data): array {
+                        if ($institutionId = static::tenantInstitutionId()) {
+                            $data['institution_id'] = $institutionId;
+                        }
+
+                        return $data;
+                    })
                     ->modalSubmitAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-check')->label('Criar'))
                     ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger'))
                     ->createAnotherAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-plus-circle')->label('Salvar e criar outro'))
@@ -2391,7 +2401,8 @@ HTML);
             ->stickyModalFooter()
             ->closeModalByClickingAway(false)
             ->modalContent(function (Trainer $record) {
-                $data = app(TrainerCardService::class)->build($record);
+                $institutionId = Filament::getTenant()?->getKey();
+                $data = app(TrainerCardService::class)->build($record, $institutionId ? (int) $institutionId : null);
                 $template = $data['template'];
                 $printUrl = route('cartoes.trainers.preview', ['trainer' => $record]);
                 $cacheBuster = (string) max(
@@ -2399,16 +2410,23 @@ HTML);
                     (int) ($template->updated_at?->timestamp ?: 0),
                     time(),
                 );
+                $baseQuery = array_filter([
+                    'institution_id' => $institutionId ? (int) $institutionId : null,
+                    'v' => $cacheBuster,
+                ], fn (mixed $value): bool => filled($value));
+                $printUrlWithContext = $baseQuery === []
+                    ? $printUrl
+                    : $printUrl.'?'.http_build_query($baseQuery);
                 $embeddedUrl = fn (string $face): string => $printUrl.'?'.http_build_query([
                     'embedded' => 1,
                     'autoprint' => 0,
                     'face' => $face,
-                    'v' => $cacheBuster,
+                    ...$baseQuery,
                 ]);
 
                 return view('cards.print-modal', $data + [
                     'frameId' => 'sigef-trainer-card-frame-'.$record->getKey(),
-                    'printUrl' => $printUrl,
+                    'printUrl' => $printUrlWithContext,
                     'embeddedFrontUrl' => $embeddedUrl('front'),
                     'embeddedBackUrl' => $embeddedUrl('back'),
                     'entityLabel' => 'Formadores',
@@ -2424,6 +2442,13 @@ HTML);
         return [
             //
         ];
+    }
+
+    protected static function tenantInstitutionId(): ?int
+    {
+        return Filament::getCurrentPanel()?->getId() === 'escola'
+            ? Filament::getTenant()?->getKey()
+            : null;
     }
 
     public static function getPages(): array

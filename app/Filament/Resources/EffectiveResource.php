@@ -396,9 +396,10 @@ class EffectiveResource extends Resource
                         Forms\Components\Select::make('institution_id')
                             ->label('Escola')
                             ->options(fn (): array => Institution::query()->orderBy('name')->pluck('name', 'id')->toArray())
-                            ->default(fn (): ?int => Filament::getCurrentPanel()?->getId() === 'escola' ? Filament::getTenant()?->id : null)
-                            ->hidden(fn (): bool => Filament::getCurrentPanel()?->getId() === 'escola' && filled(Filament::getTenant()?->id))
+                            ->default(fn (): ?int => static::tenantInstitutionId())
+                            ->hidden(fn (): bool => filled(static::tenantInstitutionId()))
                             ->dehydrated()
+                            ->required(fn (): bool => blank(static::tenantInstitutionId()))
                             ->searchable()
                             ->preload(),
                         Forms\Components\TextInput::make('email')
@@ -826,12 +827,6 @@ HTML);
                     ->searchable()
                     ->sortable()
                     ->weight('bold'),
-                Tables\Columns\TextColumn::make('user.email')
-                    ->label('Login')
-                    ->badge()
-                    ->color(fn (?string $state): string => filled($state) ? 'success' : 'gray')
-                    ->placeholder('Sem login')
-                    ->toggleable(),
                 Tables\Columns\TextColumn::make('identifier')
                     ->label('NIP/NAS/BI')
                     ->placeholder('-')
@@ -908,7 +903,7 @@ HTML);
                         }
 
                         try {
-                            $import = new EffectiveImport();
+                            $import = new EffectiveImport(static::tenantInstitutionId());
                             Excel::import($import, $filePath);
 
                             $stats = $import->getImportStats();
@@ -960,6 +955,13 @@ HTML);
                     ->label('Novo Efectivo')
                     ->icon('heroicon-o-plus')
                     ->modalWidth(Width::ScreenExtraLarge)
+                    ->mutateFormDataUsing(function (array $data): array {
+                        if ($institutionId = static::tenantInstitutionId()) {
+                            $data['institution_id'] = $institutionId;
+                        }
+
+                        return $data;
+                    })
                     ->modalSubmitAction(fn (Actions\Action $action) => $action->icon('heroicon-o-check')->label('Criar'))
                     ->modalCancelAction(fn (Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger'))
                     ->createAnotherAction(fn (Actions\Action $action) => $action->icon('heroicon-o-plus-circle')->label('Salvar e criar outro'))
@@ -1122,26 +1124,34 @@ HTML);
             ->stickyModalFooter()
             ->closeModalByClickingAway(false)
             ->modalContent(function (Effective $record) {
-                $template = static::cardTemplateForRecord($record);
+                $institutionId = Filament::getTenant()?->getKey();
+                $template = static::cardTemplateForRecord($record, $institutionId ? (int) $institutionId : null);
                 $printUrl = route('cartoes.effectives.preview', ['effective' => $record]);
                 $cacheBuster = (string) max(
                     (int) ($record->updated_at?->timestamp ?: 0),
                     (int) ($template->updated_at?->timestamp ?: 0),
                     time(),
                 );
+                $baseQuery = array_filter([
+                    'institution_id' => $institutionId ? (int) $institutionId : null,
+                    'v' => $cacheBuster,
+                ], fn (mixed $value): bool => filled($value));
+                $printUrlWithContext = $baseQuery === []
+                    ? $printUrl
+                    : $printUrl.'?'.http_build_query($baseQuery);
                 $embeddedUrl = fn (string $face): string => $printUrl.'?'.http_build_query([
                     'embedded' => 1,
                     'autoprint' => 0,
                     'face' => $face,
-                    'v' => $cacheBuster,
+                    ...$baseQuery,
                 ]);
 
                 return view('cards.print-modal', [
                     'template' => $template,
-                    'payload' => static::cardPayload($record, $template),
+                    'payload' => static::cardPayload($record, $template, $institutionId ? (int) $institutionId : null),
                     'viewerId' => 'sigef-effective-card-viewer-'.$record->getKey(),
                     'frameId' => 'sigef-effective-card-frame-'.$record->getKey(),
-                    'printUrl' => $printUrl,
+                    'printUrl' => $printUrlWithContext,
                     'embeddedFrontUrl' => $embeddedUrl('front'),
                     'embeddedBackUrl' => $embeddedUrl('back'),
                     'entityLabel' => 'Efectivos',
@@ -1152,9 +1162,12 @@ HTML);
             });
     }
 
-    public static function cardTemplateForRecord(Effective $record): CardTemplate
+    public static function cardTemplateForRecord(Effective $record, ?int $contextInstitutionId = null): CardTemplate
     {
-        $institutionId = $record->institution_id ?: $record->institution?->id;
+        $recordInstitutionId = $record->institution_id ?: $record->institution?->id;
+        $institutionId = $contextInstitutionId && (int) $contextInstitutionId === (int) $recordInstitutionId
+            ? $contextInstitutionId
+            : $recordInstitutionId;
         $recordTemplate = $record->cardTemplate;
 
         if (
@@ -1192,10 +1205,13 @@ HTML);
             ?: static::fallbackCardTemplate(CardTemplate::TYPE_STAFF);
     }
 
-    public static function cardPayload(Effective $record, ?CardTemplate $template = null): array
+    public static function cardPayload(Effective $record, ?CardTemplate $template = null, ?int $contextInstitutionId = null): array
     {
         $template ??= static::fallbackCardTemplate(CardTemplate::TYPE_STAFF);
-        $institution = $record->institution;
+        $recordInstitutionId = $record->institution_id ?: $record->institution?->id;
+        $institution = $contextInstitutionId && (int) $contextInstitutionId === (int) $recordInstitutionId
+            ? (Institution::query()->find($contextInstitutionId) ?: $record->institution)
+            : $record->institution;
         $isGeneralRegime = $record->staff_type === 'regime_geral';
         $documentLabel = $isGeneralRegime ? 'BI' : 'NIP';
         $documentNumber = trim((string) (
@@ -1695,6 +1711,13 @@ HTML);
         return [
             'index' => Pages\ListEffectives::route('/'),
         ];
+    }
+
+    protected static function tenantInstitutionId(): ?int
+    {
+        return Filament::getCurrentPanel()?->getId() === 'escola'
+            ? Filament::getTenant()?->getKey()
+            : null;
     }
 
     public static function canAccess(): bool

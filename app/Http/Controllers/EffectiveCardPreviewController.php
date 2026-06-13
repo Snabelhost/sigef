@@ -13,8 +13,9 @@ class EffectiveCardPreviewController extends Controller
     {
         $effective->loadMissing(['institution', 'cardTemplate']);
 
-        $template = EffectiveResource::cardTemplateForRecord($effective);
-        $payload = EffectiveResource::cardPayload($effective, $template);
+        $institutionId = (int) $request->query('institution_id');
+        $template = EffectiveResource::cardTemplateForRecord($effective, $institutionId > 0 ? $institutionId : null);
+        $payload = EffectiveResource::cardPayload($effective, $template, $institutionId > 0 ? $institutionId : null);
 
         return response()->view('cards.print', [
             'template' => $template,

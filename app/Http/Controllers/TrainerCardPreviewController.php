@@ -11,7 +11,8 @@ class TrainerCardPreviewController extends Controller
 {
     public function __invoke(Request $request, Trainer $trainer): Response
     {
-        $data = app(TrainerCardService::class)->build($trainer);
+        $institutionId = (int) $request->query('institution_id');
+        $data = app(TrainerCardService::class)->build($trainer, $institutionId > 0 ? $institutionId : null);
 
         return response()->view('cards.print', $data + [
             'previewMode' => true,

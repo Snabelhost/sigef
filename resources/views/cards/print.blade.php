@@ -220,12 +220,26 @@
     @if (($autoPrint ?? (! ($previewMode ?? false))))
         <script>
             const shouldAutoClose = new URLSearchParams(window.location.search).get('autoclose') === '1';
+            const waitForPrintAssets = function () {
+                const imagePromises = Array.from(document.images)
+                    .filter((image) => ! image.complete)
+                    .map((image) => new Promise((resolve) => {
+                        image.addEventListener('load', resolve, { once: true });
+                        image.addEventListener('error', resolve, { once: true });
+                    }));
+                const fontPromise = document.fonts ? document.fonts.ready.catch(() => {}) : Promise.resolve();
+
+                return Promise.race([
+                    Promise.all([...imagePromises, fontPromise]),
+                    new Promise((resolve) => setTimeout(resolve, 1800)),
+                ]).then(() => new Promise((resolve) => setTimeout(resolve, 180)));
+            };
 
             window.addEventListener('load', function () {
-                setTimeout(function () {
+                waitForPrintAssets().then(function () {
                     window.focus();
                     window.print();
-                }, 350);
+                });
             });
 
             if (shouldAutoClose) {

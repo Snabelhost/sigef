@@ -11,7 +11,8 @@ class StudentCardPreviewController extends Controller
 {
     public function __invoke(Request $request, Student $student, StudentCardService $studentCardService): Response
     {
-        $data = $studentCardService->build($student);
+        $institutionId = (int) $request->query('institution_id');
+        $data = $studentCardService->build($student, $institutionId > 0 ? $institutionId : null);
 
         return response()->view('cards.print', $data + [
             'previewMode' => true,

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\AcademicYear;
 use App\Models\CardTemplate;
+use App\Models\Institution;
 use App\Models\Student;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
@@ -11,7 +12,7 @@ use Illuminate\Support\Str;
 
 class StudentCardService
 {
-    public function build(Student $student): array
+    public function build(Student $student, ?int $institutionId = null): array
     {
         $student->loadMissing([
             'candidate',
@@ -31,7 +32,7 @@ class StudentCardService
             ->sortByDesc(fn ($enrollment): string => ($enrollment->is_active ? '1' : '0') . '|' . ($enrollment->enrolled_at ?? $enrollment->created_at ?? ''))
             ->first();
         $studentClass = $enrollment?->studentClass;
-        $institution = $student->institution ?: $studentClass?->institution;
+        $institution = $this->contextInstitution($student, $studentClass, $institutionId);
         $template = CardTemplate::resolveForType(CardTemplate::TYPE_STUDENT, null, $institution?->id) ?? $this->fallbackTemplate();
         $academicYear = $this->studentAcademicYear($student, $enrollment);
         $course = $studentClass?->courseMap?->course;
@@ -172,6 +173,45 @@ class StudentCardService
             'style' => CardTemplate::STYLE_PROFESSOR_VERTICAL,
             'orientation' => CardTemplate::ORIENTATION_VERTICAL,
         ]);
+    }
+
+    protected function contextInstitution(Student $student, mixed $studentClass, ?int $institutionId = null): ?Institution
+    {
+        $institutionId = $this->allowedInstitutionId($student, $institutionId)
+            ?: ($student->institution_id ?: $studentClass?->institution_id ?: null);
+
+        if (! $institutionId) {
+            return $student->institution ?: $studentClass?->institution;
+        }
+
+        if ((int) $student->institution_id === (int) $institutionId) {
+            return $student->institution;
+        }
+
+        if ((int) ($studentClass?->institution_id ?? 0) === (int) $institutionId) {
+            return $studentClass?->institution;
+        }
+
+        return Institution::query()->find($institutionId) ?: ($student->institution ?: $studentClass?->institution);
+    }
+
+    protected function allowedInstitutionId(Student $student, ?int $institutionId): ?int
+    {
+        if (! $institutionId) {
+            return null;
+        }
+
+        $allowedIds = collect([$student->institution_id])
+            ->merge($student->classEnrollments->pluck('institution_id'))
+            ->merge($student->classEnrollments->pluck('studentClass.institution_id'))
+            ->filter()
+            ->map(fn (mixed $id): int => (int) $id)
+            ->unique()
+            ->values();
+
+        return $allowedIds->contains((int) $institutionId)
+            ? (int) $institutionId
+            : null;
     }
 
     protected function defaultAccessUntil(): string

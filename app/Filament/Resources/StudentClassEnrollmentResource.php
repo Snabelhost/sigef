@@ -15,6 +15,7 @@ use App\Models\StudentType;
 use App\Models\StudentTransferHistory;
 use App\Services\GradeCalculator;
 use App\Services\StudentCardService;
+use Filament\Facades\Filament;
 use Filament\Forms;
 use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
@@ -861,7 +862,8 @@ class StudentClassEnrollmentResource extends Resource
             ->modalHeading('Pré-visualização do Cartão')
             ->modalWidth(\Filament\Support\Enums\Width::SevenExtraLarge)
             ->modalContent(function (Student $record) {
-                $data = app(StudentCardService::class)->build($record);
+                $institutionId = Filament::getTenant()?->getKey();
+                $data = app(StudentCardService::class)->build($record, $institutionId ? (int) $institutionId : null);
                 $template = $data['template'];
                 $printUrl = route('cartoes.preview', ['student' => $record]);
                 $cacheBuster = (string) max(
@@ -869,17 +871,24 @@ class StudentClassEnrollmentResource extends Resource
                     (int) ($template->updated_at?->timestamp ?: 0),
                     time(),
                 );
+                $baseQuery = array_filter([
+                    'institution_id' => $institutionId ? (int) $institutionId : null,
+                    'v' => $cacheBuster,
+                ], fn (mixed $value): bool => filled($value));
+                $printUrlWithContext = $baseQuery === []
+                    ? $printUrl
+                    : $printUrl.'?'.http_build_query($baseQuery);
                 $embeddedUrl = fn (string $face): string => $printUrl.'?'.http_build_query([
                     'embedded' => 1,
                     'autoprint' => 0,
                     'face' => $face,
-                    'v' => $cacheBuster,
+                    ...$baseQuery,
                 ]);
 
                 return view('cards.print-modal', $data + [
                     'viewerId' => 'sigef-student-card-viewer-'.$record->getKey(),
                     'frameId' => 'sigef-student-card-frame-'.$record->getKey(),
-                    'printUrl' => $printUrl,
+                    'printUrl' => $printUrlWithContext,
                     'embeddedFrontUrl' => $embeddedUrl('front'),
                     'embeddedBackUrl' => $embeddedUrl('back'),
                     'entityLabel' => 'Formandos',
