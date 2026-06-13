@@ -431,14 +431,37 @@ class EvaluationResource extends Resource
                         ->modalSubmitAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-check')->label('Salvar'))
                         ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Cancelar')->color('danger'))
                         ->successNotificationTitle('Registo atualizado com sucesso!'),
-                    \Filament\Actions\DeleteAction::make()->icon('heroicon-o-trash'),
+                    \Filament\Actions\DeleteAction::make()
+                        ->icon('heroicon-o-trash')
+                        ->using(fn (Evaluation $record): bool => static::deleteEvaluationGroup($record) > 0),
                 ])->icon('heroicon-s-cog-6-tooth')->tooltip('Ações'),
             ])
             ->bulkActions([
                 \Filament\Actions\BulkActionGroup::make([
-                    \Filament\Actions\DeleteBulkAction::make(),
+                    \Filament\Actions\DeleteBulkAction::make()
+                        ->action(function (\Filament\Actions\DeleteBulkAction $action, \Illuminate\Database\Eloquent\Collection $records): void {
+                            $deleted = 0;
+
+                            foreach ($records as $record) {
+                                $deleted += static::deleteEvaluationGroup($record);
+                            }
+
+                            $deleted > 0 ? $action->success() : $action->failure();
+                        }),
                 ]),
             ]);
+    }
+
+    protected static function deleteEvaluationGroup(Evaluation $record): int
+    {
+        return Evaluation::query()
+            ->where('student_id', $record->student_id)
+            ->when(
+                $record->institution_id,
+                fn (Builder $query, int $institutionId): Builder => $query->where('institution_id', $institutionId),
+                fn (Builder $query): Builder => $query->whereNull('institution_id'),
+            )
+            ->delete();
     }
 
     protected static function evaluationDetailsInfolist(\App\Models\Evaluation $record): array

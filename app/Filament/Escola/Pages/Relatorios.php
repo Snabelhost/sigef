@@ -2,77 +2,72 @@
 
 namespace App\Filament\Escola\Pages;
 
-use Filament\Actions\Action;
-use Filament\Pages\Page;
+use App\Models\AcademicYear;
+use App\Models\Institution;
+use App\Models\Student;
+use App\Models\StudentClass;
+use App\Models\User;
+use App\Support\AuditReportFormatter;
+use App\Support\StudentTypeReportOptions;
 use Filament\Facades\Filament;
-use Filament\Support\Enums\Width;
-use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 
-class Relatorios extends Page
+class Relatorios extends \App\Filament\Pages\Relatorios
 {
-    public string $reportPreviewUrl = '';
-
-    public string $reportPreviewTitle = '';
-
-    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-document-chart-bar';
-    protected static ?string $navigationLabel = 'Relatórios';
-    protected static ?string $title = 'Central de Relatórios';
-    protected static string|\UnitEnum|null $navigationGroup = 'Relatórios';
-    protected static ?int $navigationSort = 99;
-
-    protected string $view = 'filament.escola.pages.relatorios';
-
-    public function openReportPreview(string $url, string $title): void
-    {
-        $this->reportPreviewUrl = $url;
-        $this->reportPreviewTitle = $title;
-        $this->mountAction('previewReport');
-    }
-
-    public function previewReportAction(): Action
-    {
-        return Action::make('previewReport')
-            ->modalHeading('Pré-visualização do Relatório')
-            ->modalWidth(Width::SevenExtraLarge)
-            ->modalSubmitAction(false)
-            ->modalCancelAction(fn (Action $action): Action => $action
-                ->label('Fechar Pré-visualização')
-                ->color('danger')
-                ->icon('heroicon-o-x-mark'))
-            ->stickyModalHeader()
-            ->stickyModalFooter()
-            ->closeModalByClickingAway(false)
-            ->modalContent(fn (): View => view('reports.preview-modal', [
-                'previewUrl' => $this->reportPreviewUrl,
-                'title' => $this->reportPreviewTitle,
-            ]));
-    }
+    protected string $view = 'filament.pages.relatorios';
 
     public function getViewData(): array
     {
         $tenant = Filament::getTenant();
+        $institutionId = $tenant?->id;
 
-        $institutions = \App\Models\Institution::orderBy('name')->pluck('name', 'id')->toArray();
-        $classes = \App\Models\StudentClass::where('institution_id', $tenant?->id)
+        $institutions = $tenant
+            ? [$tenant->id => $tenant->name]
+            : Institution::orderBy('name')->pluck('name', 'id')->toArray();
+
+        $classes = StudentClass::query()
+            ->when($institutionId, fn (Builder $query, int $id): Builder => $query->where('institution_id', $id))
             ->orderBy('name')
             ->pluck('name', 'id')
             ->toArray();
-        $academicYears = \App\Models\AcademicYear::orderBy('name', 'desc')->pluck('name', 'id')->toArray();
 
-        // Distinct CIAs from students in this institution
-        $cias = \App\Models\Student::where('institution_id', $tenant?->id)
+        $academicYears = AcademicYear::orderBy('name', 'desc')->pluck('name', 'id')->toArray();
+
+        $users = User::query()
+            ->when($institutionId, fn (Builder $query, int $id): Builder => $query->where('institution_id', $id))
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->toArray();
+
+        $auditModels = \OwenIt\Auditing\Models\Audit::query()
+            ->whereNotNull('auditable_type')
+            ->distinct()
+            ->orderBy('auditable_type')
+            ->pluck('auditable_type')
+            ->mapWithKeys(fn (string $model): array => [$model => AuditReportFormatter::auditModelLabel($model)])
+            ->toArray();
+
+        $ciasGrouped = Student::query()
+            ->when($institutionId, fn (Builder $query, int $id): Builder => $query->where('institution_id', $id))
             ->whereNotNull('cia')
             ->where('cia', '!=', '')
+            ->select('institution_id', 'cia')
             ->distinct()
             ->orderBy('cia')
-            ->pluck('cia', 'cia')
+            ->get()
+            ->groupBy('institution_id')
+            ->map(fn ($items) => $items->pluck('cia')->unique()->values()->toArray())
             ->toArray();
 
         return [
             'institutions' => $institutions,
             'classes' => $classes,
             'academicYears' => $academicYears,
-            'cias' => $cias,
+            'users' => $users,
+            'auditModels' => $auditModels,
+            'ciasGrouped' => $ciasGrouped,
+            'studentTypeReports' => StudentTypeReportOptions::make(),
+            'reportTenantId' => $institutionId,
         ];
     }
 

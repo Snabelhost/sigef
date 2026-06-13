@@ -36,6 +36,29 @@ use Carbon\Carbon;
 
 class ReportController extends Controller
 {
+    private const SCHOOL_REPORTS = [
+        'course-maps',
+        'course-plans',
+        'courses',
+        'subjects',
+        'trainers',
+        'trainer-subjects',
+        'effectives',
+        'students-by-provenance',
+        'student-types',
+        'alistados',
+        'enrollments',
+        'equipment',
+        'transfers',
+        'leaves',
+        'evaluations',
+        'mini-pauta',
+        'pauta-geral',
+        'certificados',
+        'attendance',
+        'documents',
+    ];
+
     private function renderReport(Request $request, string $view, array $data, string $filename, array $paper = [])
     {
         $data = array_merge($data, [
@@ -63,6 +86,10 @@ class ReportController extends Controller
     private function checkAccess()
     {
         $user = auth()->user();
+        if ($user) {
+            $this->scopeSchoolReportRequest(request(), $user);
+        }
+
         if (!$user || !($user->hasRole('super_admin') || $user->hasRole('admin') || $user->hasRole('panel_user') || $user->hasRole('escola_admin'))) {
             abort(403, 'Sem permissão para aceder aos relatórios.');
         }
@@ -71,6 +98,32 @@ class ReportController extends Controller
     // ═══════════════════════════════════════
     // GESTÃO DE ACESSO
     // ═══════════════════════════════════════
+
+    private function scopeSchoolReportRequest(Request $request, User $user): void
+    {
+        if (! $this->isSchoolOnlyUser($user)) {
+            return;
+        }
+
+        $routeName = (string) $request->route()?->getName();
+        $reportName = Str::after($routeName, 'reports.');
+
+        if (! in_array($reportName, self::SCHOOL_REPORTS, true)) {
+            abort(403, 'Sem permissao para aceder a este relatorio no painel da escola.');
+        }
+
+        $request->merge(['institution' => $user->institution_id]);
+    }
+
+    private function isSchoolOnlyUser(User $user): bool
+    {
+        return filled($user->institution_id)
+            && $user->hasRole('escola_admin')
+            && ! $user->hasRole('super_admin')
+            && ! $user->hasRole('admin')
+            && ! $user->hasRole('admin_admin')
+            && ! $user->hasRole('panel_user');
+    }
 
     public function users(Request $request)
     {
@@ -256,7 +309,10 @@ class ReportController extends Controller
     public function courseMaps(Request $request)
     {
         $this->checkAccess();
-        $maps = CourseMap::with(['course.phases', 'institution', 'academicYear'])->orderBy('id')->get();
+        $maps = CourseMap::with(['course.phases', 'institution', 'academicYear'])
+            ->when($request->institution, fn ($query) => $query->where('institution_id', $request->institution))
+            ->orderBy('id')
+            ->get();
         $records = $this->curriculumRowsFromCourseMaps($maps);
 
         return $this->renderReport($request, 'reports.course-maps', ['records' => $records], 'relatorio-mapas-curso.pdf', ['size' => 'a4', 'orientation' => 'landscape']);
@@ -265,7 +321,10 @@ class ReportController extends Controller
     public function coursePlans(Request $request)
     {
         $this->checkAccess();
-        $plans = CoursePlan::with(['course.institution', 'academicYear', 'subjects.coursePhase'])->orderBy('id')->get();
+        $plans = CoursePlan::with(['course.institution', 'academicYear', 'subjects.coursePhase'])
+            ->when($request->institution, fn ($query) => $query->whereHas('course', fn ($courseQuery) => $courseQuery->where('institution_id', $request->institution)))
+            ->orderBy('id')
+            ->get();
         $records = $this->curriculumRowsFromCoursePlans($plans);
 
         return $this->renderReport($request, 'reports.course-plans', ['records' => $records], 'relatorio-planos-curso.pdf', ['size' => 'a4', 'orientation' => 'landscape']);
@@ -274,14 +333,20 @@ class ReportController extends Controller
     public function courses(Request $request)
     {
         $this->checkAccess();
-        $records = Course::with(['institution'])->orderBy('name')->get();
+        $records = Course::with(['institution'])
+            ->when($request->institution, fn ($query) => $query->where('institution_id', $request->institution))
+            ->orderBy('name')
+            ->get();
         return $this->renderReport($request, 'reports.courses', ['records' => $records], 'relatorio-cursos.pdf');
     }
 
     public function subjects(Request $request)
     {
         $this->checkAccess();
-        $records = Subject::with(['institution', 'coursePhase'])->orderBy('name')->get();
+        $records = Subject::with(['institution', 'coursePhase'])
+            ->when($request->institution, fn ($query) => $query->where('institution_id', $request->institution))
+            ->orderBy('name')
+            ->get();
         return $this->renderReport($request, 'reports.subjects', ['records' => $records], 'relatorio-disciplinas.pdf');
     }
 
@@ -545,7 +610,12 @@ class ReportController extends Controller
         $query = Candidate::with(['provenance'])
             ->where('student_type', 'Alistado');
         $academicYear = null;
+        $institution = null;
 
+        if ($request->institution) {
+            $query->where('institution_id', $request->institution);
+            $institution = Institution::find($request->institution);
+        }
         if ($request->academic_year) {
             $query->where('academic_year_id', $request->academic_year);
             $academicYear = AcademicYear::find($request->academic_year);
@@ -558,6 +628,7 @@ class ReportController extends Controller
         return $this->renderReport($request, 'reports.alistados', [
             'records' => $records,
             'academicYear' => $academicYear,
+            'institution' => $institution,
             'dateFrom' => $request->date_from,
             'dateTo' => $request->date_to,
         ], 'relatorio-alistados.pdf');
@@ -628,12 +699,23 @@ class ReportController extends Controller
     {
         $this->checkAccess();
         $query = StudentTransferHistory::with(['student.candidate', 'fromInstitution', 'toInstitution']);
+        $institution = null;
+
+        if ($request->institution) {
+            $query->where(function ($query) use ($request): void {
+                $query
+                    ->where('from_institution_id', $request->institution)
+                    ->orWhere('to_institution_id', $request->institution);
+            });
+            $institution = Institution::find($request->institution);
+        }
         if ($request->date_from) $query->whereDate('created_at', '>=', $request->date_from);
         if ($request->date_to) $query->whereDate('created_at', '<=', $request->date_to);
         $records = $query->orderBy('created_at', 'desc')->get();
 
         return $this->renderReport($request, 'reports.transfers', [
             'records' => $records,
+            'institution' => $institution,
             'dateFrom' => $request->date_from,
             'dateTo' => $request->date_to,
         ], 'relatorio-transferencias.pdf', ['size' => 'a4', 'orientation' => 'landscape']);

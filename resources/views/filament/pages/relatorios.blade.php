@@ -147,7 +147,10 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178z" />
         <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>';
+    $institutionReportsOnly = filled($reportTenantId ?? null);
     @endphp
+
+    @unless($institutionReportsOnly)
 
     {{-- ═══════ GESTÃO DE ACESSO ═══════ --}}
     <div class="section-title">
@@ -219,6 +222,7 @@
             <a class="btn-pdf" onclick="openReport('audit', this)" href="javascript:void(0)">{!! $iconDownload !!} Pr&eacute; Visualizar</a>
         </div>
     </div>
+    @endunless
 
     {{-- ═══════ CURRÍCULO ═══════ --}}
     <div class="section-title">
@@ -498,14 +502,16 @@
     {{-- ═══════ INSTITUIÇÕES & DOCUMENTOS ═══════ --}}
     <div class="section-title">
         <x-heroicon-o-building-office-2 style="width:22px;height:22px" />
-        Instituições & Documentos
+        {!! $institutionReportsOnly ? 'Documentos' : 'Institui&ccedil;&otilde;es &amp; Documentos' !!}
     </div>
     <div class="reports-grid">
+        @unless($institutionReportsOnly)
         <div class="report-card">
             <h3><x-heroicon-o-building-office /> Instituições</h3>
             <p class="desc">Lista de todas as instituições de ensino</p>
             <a class="btn-pdf" onclick="openReport('institutions', this)" href="javascript:void(0)">{!! $iconDownload !!} Pr&eacute; Visualizar</a>
         </div>
+        @endunless
         <div class="report-card">
             <h3><x-heroicon-o-folder-open /> Documentos</h3>
             <p class="desc">Lista de documentos do sistema</p>
@@ -521,6 +527,27 @@
 
     <script>
         var ciasGrouped = @json($ciasGrouped);
+        var reportTenantId = @json($reportTenantId ?? null);
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!reportTenantId) {
+                return;
+            }
+
+            document.querySelectorAll('select[id$="_institution"], select[id*="_institution"]').forEach(function (select) {
+                var hasTenantOption = Array.from(select.options).some(function (option) {
+                    return option.value == reportTenantId;
+                });
+
+                if (hasTenantOption) {
+                    select.value = reportTenantId;
+                }
+            });
+
+            if (typeof updateCiaOptions === 'function') {
+                updateCiaOptions();
+            }
+        });
 
         function updateCiaOptions() {
             var instId = document.getElementById('attendance_institution').value;
@@ -564,6 +591,12 @@
             });
         }
 
+        function appendTenantFilter(params) {
+            if (reportTenantId && !params.has('institution')) {
+                params.set('institution', reportTenantId);
+            }
+        }
+
         function reportTitleFromButton(btn) {
             var title = 'Relat\u00f3rio';
 
@@ -586,6 +619,7 @@
                 prefix + '_date_from',
                 prefix + '_date_to',
             ]);
+            appendTenantFilter(params);
             params.set('embedded', '1');
             params.set('autoprint', '0');
 
@@ -617,6 +651,7 @@
             if (filterMap[type]) {
                 appendReportFilters(params, filterMap[type]);
             }
+            appendTenantFilter(params);
             params.set('embedded', '1');
             params.set('autoprint', '0');
 

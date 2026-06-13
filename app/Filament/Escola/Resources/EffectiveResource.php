@@ -2,9 +2,9 @@
 
 namespace App\Filament\Escola\Resources;
 
-use App\Filament\Escola\Resources\PautaGeralResource\Pages;
+use App\Filament\Escola\Resources\EffectiveResource\Pages;
 
-class PautaGeralResource extends \App\Filament\Resources\PautaGeralResource
+class EffectiveResource extends \App\Filament\Resources\EffectiveResource
 {
     protected static bool $shouldSkipAuthorization = false;
     protected static bool $isScopedToTenant = false;
@@ -12,7 +12,7 @@ class PautaGeralResource extends \App\Filament\Resources\PautaGeralResource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListPautaGeral::route('/'),
+            'index' => Pages\ListEffectives::route('/'),
         ];
     }
 }

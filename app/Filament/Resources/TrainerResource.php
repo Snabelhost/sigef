@@ -1446,6 +1446,16 @@ HTML);
                         ->addActionLabel('Adicionar disciplina/turma')
                         ->reorderable(false)
                         ->collapsible()
+                        ->deleteAction(fn (\Filament\Actions\Action $action): \Filament\Actions\Action => $action
+                            ->label('Excluir')
+                            ->tooltip('Excluir disciplina/turma')
+                            ->icon('heroicon-o-trash')
+                            ->color('danger')
+                            ->size(\Filament\Support\Enums\Size::Large)
+                            ->iconSize(\Filament\Support\Enums\IconSize::Large)
+                            ->extraAttributes([
+                                'style' => 'background-color:#dc2626;color:#ffffff;border:1px solid #b91c1c;box-shadow:0 1px 4px rgba(185,28,28,.35);',
+                            ], true))
                         ->defaultItems(0),
                 ])
                 ->columnSpanFull(),

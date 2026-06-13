@@ -120,7 +120,7 @@ class EscolaPanelProvider extends PanelProvider
                 \App\Filament\Escola\Resources\CoursePlanResource::class,
                 \App\Filament\Escola\Resources\CourseResource::class,
                 \App\Filament\Escola\Resources\DocumentResource::class,
-                \App\Filament\Resources\EffectiveResource::class,
+                \App\Filament\Escola\Resources\EffectiveResource::class,
                 \App\Filament\Escola\Resources\EquipmentAssignmentResource::class,
                 \App\Filament\Escola\Resources\EvaluationResource::class,
                 \App\Filament\Escola\Resources\InstitutionResource::class,

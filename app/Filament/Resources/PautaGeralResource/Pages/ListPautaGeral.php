@@ -211,7 +211,9 @@ class ListPautaGeral extends Page implements HasForms, HasTable
             Action::make('miniPauta')
                 ->label('Mini Pauta')
                 ->icon('heroicon-o-document-text')
-                ->url(route('filament.admin.resources.pautas.index'))
+                ->url(fn (): string => Filament::getCurrentPanel()?->getId() === 'escola'
+                    ? \App\Filament\Escola\Resources\PautaResource::getUrl()
+                    : \App\Filament\Resources\PautaResource::getUrl())
                 ->color('primary'),
         ];
     }
