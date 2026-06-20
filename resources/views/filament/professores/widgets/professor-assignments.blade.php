@@ -47,11 +47,14 @@
                 vertical-align: top;
             }
 
-            .sigef-professor-panel-table th {
-                color: #061b49;
+            .sigef-professor-panel-card .sigef-professor-panel-table thead th {
+                color: #061b49 !important;
                 font-size: 11px;
+                font-weight: 800;
                 text-transform: uppercase;
-                background: #f7f9fc;
+                background: #e9eef8 !important;
+                border-bottom: 1px solid #cbd6ea;
+                letter-spacing: 0;
             }
 
             .sigef-professor-empty {

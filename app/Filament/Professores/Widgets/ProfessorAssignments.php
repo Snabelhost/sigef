@@ -96,7 +96,21 @@ class ProfessorAssignments extends Widget
 
     protected function currentTrainer(): ?Trainer
     {
-        $email = strtolower(trim((string) auth()->user()?->email));
+        $user = auth()->user();
+
+        if (! $user) {
+            return null;
+        }
+
+        $trainer = Trainer::query()
+            ->where('user_id', $user->id)
+            ->first();
+
+        if ($trainer) {
+            return $trainer;
+        }
+
+        $email = strtolower(trim((string) $user->email));
 
         if ($email === '') {
             return null;

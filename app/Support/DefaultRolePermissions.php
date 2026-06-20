@@ -218,7 +218,21 @@ class DefaultRolePermissions
 
     private const PROFESSOR_PERMISSIONS = [
         'AccessPanel:Professores',
+        'Action:Evaluation.VerDetalhes',
+        'Create:Evaluation',
+        'Delete:Evaluation',
+        'DeleteAny:Evaluation',
+        'Update:Evaluation',
+        'Action:Pauta.ExportPdf',
+        'Action:Pauta.MiniPauta',
+        'Action:Pauta.Pesquisar',
+        'Action:Pauta.PrintMiniPauta',
+        'Update:Pauta',
         'View:Dashboard',
+        'View:Evaluation',
+        'ViewAny:Evaluation',
+        'View:Pauta',
+        'ViewAny:Pauta',
         'View:ProfessorAssignments',
         'View:ProfessorOverview',
     ];

@@ -3,12 +3,14 @@
 namespace App\Filament\Professores\Widgets;
 
 use App\Models\Evaluation;
+use App\Models\StudentClassEnrollment;
 use App\Models\Trainer;
 use App\Models\TrainerClassAssignment;
 use App\Models\TrainerSubjectAuthorization;
 use App\Models\User;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Collection;
 
 class ProfessorOverview extends BaseWidget
 {
@@ -39,10 +41,10 @@ class ProfessorOverview extends BaseWidget
 
         if (! $trainer) {
             return [
-                Stat::make('Formador vinculado', 'Pendente')
-                    ->description('Associe o e-mail do utilizador ao cadastro do formador.')
-                    ->descriptionIcon('heroicon-m-exclamation-triangle')
-                    ->color('warning'),
+                Stat::make('Total de Formandos', '0')
+                    ->description('Sem formador associado')
+                    ->descriptionIcon('heroicon-m-user-group')
+                    ->color('gray'),
                 Stat::make('Turmas', '0')
                     ->description('Sem formador associado')
                     ->descriptionIcon('heroicon-m-academic-cap')
@@ -62,6 +64,11 @@ class ProfessorOverview extends BaseWidget
             ->where('trainer_id', $trainer->id)
             ->where('is_active', true);
 
+        $assignedClassIds = (clone $assignmentQuery)
+            ->whereNotNull('class_id')
+            ->distinct()
+            ->pluck('class_id');
+
         $assignmentSubjectIds = (clone $assignmentQuery)
             ->whereNotNull('subject_id')
             ->distinct()
@@ -79,31 +86,23 @@ class ProfessorOverview extends BaseWidget
             ->unique()
             ->count();
 
-        $evaluationsCount = Evaluation::query()
-            ->where(function ($query) use ($trainer, $user) {
-                $query->where('evaluator_name', $trainer->full_name)
-                    ->orWhere('evaluated_by', $trainer->id);
-
-                if ($user) {
-                    $query->orWhere('evaluated_by', $user->id);
-                }
-            })
-            ->count();
+        $studentsCount = $this->studentsCountForClasses($assignedClassIds);
+        $evaluationsCount = $this->evaluationsCount($trainer, $user);
 
         return [
-            Stat::make('Formador', $trainer->full_name)
-                ->description($trainer->institution?->name ?: 'Sem instituição atribuída')
-                ->descriptionIcon('heroicon-m-user')
+            Stat::make('Total de Formandos', $studentsCount)
+                ->description($trainer->full_name ?: 'Formador vinculado')
+                ->descriptionIcon('heroicon-m-user-group')
                 ->color('primary'),
-            Stat::make('Minhas Turmas', (clone $assignmentQuery)->distinct()->count('class_id'))
+            Stat::make('Turmas', $assignedClassIds->count())
                 ->description('Turmas activas atribuídas')
                 ->descriptionIcon('heroicon-m-academic-cap')
                 ->color('success'),
-            Stat::make('Minhas Disciplinas', $subjectsCount)
+            Stat::make('Disciplinas', $subjectsCount)
                 ->description('Disciplinas autorizadas ou atribuídas')
                 ->descriptionIcon('heroicon-m-book-open')
                 ->color('info'),
-            Stat::make('Avaliações Lançadas', $evaluationsCount)
+            Stat::make('Avaliações', $evaluationsCount)
                 ->description('Registos associados ao formador')
                 ->descriptionIcon('heroicon-m-document-check')
                 ->color('warning'),
@@ -139,7 +138,22 @@ class ProfessorOverview extends BaseWidget
 
     protected function currentTrainer(): ?Trainer
     {
-        $email = strtolower(trim((string) auth()->user()?->email));
+        $user = auth()->user();
+
+        if (! $user) {
+            return null;
+        }
+
+        $trainer = Trainer::query()
+            ->with('institution')
+            ->where('user_id', $user->id)
+            ->first();
+
+        if ($trainer) {
+            return $trainer;
+        }
+
+        $email = strtolower(trim((string) $user->email));
 
         if ($email === '') {
             return null;
@@ -149,5 +163,33 @@ class ProfessorOverview extends BaseWidget
             ->with('institution')
             ->whereRaw('LOWER(email) = ?', [$email])
             ->first();
+    }
+
+    protected function studentsCountForClasses(Collection $classIds): int
+    {
+        if ($classIds->isEmpty()) {
+            return 0;
+        }
+
+        return StudentClassEnrollment::query()
+            ->whereIn('class_id', $classIds)
+            ->where('is_active', true)
+            ->distinct()
+            ->count('student_id');
+    }
+
+    protected function evaluationsCount(Trainer $trainer, ?User $user): int
+    {
+        return Evaluation::query()
+            ->where(function ($query) use ($trainer, $user): void {
+                $query
+                    ->where('evaluator_name', $trainer->full_name)
+                    ->orWhere('evaluated_by', $trainer->id);
+
+                if ($user) {
+                    $query->orWhere('evaluated_by', $user->id);
+                }
+            })
+            ->count();
     }
 }

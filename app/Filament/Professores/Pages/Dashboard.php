@@ -26,6 +26,11 @@ class Dashboard extends BaseDashboard
 
     public function getHeading(): string|\Illuminate\Contracts\Support\Htmlable
     {
-        return 'Painel dos Professores';
+        return '';
+    }
+
+    public function getSubheading(): string|\Illuminate\Contracts\Support\Htmlable|null
+    {
+        return null;
     }
 }

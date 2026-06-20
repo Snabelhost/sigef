@@ -9,7 +9,6 @@ class StudentObserver
 {
     /**
      * Handle the Student "creating" event.
-     * Sincroniza student_type_id com student_type antes de criar
      */
     public function creating(Student $student): void
     {
@@ -18,25 +17,50 @@ class StudentObserver
 
     /**
      * Handle the Student "updating" event.
-     * Sincroniza student_type_id com student_type antes de atualizar
      */
     public function updating(Student $student): void
     {
-        // Só sincroniza se o student_type foi alterado
         if ($student->isDirty('student_type')) {
             $this->syncStudentTypeId($student);
         }
     }
 
     /**
-     * Sincroniza o student_type_id com base no student_type (string)
+     * Handle the Student "updated" event.
      */
+    public function updated(Student $student): void
+    {
+        if (blank($student->institution_id)) {
+            return;
+        }
+
+        $this->syncInstitutionReferences($student);
+    }
+
     private function syncStudentTypeId(Student $student): void
     {
-        if (!empty($student->student_type)) {
-            // Buscar ou criar o tipo de aluno
-            $studentTypeId = StudentType::getIdByName($student->student_type);
-            $student->student_type_id = $studentTypeId;
+        if (filled($student->student_type)) {
+            $student->student_type_id = StudentType::getIdByName($student->student_type);
         }
+    }
+
+    /**
+     * Keep dependent student records aligned with the student's current school.
+     */
+    private function syncInstitutionReferences(Student $student): void
+    {
+        $institutionId = (int) $student->institution_id;
+
+        if ($student->candidate_id) {
+            $student->candidate()->update([
+                'institution_id' => $institutionId,
+                'student_type' => $student->student_type,
+            ]);
+        }
+
+        $student->evaluations()->update(['institution_id' => $institutionId]);
+        $student->leaves()->update(['institution_id' => $institutionId]);
+        $student->attendances()->update(['institution_id' => $institutionId]);
+        $student->equipmentAssignments()->update(['institution_id' => $institutionId]);
     }
 }

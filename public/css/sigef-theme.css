@@ -2114,7 +2114,6 @@ main.fi-main {
 .fi-ta-actions .fi-icon-btn,
 .fi-ta-record-actions .fi-icon-btn,
 .fi-ta-row-actions .fi-icon-btn,
-.fi-ta-actions .fi-ac-action,
 .fi-ta-record-actions .fi-ac-action,
 .fi-ta-row-actions .fi-ac-action,
 .fi-ta-cell .fi-ac .fi-ac-action {
@@ -2122,6 +2121,17 @@ main.fi-main {
     min-width: 2.35rem !important;
     height: 2.35rem !important;
     min-height: 2.35rem !important;
+}
+
+.fi-ta-header .fi-ta-actions .fi-ac-action,
+.fi-ta-header .fi-ta-actions .fi-btn,
+.fi-ta-header .fi-ta-actions button,
+.fi-ta-header .fi-ta-actions a {
+    width: auto !important;
+    min-width: max-content !important;
+    height: auto !important;
+    min-height: 2.35rem !important;
+    padding-inline: 0.9rem !important;
 }
 
 .fi-ta-actions svg,

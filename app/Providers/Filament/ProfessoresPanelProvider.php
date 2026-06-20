@@ -67,6 +67,10 @@ class ProfessoresPanelProvider extends PanelProvider
                 PanelsRenderHook::CONTENT_START,
                 fn () => view('filament.header')
             )
+            ->resources([
+                \App\Filament\Professores\Resources\EvaluationResource::class,
+                \App\Filament\Professores\Resources\PautaResource::class,
+            ])
             ->pages([
                 \App\Filament\Professores\Pages\Dashboard::class,
                 \App\Filament\Professores\Pages\AttendanceManagement::class,
