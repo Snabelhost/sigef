@@ -4,7 +4,7 @@ Este documento descreve a API REST do SIGEF, incluindo endpoints, autenticacao, 
 
 ## Visao geral
 
-A API do SIGEF fornece acesso programatico a dados do dashboard e estatisticas do sistema. E uma API somente leitura (GET), desenhada para alimentar paineis de controlo, dashboards externos ou integracao com outros sistemas.
+A API do SIGEF fornece acesso programatico a dados do dashboard e estatisticas do sistema. Inclui autenticacao via login e endpoints de consulta (GET), desenhada para alimentar paineis de controlo, dashboards externos ou integracao com outros sistemas.
 
 - **Base URL:** `https://{dominio}/api/v1`
 - **Formato:** JSON
@@ -24,9 +24,50 @@ Sanctum suporta dois modos de autenticacao:
 | **Token Bearer** | Aplicacoes externas, scripts, integracao | Token pessoal de API gerado por utilizador |
 | **Cookie/Sessao** | SPA no mesmo dominio | Usa a sessao web existente (stateful) |
 
-### Gerar um token de acesso
+### Obter um token de acesso
 
-Para gerar um token, use o Tinker ou crie um comando Artisan:
+#### Opcao 1: Via endpoint de login (recomendado)
+
+Envie um `POST` para `/api/v1/login` com as credenciais:
+
+```bash
+curl -X POST https://sigef.test:8443/api/v1/login \
+     -H "Content-Type: application/json" \
+     -H "Accept: application/json" \
+     -d '{"email": "utilizador@exemplo.ao", "password": "senha123", "device_name": "app-parceiro"}'
+```
+
+**Resposta de sucesso (200):**
+
+```json
+{
+  "message": "Autenticação realizada com sucesso.",
+  "token": "1|abc123xyz...",
+  "token_type": "Bearer",
+  "user": {
+    "id": 1,
+    "name": "Nome do Utilizador",
+    "email": "utilizador@exemplo.ao"
+  }
+}
+```
+
+**Resposta de erro (422):**
+
+```json
+{
+  "message": "The given data was invalid.",
+  "errors": {
+    "email": ["As credenciais fornecidas estão incorrectas."]
+  }
+}
+```
+
+> **IMPORTANTE:** Guarde o token retornado num local seguro. Use-o em todas as requisicoes seguintes.
+
+#### Opcao 2: Via Tinker (administradores)
+
+Para gerar tokens manualmente sem passar pelo login:
 
 ```bash
 php artisan tinker
@@ -37,8 +78,6 @@ $user = \App\Models\User::find(1);
 $token = $user->createToken('nome-do-token')->plainTextToken;
 echo $token;
 ```
-
-> **IMPORTANTE:** Guarde o token gerado num local seguro. Ele so e exibido uma vez no momento da criacao.
 
 ### Usar o token nas requisicoes
 
@@ -74,6 +113,62 @@ Se o token for invalido ou estiver ausente:
 ---
 
 ## Endpoints
+
+### 0. Login (autenticacao)
+
+Autenticar e obter token de acesso. **Este e o unico endpoint publico (nao requer token).**
+
+```
+POST /api/v1/login
+```
+
+**Body (JSON):**
+
+| Campo | Tipo | Obrigatorio | Descricao |
+|-------|------|-------------|----------|
+| `email` | string | Sim | Email do utilizador |
+| `password` | string | Sim | Password do utilizador |
+| `device_name` | string | Nao | Nome do dispositivo/app (default: `api-token`) |
+
+**Resposta:** Ver secao "Obter um token de acesso" acima.
+
+---
+
+### 0b. Logout
+
+Revogar o token actual.
+
+```
+POST /api/v1/logout
+Authorization: Bearer TOKEN
+```
+
+**Resposta:**
+
+```json
+{
+  "message": "Sessão encerrada com sucesso. Token revogado."
+}
+```
+
+### 0c. Logout de todas as sessoes
+
+Revogar todos os tokens do utilizador.
+
+```
+POST /api/v1/logout-all
+Authorization: Bearer TOKEN
+```
+
+**Resposta:**
+
+```json
+{
+  "message": "Todas as sessões foram encerradas. Todos os tokens revogados."
+}
+```
+
+---
 
 ### 1. Utilizador autenticado
 
