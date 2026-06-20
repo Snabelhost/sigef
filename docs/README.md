@@ -6,6 +6,7 @@ Este diretorio concentra a documentacao tecnica e operacional do SIGEF.
 
 - [Arquitetura e modulos](ARQUITETURA.md): visao geral do sistema, paineis, camadas, modelos e fluxos principais.
 - [Manual funcional](FUNCIONALIDADES.md): funcionalidades de cada painel/pagina, recursos do sistema e guias de uso.
+- [API REST](API.md): endpoints da API, autenticacao Sanctum, filtros, exemplos de uso e integracoes externas.
 - [Instalacao](INSTALACAO.md): instalacao local, instalacao em servidor web, migracoes, seeders, assets e permissoes.
 - [Configuracao](CONFIGURACAO.md): variaveis `.env`, integracoes SIGA, PIIPS/PNA, SMS, e-mail, CORS, sessoes e uploads.
 - [Seguranca](SEGURANCA.md): checklist de producao, permissoes, hardening, auditoria, backups, segredos e resposta a incidentes.
