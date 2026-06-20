@@ -9,6 +9,7 @@ O sistema e construido em Laravel 11, Filament 5, Livewire, MySQL/MariaDB, Vite 
 - [Indice da documentacao](docs/README.md)
 - [Arquitetura e modulos](docs/ARQUITETURA.md)
 - [Manual funcional](docs/FUNCIONALIDADES.md)
+- [API REST](docs/API.md)
 - [Guia de instalacao](docs/INSTALACAO.md)
 - [Guia de configuracao](docs/CONFIGURACAO.md)
 - [Guia de seguranca](docs/SEGURANCA.md)
