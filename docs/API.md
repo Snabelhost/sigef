@@ -221,26 +221,48 @@ curl -H "Authorization: Bearer TOKEN" \
 
 ```json
 {
-  "total_alunos": 1250,
-  "total_alistados": 450,
-  "alistados": 450,
-  "recrutas": 320,
-  "instruendos": 480,
-  "recrutas_instruendos": 800,
-  "formandos": 150,
-  "formandos_superior": 150,
-  "em_formacao": 85,
-  "formandos_concluidos": 120,
-  "em_formacao_concluidos": 205,
-  "formadores": 45,
-  "formadores_activos": 45,
-  "instituicoes_ensino": 5,
-  "mapas_planos_curso": 12,
-  "mapas_planos_curso_activos": 8,
-  "cursos": 6,
-  "disciplinas": 34
+    "total_alunos": 30,
+    "total_alistados": 20,
+    "alistados": 20,
+    "recrutas": 6,
+    "instruendos": 4,
+    "recrutas_instruendos": 10,
+    "formandos": 1,
+    "formandos_superior": 1,
+    "em_formacao": 5,
+    "formandos_concluidos": 0,
+    "em_formacao_concluidos": 5,
+    "formadores": 6,
+    "formadores_activos": 6,
+    "instituicoes_ensino": 11,
+    "mapas_planos_curso": 4,
+    "mapas_planos_curso_activos": 4,
+    "cursos": 3,
+    "disciplinas": 12
 }
 ```
+
+**Descricao dos campos:**
+
+| Campo | Descricao |
+|-------|-----------|
+| `total_alunos` | Total geral (alistados + recrutas + instruendos) |
+| `alistados` | Candidatos com tipo "Alistado" |
+| `recrutas` | Formandos na 1a fase (Recruta) |
+| `instruendos` | Formandos na 2a fase (Instruendo/Cadete) |
+| `recrutas_instruendos` | Soma de recrutas + instruendos |
+| `formandos` | Candidatos com tipo "Formando" |
+| `formandos_superior` | Formandos do ensino superior |
+| `em_formacao` | Formandos em processo de formacao |
+| `formandos_concluidos` | Formandos que concluiram a formacao |
+| `em_formacao_concluidos` | Soma em formacao + concluidos |
+| `formadores` | Total de formadores activos |
+| `formadores_activos` | Formadores com estado activo |
+| `instituicoes_ensino` | Total de escolas/instituicoes |
+| `mapas_planos_curso` | Total de mapas/planos de curso |
+| `mapas_planos_curso_activos` | Mapas/planos de curso activos |
+| `cursos` | Total de cursos |
+| `disciplinas` | Total de disciplinas |
 
 ---
 
@@ -258,14 +280,25 @@ GET /api/v1/dashboard/student-status
 
 ```json
 {
-  "aprovados": 180,
-  "pendentes": 45,
-  "reprovados_notas": 22,
-  "reprovados_faltas": 8,
-  "reprovados_desistencia": 12,
-  "baixa_curso": 5
+    "aprovados": 2,
+    "pendentes": 3,
+    "reprovados_notas": 2,
+    "reprovados_faltas": 0,
+    "reprovados_desistencia": 1,
+    "baixa_curso": 2
 }
 ```
+
+**Descricao dos campos:**
+
+| Campo | Descricao |
+|-------|-----------|
+| `aprovados` | Formandos com nota media >= 10 |
+| `pendentes` | Formandos com avaliacoes incompletas |
+| `reprovados_notas` | Reprovados por nota insuficiente |
+| `reprovados_faltas` | Reprovados por excesso de faltas |
+| `reprovados_desistencia` | Reprovados por desistencia |
+| `baixa_curso` | Formandos que deram baixa do curso |
 
 ---
 
@@ -283,13 +316,23 @@ GET /api/v1/dashboard/candidate-status
 
 ```json
 {
-  "alistado": 450,
-  "recruta": 320,
-  "instruendo": 280,
-  "formando_superior": 50,
-  "em_formacao": 85
+    "alistado": 20,
+    "recruta": 6,
+    "instruendo": 4,
+    "formando_superior": 0,
+    "em_formacao": 5
 }
 ```
+
+**Descricao dos campos:**
+
+| Campo | Descricao |
+|-------|-----------|
+| `alistado` | Candidatos na fase de alistamento |
+| `recruta` | Formandos na 1a fase (Recruta) |
+| `instruendo` | Formandos na 2a fase (Instruendo) |
+| `formando_superior` | Formandos do ensino superior |
+| `em_formacao` | Formandos em processo de formacao activa |
 
 ---
 
@@ -307,20 +350,41 @@ GET /api/v1/dashboard/institution-stats
 
 ```json
 [
-  {
-    "institution_id": 2,
-    "name": "Escola Pratica de Policia \"Capolo / EPP\"",
-    "acronym": "EPP",
-    "total_alunos": 580
-  },
-  {
-    "institution_id": 4,
-    "name": "Academia de Policia",
-    "acronym": "AP",
-    "total_alunos": 420
-  }
+    {
+        "institution_id": 2,
+        "name": "ESCOLA PRÁTICA DE POLÍCIA",
+        "acronym": "EPP",
+        "total_alunos": 21
+    },
+    {
+        "institution_id": 4,
+        "name": "ACADEMIA DE POLÍCIA",
+        "acronym": "ACADEPOL",
+        "total_alunos": 5
+    },
+    {
+        "institution_id": 7,
+        "name": "COLÉGIO DE POLÍCIA COMANDANTE JOSÉ ALFREDO",
+        "acronym": "EKUIKUI",
+        "total_alunos": 2
+    },
+    {
+        "institution_id": 12,
+        "name": "CENTRO DE FORMAÇÃO REGIONAL NORTE",
+        "acronym": "C.F.R.N-MALANJE",
+        "total_alunos": 2
+    }
 ]
 ```
+
+**Descricao dos campos:**
+
+| Campo | Descricao |
+|-------|-----------|
+| `institution_id` | ID da instituicao |
+| `name` | Nome completo da instituicao |
+| `acronym` | Sigla/acronimo da instituicao |
+| `total_alunos` | Total de alunos (candidatos + formandos) |
 
 ---
 
@@ -334,7 +398,7 @@ GET /api/v1/dashboard/students-by-course
 
 **Filtros:** `institution_id`, `course_id`, `start_date`, `end_date`
 
-**Resposta:** Array de objectos com dados por curso (delegado ao `DashboardCourseStatsService`).
+**Resposta:** Array de objectos com dados por curso.
 
 ---
 
@@ -352,15 +416,39 @@ GET /api/v1/dashboard/recent-students
 
 ```json
 [
-  {
-    "id": 1234,
-    "nome": "Orlando Miguel",
-    "instituicao": "Academia de Policia",
-    "estado": "Recruta",
-    "data_inscricao": "2026-06-15"
-  }
+    {
+        "id": 27,
+        "nome": "Orlando Miguel",
+        "instituicao": "ACADEMIA DE POLÍCIA",
+        "estado": "1ª Fase - Recruta",
+        "data_inscricao": "2026-06-12"
+    },
+    {
+        "id": 26,
+        "nome": "Filomena Justina Bastos",
+        "instituicao": "ESCOLA PRÁTICA DE POLÍCIA",
+        "estado": "1ª Fase - Recruta",
+        "data_inscricao": "2026-06-11"
+    },
+    {
+        "id": 25,
+        "nome": "Manuel Pedro",
+        "instituicao": "ESCOLA PRÁTICA DE POLÍCIA",
+        "estado": "Em Formação",
+        "data_inscricao": "2026-06-11"
+    }
 ]
 ```
+
+**Descricao dos campos:**
+
+| Campo | Descricao |
+|-------|-----------|
+| `id` | ID do formando |
+| `nome` | Nome completo |
+| `instituicao` | Nome da escola/instituicao |
+| `estado` | Fase actual (Recruta, Instruendo, Em Formacao, etc.) |
+| `data_inscricao` | Data de inscricao no formato YYYY-MM-DD |
 
 ---
 
