@@ -25,7 +25,7 @@ O sistema e construido em Laravel 11, Filament 5, Livewire, MySQL/MariaDB, Vite 
 
 ## Stack principal
 
-- PHP `^8.2`, testado localmente com PHP `8.3.30`.
+- PHP `>=8.2 <8.5` (`8.2`, `8.3` ou `8.4`), testado localmente com PHP `8.3.30`.
 - Laravel `11.54.0`.
 - Filament `~5.0`.
 - Laravel Sanctum para API autenticada.
@@ -49,6 +49,7 @@ php artisan shield:generate --all
 php artisan storage:link
 npm run build
 php artisan optimize:clear
+php artisan app:server-check
 ```
 
 Depois aceda a `/login` e altere imediatamente as credenciais criadas por seeder.

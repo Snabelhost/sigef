@@ -111,15 +111,20 @@ class AppServiceProvider extends ServiceProvider
         // que não aparecem após deploy.
         // ============================================================
         $storageLinkPath = public_path('storage');
-        if (!file_exists($storageLinkPath)) {
+        $storageTargetPath = storage_path('app/public');
+
+        if (
+            ! file_exists($storageLinkPath)
+            && is_dir($storageTargetPath)
+            && is_writable(public_path())
+        ) {
             try {
                 app()->make('files')->link(
-                    storage_path('app/public'),
+                    $storageTargetPath,
                     $storageLinkPath
                 );
-            } catch (\Exception $e) {
-                // Silently fail - will be handled manually
-                \Illuminate\Support\Facades\Log::warning('Could not create storage link: ' . $e->getMessage());
+            } catch (\Throwable $exception) {
+                error_log('SIGEF: could not create the public storage link: '.$exception->getMessage());
             }
         }
     }

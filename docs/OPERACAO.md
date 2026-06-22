@@ -104,6 +104,7 @@ php artisan event:cache
 7. Verificar:
 
 ```bash
+php artisan app:server-check
 php artisan about
 php artisan route:list
 php artisan test

@@ -204,6 +204,7 @@ Em Windows/IIS ou Laragon, garanta permissao de escrita para o utilizador do ser
 ## Comandos uteis de verificacao
 
 ```bash
+php artisan app:server-check
 php artisan about
 php artisan route:list
 php artisan migrate:status
@@ -215,11 +216,12 @@ composer audit --locked
 
 ### Erro 500 apos deploy
 
-1. Verifique `.env`.
-2. Verifique `APP_KEY`.
-3. Verifique permissoes de `storage` e `bootstrap/cache`.
-4. Execute `php artisan optimize:clear`.
-5. Consulte `storage/logs/laravel.log`.
+1. Execute `php artisan app:server-check` e corrija todos os itens `FAILED`.
+2. Verifique `.env` e `APP_KEY`.
+3. Use PHP 8.2, 8.3 ou 8.4 com as extensoes indicadas pelo diagnostico.
+4. Verifique permissoes de `storage` e `bootstrap/cache`.
+5. Execute `php artisan optimize:clear`.
+6. Consulte `storage/logs/laravel.log` e o log de erros do PHP-FPM/Apache.
 
 ### Fotos/documentos nao aparecem
 
