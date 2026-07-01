@@ -18,8 +18,8 @@
     RewriteCond %{REQUEST_URI} (.+)/$
     RewriteRule ^ %1 [L,R=301]
 
-    # Serve storage files via PHP (cPanel Apache nao serve via symlink)
-    RewriteRule ^storage/ serve-storage.php [L]
+    # Serve storage files via Laravel (cPanel Apache nao serve via symlink)
+    RewriteRule ^storage/ index.php [L]
 
     # Send Requests To Front Controller...
     RewriteCond %{REQUEST_FILENAME} !-d
