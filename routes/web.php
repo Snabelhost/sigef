@@ -142,26 +142,8 @@ Route::middleware(['auth'])
 |--------------------------------------------------------------------------
 | Rota para servir ficheiros quando o Apache não consegue seguir o symlink
 | (comum em hosting cPanel). O .htaccess envia /storage/* para cá.
+| Usa controller em vez de closure para funcionar com route:cache.
 */
-Route::get('/storage/{path}', function (string $path) {
-    $path = str_replace(['..', "\0"], '', $path);
-
-    $disk = \Illuminate\Support\Facades\Storage::disk('public');
-
-    if (!$disk->exists($path)) {
-        abort(404);
-    }
-
-    $fullPath = $disk->path($path);
-    $mimeType = mime_content_type($fullPath) ?: 'application/octet-stream';
-    $size = filesize($fullPath);
-    $lastModified = filemtime($fullPath);
-    $etag = md5($path . $lastModified . $size);
-
-    // Cache no browser por 7 dias
-    return response()->file($fullPath, [
-        'Content-Type' => $mimeType,
-        'Cache-Control' => 'public, max-age=604800, immutable',
-        'ETag' => '"' . $etag . '"',
-    ]);
-})->where('path', '.*')->name('storage.files');
+Route::get('/storage/{path}', \App\Http\Controllers\StorageFileController::class)
+    ->where('path', '.*')
+    ->name('storage.files');
