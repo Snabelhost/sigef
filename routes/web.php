@@ -135,3 +135,33 @@ Route::middleware(['auth'])->prefix('cartoes')->name('cartoes.')->group(function
 Route::middleware(['auth'])
     ->get('/admin/configuracoes/card-templates/{cardTemplate}/preview', \App\Http\Controllers\CardTemplatePreviewController::class)
     ->name('admin.card-templates.preview');
+
+/*
+|--------------------------------------------------------------------------
+| Storage Files - Servir ficheiros de storage/app/public
+|--------------------------------------------------------------------------
+| Rota para servir ficheiros quando o Apache não consegue seguir o symlink
+| (comum em hosting cPanel). O .htaccess envia /storage/* para cá.
+*/
+Route::get('/storage/{path}', function (string $path) {
+    $path = str_replace(['..', "\0"], '', $path);
+
+    $disk = \Illuminate\Support\Facades\Storage::disk('public');
+
+    if (!$disk->exists($path)) {
+        abort(404);
+    }
+
+    $fullPath = $disk->path($path);
+    $mimeType = mime_content_type($fullPath) ?: 'application/octet-stream';
+    $size = filesize($fullPath);
+    $lastModified = filemtime($fullPath);
+    $etag = md5($path . $lastModified . $size);
+
+    // Cache no browser por 7 dias
+    return response()->file($fullPath, [
+        'Content-Type' => $mimeType,
+        'Cache-Control' => 'public, max-age=604800, immutable',
+        'ETag' => '"' . $etag . '"',
+    ]);
+})->where('path', '.*')->name('storage.files');
