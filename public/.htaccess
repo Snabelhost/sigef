@@ -18,8 +18,9 @@
     RewriteCond %{REQUEST_URI} (.+)/$
     RewriteRule ^ %1 [L,R=301]
 
-    # Serve storage files through Laravel (cPanel Apache cannot follow symlinks)
-    RewriteRule ^storage/ index.php [L]
+    # Serve storage files via PHP puro (bypassa Laravel para evitar conflitos de rotas)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^storage/ serve-storage.php [L]
 
     # Send Requests To Front Controller...
     RewriteCond %{REQUEST_FILENAME} !-d
