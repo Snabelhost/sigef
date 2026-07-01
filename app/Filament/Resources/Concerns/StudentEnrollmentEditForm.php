@@ -240,12 +240,13 @@ trait StudentEnrollmentEditForm
                     'class' => 'sigef-trainer-photo-upload',
                     'data-sigef-photo-upload' => 'student-enrollment',
                 ])
-                ->imageEditor()
                 ->imagePreviewHeight('10rem')
                 ->panelAspectRatio('1:1')
                 ->panelLayout('integrated')
                 ->placeholder(static::studentEnrollmentPhotoUploadPlaceholder())
                 ->default(fn (Student $record) => $record->candidate?->photo)
+                ->openable()
+                ->previewable()
                 ->maxSize(4096),
         ];
 
@@ -1110,6 +1111,26 @@ trait StudentEnrollmentEditForm
             'Integral' => 'Integral',
             'Pós-Laboral' => 'Pós-Laboral',
         ];
+    }
+
+    protected static function studentEnrollmentPhotoInlinePreview(?Student $record): HtmlString
+    {
+        $photoUrl = static::studentEnrollmentPhotoUrl($record);
+
+        if ($photoUrl === null) {
+            return new HtmlString('');
+        }
+
+        $name = e(trim((string) ($record?->candidate?->full_name ?: 'Formando')));
+        $fallback = 'https://ui-avatars.com/api/?name=' . urlencode($name) . '&background=0D4C8B&color=fff&size=200';
+
+        return new HtmlString(
+            '<div style="text-align:center;margin-bottom:0.5rem;">'
+            . '<img src="' . e($photoUrl) . '" alt="' . $name . '"'
+            . ' onerror="this.src=\'' . $fallback . '\'"'
+            . ' style="width:120px;height:120px;object-fit:cover;border-radius:50%;border:3px solid #e5e7eb;box-shadow:0 2px 8px rgba(0,0,0,0.1);">'
+            . '</div>'
+        );
     }
 
     protected static function studentEnrollmentPhotoUploadPlaceholder(): string
