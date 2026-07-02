@@ -189,7 +189,8 @@ class User extends Authenticatable implements FilamentUser, HasTenants, Auditabl
 
     public function canAccessTenant(Model $tenant): bool
     {
-        return $this->institution_id === $tenant->id;
+        return filled($this->institution_id)
+            && (string) $this->institution_id === (string) $tenant->getKey();
     }
 
     /**
@@ -228,6 +229,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants, Auditabl
     {
         return [
             'email_verified_at' => 'datetime',
+            'institution_id' => 'integer',
             'password' => 'hashed',
             'is_active' => 'boolean',
         ];

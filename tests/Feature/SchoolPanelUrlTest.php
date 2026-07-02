@@ -31,6 +31,28 @@ class SchoolPanelUrlTest extends TestCase
         $this->assertArrayNotHasKey('escola', $panels);
     }
 
+    public function test_school_panel_tenant_access_accepts_matching_numeric_ids(): void
+    {
+        $user = new User();
+        $user->forceFill(['institution_id' => '2']);
+
+        $tenant = new Institution();
+        $tenant->forceFill(['id' => 2]);
+
+        $this->assertTrue($user->canAccessTenant($tenant));
+    }
+
+    public function test_school_panel_tenant_access_rejects_other_institutions(): void
+    {
+        $user = new User();
+        $user->forceFill(['institution_id' => 2]);
+
+        $tenant = new Institution();
+        $tenant->forceFill(['id' => 3]);
+
+        $this->assertFalse($user->canAccessTenant($tenant));
+    }
+
     public function test_school_document_notification_url_uses_filament_route_name(): void
     {
         $document = new Document();
