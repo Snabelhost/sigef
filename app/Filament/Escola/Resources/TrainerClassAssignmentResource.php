@@ -22,7 +22,7 @@ class TrainerClassAssignmentResource extends Resource
     protected static ?string $model = TrainerSubjectAuthorization::class;
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-link';
     protected static ?string $navigationLabel = 'Atribuição de Turmas';
-    protected static string|\UnitEnum|null $navigationGroup = 'Gestão Escolar';
+    protected static string|\UnitEnum|null $navigationGroup = 'Gestão do Centro';
     protected static ?int $navigationSort = 5;
 
     // Desabilitar tenancy automática para este recurso

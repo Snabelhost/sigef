@@ -1,5 +1,5 @@
 @extends('reports.layout')
-@section('title', 'MINI PAUTA PROFESSOR')
+@section('title', 'MINI PAUTA DO FORMADOR')
 @section('subtitle', 'Mapa de classificacao por formando')
 @section('filters')
 @if(isset($institution)) <strong>Escola:</strong> {{ $institution->name }} @endif

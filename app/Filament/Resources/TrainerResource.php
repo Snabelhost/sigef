@@ -367,11 +367,7 @@ class TrainerResource extends Resource
             return null;
         }
 
-        if (Str::startsWith($photo, ['http://', 'https://', 'data:'])) {
-            return $photo;
-        }
-
-        return asset('storage/' . ltrim($photo, '/'));
+        return \App\Support\PublicStorage::url($photo, requireExisting: true);
     }
 
     protected static function trainerPhotoUploadStyles(): HtmlString
@@ -2318,10 +2314,10 @@ HTML);
                         ->schema(static::trainerFormSchema())
                         ->modalCancelAction(fn(\Filament\Actions\Action $action) => $action->icon('heroicon-o-x-mark')->label('Fechar')->color('danger')),
                     \Filament\Actions\Action::make('trainer_sheet')
-                        ->label('Ficha do Professor')
+                        ->label('Ficha do Formador')
                         ->icon('heroicon-o-document-text')
                         ->color('info')
-                        ->modalHeading('Pre-visualizacao da Ficha do Professor')
+                        ->modalHeading('Pre-visualizacao da Ficha do Formador')
                         ->modalDescription(null)
                         ->modalWidth(Width::SixExtraLarge)
                         ->modalSubmitAction(false)
@@ -2334,7 +2330,7 @@ HTML);
                         ->closeModalByClickingAway(false)
                         ->modalContent(function (Trainer $record) {
                             $printUrl = route('trainers.sheet.print', ['trainer' => $record]);
-                            $trainerName = trim((string) ($record->full_name ?: 'Professor'));
+                            $trainerName = trim((string) ($record->full_name ?: 'Formador'));
                             $identifierLabel = filled($record->bilhete) ? 'N&ordm; DO BI' : 'NIP';
                             $identifierNumber = trim((string) ($record->bilhete ?: $record->nip ?: '-'));
                             $frameId = 'sigef-trainer-sheet-frame-'.$record->getKey();
@@ -2343,7 +2339,7 @@ HTML);
                             return view('trainers.sheet-modal', [
                                 'viewerId' => $viewerId,
                                 'frameId' => $frameId,
-                                'documentName' => 'Ficha do Professor - '.$trainerName,
+                                'documentName' => 'Ficha do Formador - '.$trainerName,
                                 'documentBadge' => $identifierLabel.': '.$identifierNumber,
                                 'defaultOrientation' => 'horizontal',
                                 'embeddedHorizontalUrl' => $printUrl.'?embedded=1&autoprint=0&orientation=horizontal',
@@ -2386,7 +2382,7 @@ HTML);
                     ->required()
                     ->maxLength(255)
                     ->default(fn (Trainer $record): ?string => $record->user?->email ?: $record->email)
-                    ->helperText('Este e-mail sera usado para entrar no painel dos professores.'),
+                    ->helperText('Este e-mail sera usado para entrar no painel dos formadores.'),
                 Forms\Components\TextInput::make('password')
                     ->label('Senha')
                     ->password()
@@ -2551,8 +2547,8 @@ HTML);
                 $notification = Notification::make()
                     ->title($created > 0 ? 'Disciplina/turma adicionada' : 'Dados duplicados')
                     ->body(match (true) {
-                        $created > 0 && $duplicates > 0 => "{$created} disciplina(s) atribuída(s) ao professor. {$duplicates} duplicada(s) foram ignorada(s).",
-                        $created > 0 => "{$created} disciplina(s) atribuída(s) ao professor.",
+                        $created > 0 && $duplicates > 0 => "{$created} disciplina(s) atribuída(s) ao formador. {$duplicates} duplicada(s) foram ignorada(s).",
+                        $created > 0 => "{$created} disciplina(s) atribuída(s) ao formador.",
                         default => 'Esta turma/disciplina já está atribuída a este formador.',
                     });
 

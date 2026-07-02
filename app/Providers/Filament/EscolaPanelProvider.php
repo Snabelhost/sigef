@@ -98,7 +98,7 @@ class EscolaPanelProvider extends PanelProvider
                 \Filament\Navigation\NavigationGroup::make()
                     ->label('Currículo'),
                 \Filament\Navigation\NavigationGroup::make()
-                    ->label('Gestão Escolar'),
+                    ->label('Gestão do Centro'),
                 \Filament\Navigation\NavigationGroup::make()
                     ->label('Recursos Humanos'),
                 \Filament\Navigation\NavigationGroup::make()
@@ -171,6 +171,11 @@ class EscolaPanelProvider extends PanelProvider
                 \App\Http\Middleware\SingleSessionMiddleware::class,
             ])
             ->userMenuItems([
+                \Filament\Navigation\MenuItem::make()
+                    ->label('Mudar de painel')
+                    ->icon('heroicon-o-arrows-right-left')
+                    ->url(fn (): string => route('select-panel'))
+                    ->visible(fn (): bool => auth()->check() && count(auth()->user()->accessiblePanels()) > 1),
                 \Filament\Navigation\MenuItem::make()
                     ->label('Alterar Palavra-passe')
                     ->icon('heroicon-o-key')

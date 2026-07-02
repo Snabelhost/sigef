@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CardTemplate;
 use App\Models\Institution;
 use App\Models\Trainer;
+use App\Support\PublicStorage;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
 use Illuminate\Support\Str;
@@ -52,7 +53,7 @@ class TrainerCardService
             'initials' => $this->initials($trainer->full_name ?: 'Formador'),
             'photo_url' => $this->trainerPhotoUrl($trainer, $template),
             'logo_url' => $template->logo_url
-                ?: ($institution?->logo ? asset('storage/'.$institution->logo) : asset('images/logo-policia.png')),
+                ?: (PublicStorage::url($institution?->logo, requireExisting: true) ?: asset('images/logo-policia.png')),
             'institution_name' => $headerName,
             'institution_location' => $institutionLocation,
             'brand_name' => $headerName,
@@ -73,7 +74,7 @@ class TrainerCardService
             'classes' => $this->classNames($trainer),
             'phone' => $this->formatPhone($trainer->phone),
             'email' => $trainer->email ?: '-',
-            'footer_text' => $template->footer_text ?: 'Este cartao identifica o portador na qualidade de professor/formador.',
+            'footer_text' => $template->footer_text ?: 'Este cartao identifica o portador na qualidade de formador.',
             'signature_label' => $template->signature_label,
             'signatory_name' => $template->signatory_name,
             'signatory_title' => $template->signatory_title,
@@ -156,15 +157,7 @@ class TrainerCardService
     {
         $photo = trim((string) $trainer->photo);
 
-        if ($photo !== '') {
-            if (Str::startsWith($photo, ['http://', 'https://', 'data:'])) {
-                return $photo;
-            }
-
-            return asset('storage/'.ltrim($photo, '/'));
-        }
-
-        return null;
+        return PublicStorage::url($photo, requireExisting: true);
     }
 
     protected function mainSubject(Trainer $trainer): string

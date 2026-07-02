@@ -24,7 +24,7 @@ class StudentLeaveResource extends Resource
     protected static ?string $model = StudentLeave::class;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-clock';
-    protected static string|\UnitEnum|null $navigationGroup = 'Gestão Escolar';
+    protected static string|\UnitEnum|null $navigationGroup = 'Gestão do Centro';
     protected static ?int $navigationSort = 8;
     protected static ?string $modelLabel = 'Dispensa/Falta';
     protected static ?string $pluralModelLabel = 'Dispensas e Faltas';

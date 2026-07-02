@@ -561,7 +561,7 @@ class DocumentResource extends Resource
                                         \Filament\Infolists\Components\TextEntry::make('file_path')
                                             ->label('Baixar')
                                             ->formatStateUsing(fn($state) => 'Baixar')
-                                            ->url(fn($record) => $record ? \Illuminate\Support\Facades\Storage::url($record->file_path) : null)
+                                            ->url(fn($record) => $record ? \App\Support\PublicStorage::url($record->file_path, requireExisting: true) : null)
                                             ->openUrlInNewTab()
                                             ->icon('heroicon-o-arrow-down-tray')
                                             ->color('primary'),
@@ -680,7 +680,7 @@ class DocumentResource extends Resource
                                                 $links = [];
                                                 foreach ($record->attachments as $path) {
                                                     $filename = basename($path);
-                                                    $url = \Illuminate\Support\Facades\Storage::url($path);
+                                                    $url = \App\Support\PublicStorage::url($path, requireExisting: true);
                                                     $links[] = '<a href="' . $url . '" target="_blank" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:6px;color:#3b82f6;font-size:0.8rem;text-decoration:none;margin-right:6px;margin-bottom:4px;">'
                                                         . '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>'
                                                         . e($filename) . '</a>';

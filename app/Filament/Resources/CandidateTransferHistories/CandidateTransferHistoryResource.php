@@ -29,7 +29,7 @@ class CandidateTransferHistoryResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowPath;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Gestão Escolar';
+    protected static string|\UnitEnum|null $navigationGroup = 'Gestão do Centro';
     protected static ?int $navigationSort = 4;
     protected static ?string $navigationLabel = 'Histórico Alistados';
     protected static ?string $modelLabel = 'Transferência Alistado';

@@ -30,7 +30,7 @@ class StudentClassEnrollmentResource extends Resource
     protected static ?string $model = Student::class;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-user-group';
-    protected static string|\UnitEnum|null $navigationGroup = 'Gestão Escolar';
+    protected static string|\UnitEnum|null $navigationGroup = 'Gestão do Centro';
     protected static ?int $navigationSort = 4;
     protected static ?string $navigationLabel = 'Gestão de Formandos';
     protected static ?string $modelLabel = 'Formando';
@@ -119,6 +119,7 @@ class StudentClassEnrollmentResource extends Resource
             Tables\Columns\ImageColumn::make('candidate.photo')
                 ->label('Foto')
                 ->disk('public')
+                ->getStateUsing(fn (Student $record): ?string => \App\Support\PublicStorage::existingDisplayValue($record->candidate?->photo))
                 ->circular()
                 ->size(40)
                 ->defaultImageUrl(fn($record) => 'https://ui-avatars.com/api/?name=' . urlencode($record->candidate?->full_name ?? 'NA') . '&background=0D4C8B&color=fff&size=100'),
@@ -579,6 +580,8 @@ class StudentClassEnrollmentResource extends Resource
                                 ->schema([
                                     \Filament\Infolists\Components\ImageEntry::make('candidate.photo')
                                         ->hiddenLabel()
+                                        ->disk('public')
+                                        ->getStateUsing(fn (Student $record): ?string => \App\Support\PublicStorage::existingDisplayValue($record->candidate?->photo))
                                         ->circular()
                                         ->size(100)
                                         ->defaultImageUrl(fn($record) => 'https://ui-avatars.com/api/?name=' . urlencode($record->candidate?->full_name ?? 'NA') . '&background=0D4C8B&color=fff&size=200')

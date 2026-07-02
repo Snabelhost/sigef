@@ -155,9 +155,9 @@ class UserResource extends Resource
             'escola_admin' => 'Administrador da Escola',
             'escola_user' => 'Utilizador da Escola',
             'secretaria_escola' => 'Secretaria da Escola',
-            'professor' => 'Professor',
-            'professores_admin' => 'Administrador do Painel dos Professores',
-            'professores_user' => 'Professor',
+            'professor' => 'Formador',
+            'professores_admin' => 'Administrador do Painel dos Formadores',
+            'professores_user' => 'Formador',
             'panel_user' => 'Utilizador do Painel',
             default => str(str_replace(['_', '-'], ' ', $name))->headline()->toString(),
         };

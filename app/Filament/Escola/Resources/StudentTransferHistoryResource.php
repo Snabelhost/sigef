@@ -28,7 +28,7 @@ class StudentTransferHistoryResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-arrows-right-left';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Gestão Escolar';
+    protected static string|\UnitEnum|null $navigationGroup = 'Gestão do Centro';
     protected static ?int $navigationSort = 7;
     protected static ?string $navigationLabel = 'Histórico de Transferências';
     protected static ?string $modelLabel = 'Transferência';

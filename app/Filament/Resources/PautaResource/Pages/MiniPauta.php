@@ -25,7 +25,6 @@ use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Support\Enums\Width;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Storage;
 
 class MiniPauta extends Page implements HasForms, HasTable
 {
@@ -218,41 +217,7 @@ class MiniPauta extends Page implements HasForms, HasTable
     {
         $photo = trim((string) ($student?->photo ?: $student?->candidate?->photo ?: ''));
 
-        if ($photo === '') {
-            return null;
-        }
-
-        $photo = str_replace('\\', '/', $photo);
-
-        if (str_starts_with($photo, 'http://') || str_starts_with($photo, 'https://') || str_starts_with($photo, 'data:')) {
-            return $photo;
-        }
-
-        $path = ltrim($photo, '/');
-
-        if (str_starts_with($path, 'storage/')) {
-            $storagePath = substr($path, strlen('storage/'));
-
-            if (file_exists(public_path($path)) || Storage::disk('public')->exists($storagePath)) {
-                return asset('storage/' . $storagePath);
-            }
-
-            return null;
-        }
-
-        if (str_starts_with($path, 'public/')) {
-            $path = substr($path, strlen('public/'));
-        }
-
-        if (Storage::disk('public')->exists($path)) {
-            return asset('storage/' . $path);
-        }
-
-        if (file_exists(public_path($path))) {
-            return asset($path);
-        }
-
-        return null;
+        return \App\Support\PublicStorage::url($photo, requireExisting: true);
     }
 
     public function getSubjects()
@@ -629,7 +594,7 @@ class MiniPauta extends Page implements HasForms, HasTable
             ->icon('heroicon-o-printer')
             ->color('primary')
             ->disabled(fn (): bool => ! $this->class_id || ! $this->subject_id)
-            ->modalHeading('MINI PAUTA PROFESSOR')
+            ->modalHeading('MINI PAUTA DO FORMADOR')
             ->modalDescription(null)
             ->modalWidth(Width::SevenExtraLarge)
             ->modalSubmitAction(false)
@@ -654,13 +619,13 @@ class MiniPauta extends Page implements HasForms, HasTable
                 return view('trainers.sheet-modal', [
                     'viewerId' => 'sigef-mini-pauta-viewer-' . ($this->class_id ?: 'none') . '-' . ($this->subject_id ?: 'none'),
                     'frameId' => 'sigef-mini-pauta-frame-' . ($this->class_id ?: 'none') . '-' . ($this->subject_id ?: 'none'),
-                    'documentName' => 'MINI PAUTA PROFESSOR',
+                    'documentName' => 'MINI PAUTA DO FORMADOR',
                     'documentBadge' => 'TURMA: ' . e($className) . ' &nbsp;|&nbsp; DISCIPLINA: ' . e($subjectName),
                     'documentType' => 'mini pauta',
                     'defaultOrientation' => 'vertical',
                     'showOrientationSelector' => false,
                     'loadingText' => 'A preparar mini pauta...',
-                    'hintText' => 'Pre-visualize a Mini Pauta do Professor em A4 antes de imprimir.',
+                    'hintText' => 'Pre-visualize a Mini Pauta do Formador em A4 antes de imprimir.',
                     'embeddedHorizontalUrl' => $embeddedUrl,
                     'embeddedVerticalUrl' => $embeddedUrl,
                     'fallbackPrintHorizontalUrl' => $fallbackPrintUrl,

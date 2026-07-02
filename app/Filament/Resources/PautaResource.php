@@ -18,7 +18,7 @@ class PautaResource extends Resource
     protected static ?string $model = StudentClass::class;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-table-cells';
-    protected static string|\UnitEnum|null $navigationGroup = 'Gestão Escolar';
+    protected static string|\UnitEnum|null $navigationGroup = 'Gestão do Centro';
     protected static ?string $navigationLabel = 'Mini Pautas';
     protected static ?string $modelLabel = 'Mini Pauta';
     protected static ?string $pluralModelLabel = 'Mini Pautas';

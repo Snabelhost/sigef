@@ -476,11 +476,7 @@ class EffectiveResource extends Resource
             return null;
         }
 
-        if (Str::startsWith($photo, ['http://', 'https://', 'data:'])) {
-            return $photo;
-        }
-
-        return asset('storage/' . ltrim($photo, '/'));
+        return \App\Support\PublicStorage::url($photo, requireExisting: true);
     }
 
     protected static function effectiveAvatarUrl(?Effective $record): string
@@ -1223,9 +1219,7 @@ HTML);
         $codes = app(\App\Services\CardCodeService::class);
         $verificationUrl = url('/admin/effectives').'?tableSearch='.rawurlencode($documentNumber);
         $photo = trim((string) $record->photo);
-        $photoUrl = $photo !== ''
-            ? (Str::startsWith($photo, ['http://', 'https://', 'data:']) ? $photo : asset('storage/'.ltrim($photo, '/')))
-            : null;
+        $photoUrl = \App\Support\PublicStorage::url($photo, requireExisting: true);
         $templateBrandName = trim((string) $template->brand_name);
         $templateSubtitle = trim((string) $template->subtitle);
         $templateAddress = trim((string) $template->address_line);
@@ -1245,7 +1239,7 @@ HTML);
             'document_label' => $documentLabel,
             'document_number' => $documentNumber,
             'photo_url' => $photoUrl,
-            'logo_url' => $template->logo_url ?: ($institution?->logo ? asset('storage/'.$institution->logo) : asset('images/logo-policia.png')),
+            'logo_url' => $template->logo_url ?: (\App\Support\PublicStorage::url($institution?->logo, requireExisting: true) ?: asset('images/logo-policia.png')),
             'institution_name' => $headerName,
             'institution_location' => $institutionLocation,
             'brand_name' => $headerName,

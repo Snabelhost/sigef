@@ -13,6 +13,7 @@ use App\Models\StudentClassEnrollment;
 use App\Models\StudentSubjectEnrollment;
 use App\Models\StudentType;
 use App\Models\Subject;
+use App\Support\PublicStorage;
 use Filament\Forms;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\HtmlString;
@@ -244,7 +245,7 @@ trait StudentEnrollmentEditForm
                 ->panelAspectRatio('1:1')
                 ->panelLayout('integrated')
                 ->placeholder(static::studentEnrollmentPhotoUploadPlaceholder())
-                ->default(fn (Student $record) => $record->candidate?->photo)
+                ->default(fn (Student $record) => PublicStorage::existingPath($record->candidate?->photo))
                 ->openable()
                 ->previewable()
                 ->maxSize(4096),
@@ -573,7 +574,7 @@ trait StudentEnrollmentEditForm
                                         ->label('Bilhete de Identidade')
                                         ->disk('public')
                                         ->directory('candidates/documents')
-                                        ->default(fn (Student $record) => $record->candidate?->bilhete_identidade)
+                                        ->default(fn (Student $record) => PublicStorage::existingPath($record->candidate?->bilhete_identidade))
                                         ->acceptedFileTypes(['application/pdf', 'image/*'])
                                         ->openable()
                                         ->previewable(),
@@ -581,7 +582,7 @@ trait StudentEnrollmentEditForm
                                         ->label('Certificado')
                                         ->disk('public')
                                         ->directory('candidates/documents')
-                                        ->default(fn (Student $record) => $record->candidate?->certificado_doc)
+                                        ->default(fn (Student $record) => PublicStorage::existingPath($record->candidate?->certificado_doc))
                                         ->acceptedFileTypes(['application/pdf', 'image/*'])
                                         ->openable()
                                         ->previewable(),
@@ -589,7 +590,7 @@ trait StudentEnrollmentEditForm
                                         ->label('Curriculum')
                                         ->disk('public')
                                         ->directory('candidates/documents')
-                                        ->default(fn (Student $record) => $record->candidate?->curriculum)
+                                        ->default(fn (Student $record) => PublicStorage::existingPath($record->candidate?->curriculum))
                                         ->acceptedFileTypes(['application/pdf', 'image/*'])
                                         ->openable()
                                         ->previewable(),
@@ -1179,10 +1180,6 @@ trait StudentEnrollmentEditForm
             return null;
         }
 
-        if (Str::startsWith($photo, ['http://', 'https://', 'data:'])) {
-            return $photo;
-        }
-
-        return asset('storage/' . ltrim($photo, '/'));
+        return PublicStorage::url($photo, requireExisting: true);
     }
 }

@@ -35,7 +35,7 @@ class CandidateResource extends Resource
     protected static ?string $model = Candidate::class;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-user-plus';
-    protected static string|\UnitEnum|null $navigationGroup = 'Gestão Escolar';
+    protected static string|\UnitEnum|null $navigationGroup = 'Gestão do Centro';
     protected static ?int $navigationSort = 3;
     protected static ?string $navigationLabel = 'Formandos';
     protected static ?string $modelLabel = 'Formando';

@@ -128,6 +128,28 @@ Nao incluir:
 - caches temporarios.
 - logs antigos sem necessidade legal.
 
+### Exportar base de dados para importar no servidor
+
+Para substituir a base de dados no servidor sem erro `#1050 - Table already exists`, gere o dump local com `DROP TABLE IF EXISTS`:
+
+```bash
+php artisan app:db-export
+```
+
+O ficheiro sera criado em `database/exports/` e pode ser importado no phpMyAdmin do servidor.
+
+Para escolher o caminho:
+
+```bash
+php artisan app:db-export --path=database/exports/sigef.sql --force
+```
+
+Se o `mysqldump` nao estiver no `PATH`, informe o caminho manualmente:
+
+```bash
+php artisan app:db-export --mysqldump="C:\laragon\bin\mysql\mysql-8.4.3-winx64\bin\mysqldump.exe"
+```
+
 ## Restauracao
 
 Procedimento base:
@@ -185,10 +207,11 @@ Antes de importacao em massa:
 
 Quando imagem/logotipo nao aparece:
 
-1. Confirmar ficheiro em storage.
-2. Confirmar `php artisan storage:link`.
-3. Confirmar `APP_URL`.
-4. Confirmar permissoes de leitura.
+1. Executar `php artisan app:storage-audit`.
+2. Confirmar o ficheiro em `storage/app/public`.
+3. Confirmar `PUBLIC_FILES_URL=/media`.
+4. Confirmar permissoes de leitura e escrita em `storage/app/public`.
+5. Executar `php artisan optimize:clear` depois de alterar o `.env`.
 
 Quando PDF falha:
 

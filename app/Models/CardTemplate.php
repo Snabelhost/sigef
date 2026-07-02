@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\PublicStorage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -261,6 +262,6 @@ class CardTemplate extends Model
             return asset($path);
         }
 
-        return asset('storage/'.$path);
+        return PublicStorage::url($path, requireExisting: true);
     }
 }

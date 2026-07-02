@@ -1103,7 +1103,7 @@
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347M4.26 10.147 12 5.25l7.74 4.897M4.26 10.147 12 15.044l7.74-4.897" />
                         </svg>
-                        Professores
+                        Formadores
                     </button>
                     @if($this->attendanceTabIsVisible('effectives'))
                         <button type="button" wire:click="setActiveTab('effectives')" @class(['attendance-tab', 'is-active' => $activeTab === 'effectives'])>
@@ -1148,12 +1148,12 @@
 
                         @if($activeTab === 'trainers')
                             <div class="filter-group">
-                                <label>Nome do Professor</label>
+                                <label>Nome do Formador</label>
                                 <input
                                     type="search"
                                     class="filter-input"
                                     wire:model.live.debounce.400ms="trainerSearch"
-                                    placeholder="Pesquisar professor..."
+                                    placeholder="Pesquisar formador..."
                                 >
                             </div>
 

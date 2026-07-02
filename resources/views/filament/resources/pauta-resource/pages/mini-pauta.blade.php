@@ -607,7 +607,7 @@
             </div>
 
             <div>
-                <h2 class="mini-pauta-title">Mini Pauta do Professor</h2>
+                <h2 class="mini-pauta-title">Mini Pauta do Formador</h2>
 
                 <div class="mini-pauta-fields">
                     <div class="mini-pauta-field">

@@ -102,31 +102,6 @@ class AppServiceProvider extends ServiceProvider
         // Registrar ícone customizado de velocímetro
         Blade::component('icon-speedometer', \App\View\Components\IconSpeedometer::class);
 
-        // ============================================================
-        // AUTO STORAGE LINK - Cria symlink automaticamente se não existir
-        // ============================================================
-        // Garante que o symlink public/storage -> storage/app/public
-        // está sempre presente em qualquer servidor (local ou produção),
-        // resolvendo definitivamente o problema de fotos/ficheiros
-        // que não aparecem após deploy.
-        // ============================================================
-        $storageLinkPath = public_path('storage');
-        $storageTargetPath = storage_path('app/public');
-
-        if (
-            ! file_exists($storageLinkPath)
-            && is_dir($storageTargetPath)
-            && is_writable(public_path())
-        ) {
-            try {
-                app()->make('files')->link(
-                    $storageTargetPath,
-                    $storageLinkPath
-                );
-            } catch (\Throwable $exception) {
-                error_log('SIGEF: could not create the public storage link: '.$exception->getMessage());
-            }
-        }
     }
 
     private function registerDeleteActionModalDefaults(): void

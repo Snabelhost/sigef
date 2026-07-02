@@ -64,6 +64,7 @@ APP_NAME=SIGEF
 APP_ENV=local
 APP_DEBUG=false
 APP_URL=https://sigef.test:8443
+PUBLIC_FILES_URL=/media
 
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
@@ -225,10 +226,10 @@ composer audit --locked
 
 ### Fotos/documentos nao aparecem
 
-1. Confirme `php artisan storage:link`.
-2. Confirme `APP_URL`.
-3. Confirme se o ficheiro existe em `storage/app/public`.
-4. Confirme que o servidor web serve `public/storage`.
+1. Execute `php artisan app:storage-audit`.
+2. Confirme se o ficheiro existe em `storage/app/public`.
+3. Confirme `PUBLIC_FILES_URL=/media` e limpe o cache de configuração.
+4. O link `public/storage` é opcional; `/media` serve os ficheiros pelo Laravel.
 
 ### Sem acesso ao painel
 

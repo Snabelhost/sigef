@@ -28,7 +28,7 @@ class AttendanceManagement extends Page
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-clipboard-document-check';
     protected static ?string $navigationLabel = 'Presenças';
     protected static ?string $title = 'Gestão de Presenças';
-    protected static string|\UnitEnum|null $navigationGroup = 'Gestão Escolar';
+    protected static string|\UnitEnum|null $navigationGroup = 'Gestão do Centro';
     protected static ?int $navigationSort = 9;
     protected string $view = 'filament.pages.attendance-management';
 
@@ -925,7 +925,7 @@ class AttendanceManagement extends Page
     protected function attendanceCollectionLabel(): string
     {
         return match ($this->activeTab) {
-            'trainers' => 'professores',
+            'trainers' => 'formadores',
             'effectives' => 'efectivos',
             default => 'formandos',
         };
@@ -934,7 +934,7 @@ class AttendanceManagement extends Page
     public function activeTabLabel(): string
     {
         return match ($this->activeTab) {
-            'trainers' => 'Professores',
+            'trainers' => 'Formadores',
             'effectives' => 'Efectivos',
             default => 'Formandos',
         };

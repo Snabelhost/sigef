@@ -34,10 +34,15 @@ class NewDocumentNotification extends Notification
             ($notifiable->hasRole('escola_admin') || $notifiable->hasRole('panel_user'))
             && !$notifiable->hasRole('super_admin') && !$notifiable->hasRole('admin')
         ) {
-            return "/escola/{$notifiable->institution_id}/documents/{$documentId}";
+            return route('filament.escola.resources.documents.view', [
+                'tenant' => $notifiable->institution_id,
+                'record' => $documentId,
+            ], false);
         }
 
-        return "/admin/documents/{$documentId}";
+        return route('filament.admin.resources.documents.view', [
+            'record' => $documentId,
+        ], false);
     }
 
     /**

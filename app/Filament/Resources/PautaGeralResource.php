@@ -11,7 +11,7 @@ class PautaGeralResource extends Resource
     protected static ?string $model = StudentClass::class;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-document-duplicate';
-    protected static string|\UnitEnum|null $navigationGroup = 'Gestão Escolar';
+    protected static string|\UnitEnum|null $navigationGroup = 'Gestão do Centro';
     protected static ?string $navigationLabel = 'Pauta Geral';
     protected static ?string $modelLabel = 'Pauta Geral';
     protected static ?string $pluralModelLabel = 'Pautas Gerais';

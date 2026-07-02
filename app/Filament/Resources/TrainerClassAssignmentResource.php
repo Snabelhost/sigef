@@ -20,7 +20,7 @@ class TrainerClassAssignmentResource extends Resource
     protected static ?string $model = Trainer::class;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-academic-cap';
-    protected static string|\UnitEnum|null $navigationGroup = 'Gestão Escolar';
+    protected static string|\UnitEnum|null $navigationGroup = 'Gestão do Centro';
     protected static ?int $navigationSort = 5;
     protected static ?string $navigationLabel = 'Atribuição de Turmas';
     protected static ?string $modelLabel = 'Atribuição';
@@ -39,11 +39,11 @@ class TrainerClassAssignmentResource extends Resource
     {
         return $form
             ->schema([
-                \Filament\Schemas\Components\Section::make('Atribuir Turmas e Disciplinas ao Professor')
-                    ->description('Seleccione o professor, a turma e as disciplinas que ele irá leccionar.')
+                \Filament\Schemas\Components\Section::make('Atribuir Turmas e Disciplinas ao Formador')
+                    ->description('Seleccione o formador, a turma e as disciplinas que ele irá leccionar.')
                     ->schema([
                         Forms\Components\Select::make('trainer_id')
-                            ->label('Professor/Formador')
+                            ->label('Formador')
                             ->options(Trainer::where('is_active', true)->pluck('full_name', 'id'))
                             ->required()
                             ->searchable()
@@ -88,7 +88,7 @@ class TrainerClassAssignmentResource extends Resource
             ->defaultSort('full_name', 'asc')
             ->columns([
                 Tables\Columns\TextColumn::make('full_name')
-                    ->label('Professor')
+                    ->label('Formador')
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('institution.name')
@@ -135,7 +135,7 @@ class TrainerClassAssignmentResource extends Resource
                     ->modalHeading('Atribuir Turmas e Disciplinas')
                     ->form([
                         Forms\Components\Select::make('trainer_id')
-                            ->label('Professor/Formador')
+                            ->label('Formador')
                             ->options(Trainer::where('is_active', true)->pluck('full_name', 'id'))
                             ->required()
                             ->searchable()

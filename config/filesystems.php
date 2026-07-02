@@ -40,7 +40,9 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
-            'url' => rtrim(env('APP_URL', ''), '/').'/storage',
+            // Same-origin application route: independent from symlinks,
+            // web-server aliases, proxy scheme detection, and APP_URL.
+            'url' => rtrim(env('PUBLIC_FILES_URL', '/media'), '/'),
             'visibility' => 'public',
             'throw' => false,
             'report' => false,

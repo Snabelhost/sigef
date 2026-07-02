@@ -77,7 +77,7 @@ class TrainerSheetPrintController extends Controller
             ])),
             'name' => trim((string) ($config['name'] ?? $institutionModel?->name ?? 'Sistema Integrado de Gestao de Formacao')),
             'subtitle' => trim((string) ($config['acronym'] ?? $institutionModel?->acronym ?? 'SIGEF')),
-            'report_header' => 'Ficha individual do professor',
+            'report_header' => 'Ficha individual do formador',
             'address' => trim((string) ($config['address'] ?? '')),
             'phone' => trim((string) ($config['phone'] ?? '')),
             'email' => trim((string) ($config['email'] ?? '')),

@@ -25,7 +25,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Ficha do Professor - {{ $trainer->full_name }}</title>
+    <title>Ficha do Formador - {{ $trainer->full_name }}</title>
     <style>
         @page {
             size: A4 {{ $isLandscape ? 'landscape' : 'portrait' }};
@@ -406,7 +406,7 @@
                         <div class="sheet-org-document">{{ $institution['report_header'] }}</div>
                     @endif
                     <div class="sheet-rule"></div>
-                    <h1 class="sheet-title">Ficha do Professor</h1>
+                    <h1 class="sheet-title">Ficha do Formador</h1>
                 </header>
 
                 <section class="summary">

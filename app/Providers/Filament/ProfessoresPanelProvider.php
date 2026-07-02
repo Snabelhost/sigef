@@ -98,6 +98,11 @@ class ProfessoresPanelProvider extends PanelProvider
             ])
             ->userMenuItems([
                 \Filament\Navigation\MenuItem::make()
+                    ->label('Mudar de painel')
+                    ->icon('heroicon-o-arrows-right-left')
+                    ->url(fn (): string => route('select-panel'))
+                    ->visible(fn (): bool => auth()->check() && count(auth()->user()->accessiblePanels()) > 1),
+                \Filament\Navigation\MenuItem::make()
                     ->label('Alterar Palavra-passe')
                     ->icon('heroicon-o-key')
                     ->url('javascript:void(0)'),

@@ -8,9 +8,9 @@ class Dashboard extends BaseDashboard
 {
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-user-group';
 
-    protected static ?string $navigationLabel = 'Painel dos Professores';
+    protected static ?string $navigationLabel = 'Painel dos Formadores';
 
-    protected static ?string $title = 'Painel dos Professores';
+    protected static ?string $title = 'Painel dos Formadores';
 
     public static function canAccess(): bool
     {

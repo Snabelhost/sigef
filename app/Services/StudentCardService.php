@@ -6,6 +6,7 @@ use App\Models\AcademicYear;
 use App\Models\CardTemplate;
 use App\Models\Institution;
 use App\Models\Student;
+use App\Support\PublicStorage;
 use chillerlan\QRCode\QRCode;
 use chillerlan\QRCode\QROptions;
 use Illuminate\Support\Str;
@@ -58,7 +59,7 @@ class StudentCardService
             'name' => $student->candidate?->full_name ?? $student->full_name ?? 'Formando',
             'initials' => $this->initials($student->candidate?->full_name ?? 'Formando'),
             'photo_url' => $this->studentPhotoUrl($student, $template),
-            'logo_url' => $template->logo_url ?: ($institution?->logo ? asset('storage/'.$institution->logo) : asset('images/logo-policia.png')),
+            'logo_url' => $template->logo_url ?: (PublicStorage::url($institution?->logo, requireExisting: true) ?: asset('images/logo-policia.png')),
             'institution_name' => $headerName,
             'institution_location' => $institutionLocation,
             'brand_name' => $headerName,
@@ -222,11 +223,11 @@ class StudentCardService
     protected function studentPhotoUrl(Student $student, CardTemplate $template): ?string
     {
         if ($student->photo) {
-            return asset('storage/'.$student->photo);
+            return PublicStorage::url($student->photo, requireExisting: true);
         }
 
         if ($student->candidate?->photo) {
-            return asset('storage/'.$student->candidate->photo);
+            return PublicStorage::url($student->candidate->photo, requireExisting: true);
         }
 
         return null;

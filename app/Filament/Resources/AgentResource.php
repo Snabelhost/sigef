@@ -28,7 +28,7 @@ class AgentResource extends Resource
     protected static ?string $model = Student::class;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-shield-check';
-    protected static string|\UnitEnum|null $navigationGroup = 'Gestão Escolar';
+    protected static string|\UnitEnum|null $navigationGroup = 'Gestão do Centro';
     protected static ?int $navigationSort = 2;
     protected static ?string $navigationLabel = 'Cadetes';
     protected static ?string $modelLabel = 'Cadete';

@@ -384,13 +384,13 @@
         'desc' => 'Gestão de utilizadores, permissões e configurações do sistema.',
         ],
         'escola' => [
-        'label' => 'Escola',
-        'name' => 'Gestão Escolar',
+        'label' => 'Centro',
+        'name' => 'Gestão do Centro',
         'desc' => 'Gestão de formações, cursos, turmas e avaliações.',
         ],
         'professores' => [
-        'label' => 'Professores',
-        'name' => 'Painel dos Professores',
+        'label' => 'Formadores',
+        'name' => 'Painel dos Formadores',
         'desc' => 'Acompanhamento de turmas, disciplinas, avaliacoes e actividade docente.',
         ],
         ];

@@ -121,8 +121,8 @@ class ProfessorOverview extends BaseWidget
                 ->description('Corpo docente registado')
                 ->descriptionIcon('heroicon-m-user-group')
                 ->color('primary'),
-            Stat::make('Utilizadores Professor', $professorUsers)
-                ->description('Contas com perfil professores')
+            Stat::make('Utilizadores Formadores', $professorUsers)
+                ->description('Contas com perfil de formador')
                 ->descriptionIcon('heroicon-m-key')
                 ->color($professorUsers > 0 ? 'success' : 'warning'),
             Stat::make('Turmas Atribuídas', $assignments)

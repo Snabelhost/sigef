@@ -1,7 +1,7 @@
 <x-filament-widgets::widget>
     <x-filament::section>
         <x-slot name="heading">
-            {{ $isAdmin ? 'Acompanhamento dos Professores' : 'Minhas Turmas e Disciplinas' }}
+            {{ $isAdmin ? 'Acompanhamento dos Formadores' : 'Minhas Turmas e Disciplinas' }}
         </x-slot>
 
         <x-slot name="description">
@@ -87,7 +87,7 @@
                             <thead>
                                 <tr>
                                     @if ($isAdmin)
-                                        <th>Professor</th>
+                                        <th>Formador</th>
                                     @endif
                                     <th>Turma</th>
                                     <th>Curso</th>
@@ -127,7 +127,7 @@
                             <thead>
                                 <tr>
                                     @if ($isAdmin)
-                                        <th>Professor</th>
+                                        <th>Formador</th>
                                     @endif
                                     <th>Instituição</th>
                                     <th>Curso</th>

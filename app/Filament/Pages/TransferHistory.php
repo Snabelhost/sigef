@@ -34,7 +34,7 @@ class TransferHistory extends Page implements HasTable
     
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-s-arrows-right-left';
     
-    protected static string|\UnitEnum|null $navigationGroup = 'Gestão Escolar';
+    protected static string|\UnitEnum|null $navigationGroup = 'Gestão do Centro';
     
     protected static ?int $navigationSort = 7;
     

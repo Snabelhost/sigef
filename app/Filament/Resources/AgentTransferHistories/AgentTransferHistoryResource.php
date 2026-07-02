@@ -25,7 +25,7 @@ class AgentTransferHistoryResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArrowsRightLeft;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Gestão Escolar';
+    protected static string|\UnitEnum|null $navigationGroup = 'Gestão do Centro';
     protected static ?int $navigationSort = 3;
     protected static ?string $navigationLabel = 'Histórico de Transferências';
     protected static ?string $modelLabel = 'Transferência';

@@ -138,12 +138,15 @@ Route::middleware(['auth'])
 
 /*
 |--------------------------------------------------------------------------
-| Storage Files - Servir ficheiros de storage/app/public
+| Public files
 |--------------------------------------------------------------------------
-| Rota para servir ficheiros quando o Apache não consegue seguir o symlink
-| (comum em hosting cPanel). O .htaccess envia /storage/* para cá.
-| Usa controller em vez de closure para funcionar com route:cache.
+| /media is canonical and works without a public/storage symlink.
+| /storage remains available for URLs from older deployments.
 */
+Route::get('/media/{path}', \App\Http\Controllers\StorageFileController::class)
+    ->where('path', '.*')
+    ->name('media.files');
+
 Route::get('/storage/{path}', \App\Http\Controllers\StorageFileController::class)
     ->where('path', '.*')
     ->name('storage.files');

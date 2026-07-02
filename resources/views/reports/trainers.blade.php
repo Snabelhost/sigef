@@ -1,7 +1,7 @@
 @extends('reports.layout')
 
-@section('title', 'LISTA DOS PROFESSORES')
-@section('subtitle', 'Relacao geral dos professores cadastrados')
+@section('title', 'LISTA DOS FORMADORES')
+@section('subtitle', 'Relacao geral dos formadores cadastrados')
 
 @section('filters')
     @if($institution)
@@ -17,7 +17,7 @@
             <thead>
                 <tr>
                     <th style="width: 4%;">Nº</th>
-                    <th class="text-left" style="width: 19%;">Professor</th>
+                    <th class="text-left" style="width: 19%;">Formador</th>
                     <th style="width: 10%;">NIP / BI</th>
                     <th style="width: 7%;">Sexo</th>
                     <th style="width: 10%;">Patente</th>

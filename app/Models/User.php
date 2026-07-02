@@ -46,12 +46,13 @@ class User extends Authenticatable implements FilamentUser, HasTenants, Auditabl
             'permission' => 'AccessPanel:Admin',
         ],
         'escola' => [
-            'name' => 'Escola',
+            'name' => 'Centro',
             'icon' => 'heroicon-o-academic-cap',
+            'url' => '/escola',
             'permission' => 'AccessPanel:Escola',
         ],
         'professores' => [
-            'name' => 'Professores',
+            'name' => 'Formadores',
             'icon' => 'heroicon-o-user-group',
             'url' => '/professores',
             'permission' => 'AccessPanel:Professores',
@@ -133,13 +134,15 @@ class User extends Authenticatable implements FilamentUser, HasTenants, Auditabl
             ];
         }
 
+        $schoolInstitution = $this->institution;
+
         if (
-            filled($this->institution_id)
+            $schoolInstitution
             && $this->hasPanelAccessPermission('escola')
         ) {
             $panels['escola'] = [
                 ...self::PANEL_ACCESS_PERMISSIONS['escola'],
-                'url' => '/escola/' . $this->institution_id,
+                'tenant_id' => $schoolInstitution->getKey(),
             ];
         }
 

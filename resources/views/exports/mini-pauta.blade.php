@@ -363,7 +363,7 @@
             @foreach($reportHeaderLines as $line)
                 {{ $reportUpper($line) }}<br>
             @endforeach
-            <p><strong>MINI PAUTA PROFESSOR</strong></p>
+            <p><strong>MINI PAUTA DO FORMADOR</strong></p>
         </div>
 
         {{-- Info da disciplina/turma --}}
@@ -462,7 +462,7 @@
                     <tr>
                         <th colspan="2" rowspan="3" style="background: #f5f5f5;">MATRICULADOS</th>
                         <th colspan="8" style="background: #f5f5f5;">IIº FASE</th>
-                        <th colspan="2" rowspan="4" style="background: #f5f5f5; vertical-align: middle;">ASSINATURA DO<br>PROFESSOR</th>
+                        <th colspan="2" rowspan="4" style="background: #f5f5f5; vertical-align: middle;">ASSINATURA DO<br>FORMADOR</th>
                     </tr>
                     <tr>
                         <th colspan="2">DESIST</th>
